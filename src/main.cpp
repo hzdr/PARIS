@@ -7,6 +7,6 @@
 
 int main()
 {
-	ImageHandler<TIFFHandler> tiffHandler;
+	ImageHandler<TIFFHandler> tiff_handler;
 	std::cout << "Hello, HZDR!" << std::endl;
 }

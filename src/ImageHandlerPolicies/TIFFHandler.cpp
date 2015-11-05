@@ -54,7 +54,10 @@ void TIFFHandler::saveImage(const Image& image, std::string path)
 {
 	TIFF* tif = TIFFOpen(path.c_str(), "w");
 	if(tif == nullptr)
+	{
+		TIFFClose(tif);
 		throw std::runtime_error("TIFFHandler: Could not open file " + path + " for writing.");
+	}
 
 	TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, image.width());
 	TIFFSetField(tif, TIFFTAG_IMAGELENGTH, image.height());

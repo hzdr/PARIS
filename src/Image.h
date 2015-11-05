@@ -5,7 +5,7 @@
  *      Author: Jan Stephan
  *
  *      Image class that holds a pointer to the concrete image data
- *      The individual objects are usually created by the Image_Handler and its corresponding handler policies.
+ *      The individual objects are usually created by the ImageHandler and its corresponding handler policies.
  */
 
 #ifndef IMAGE_H_
