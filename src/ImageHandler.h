@@ -29,15 +29,7 @@ class ImageHandler : public HandlerPolicy
 		}
 
 		/*
-		 * Saves an image to the given path (lvalue version). The image will be saved in floating point format.
-		 */
-		void saveImage(const Image& image, std::string path)
-		{
-			HandlerPolicy::saveImage(image, path);
-		}
-
-		/*
-		 * Saves an image to the given path (rvalue version). The image will be saved in floating point format.
+		 * Saves an image to the given path. The image will be saved in floating point format.
 		 */
 		void saveImage(Image&& image, std::string path)
 		{
@@ -45,16 +37,7 @@ class ImageHandler : public HandlerPolicy
 		}
 
 		/*
-		 * Saves an image into a volume at the given path (lvalue version). The volume will be saved in floating
-		 * point format.
-		 */
-		void saveToVolume(const Image& image, std::string path, std::size_t index)
-		{
-			HandlerPolicy::saveToVolume(image, path, index);
-		}
-
-		/*
-		 * Saves an image into a volume at the given path (rvalue version). The volume will be saved in floating
+		 * Saves an image into a volume at the given path. The volume will be saved in floating
 		 * point format.
 		 */
 		void saveToVolume(Image&& image, std::string path, std::size_t index)
