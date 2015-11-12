@@ -12,11 +12,18 @@
 
 #include "CUDATask.h"
 
-class CUDAWorker
+namespace ddafa
 {
-	public:
-		using task_type = CUDATask;
-};
+	namespace impl
+	{
+		class CUDAWorker
+		{
+			public:
+				using task_type = CUDATask;
+		};
+	}
+}
+
 
 
 #endif /* CUDAWORKER_H_ */

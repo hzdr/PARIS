@@ -22,11 +22,11 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SinkStage : public InputSide<Image>, public ImageHandler
+		class SinkStage : public InputSide<ddafa::image::Image>, public ImageHandler
 		{
 			public:
 				SinkStage(std::string path)
-				: InputSide<Image>(), ImageHandler(), target_dir_{path}
+				: InputSide<ddafa::image::Image>(), ImageHandler(), target_dir_{path}
 				{
 				}
 
@@ -34,7 +34,7 @@ namespace ddafa
 				{
 					while(true)
 					{
-						Image img = input_queue_.take();
+						ddafa::image::Image img = input_queue_.take();
 						if(img.valid())
 							ImageHandler::saveImage("my/fancy/path.tif");
 						else

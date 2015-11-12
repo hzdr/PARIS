@@ -16,57 +16,62 @@
 #include <memory>
 #include <utility>
 
-template <class Implementation>
-class Task : public Implementation
+namespace ddafa
 {
-	public:
-		/*
-		 * Construct a new task. The pointers will be owned by the Task object from here.
-		 */
-		Task(std::uint32_t task_id,
-				typename Implementation::data_type* task_data,
-				typename Implementation::result_type* result_data) noexcept
-		: id_{task_id}, data_ptr_{task_data}, result_ptr_{result_data}
+	namespace master_worker
+	{
+		template <class Implementation>
+		class Task : public Implementation
 		{
-		}
+			public:
+				/*
+				 * Construct a new task. The pointers will be owned by the Task object from here.
+				 */
+				Task(std::uint32_t task_id,
+						typename Implementation::data_type* task_data,
+						typename Implementation::result_type* result_data) noexcept
+				: id_{task_id}, data_ptr_{task_data}, result_ptr_{result_data}
+				{
+				}
 
-		/*
-		 * Move constructor
-		 */
-		Task(Task&& other) noexcept
-		: id_{other.id_}, data_ptr_{std::move(other.data_ptr_)}, result_ptr_{std::move(other.result_ptr_)}
-		{
-		}
+				/*
+				 * Move constructor
+				 */
+				Task(Task&& other) noexcept
+				: id_{other.id_}, data_ptr_{std::move(other.data_ptr_)}, result_ptr_{std::move(other.result_ptr_)}
+				{
+				}
 
-		/*
-		 * Move operator
-		 */
-		Task& operator=(Task&& rhs) noexcept
-		{
-			id_ = rhs.id_;
-			data_ptr_ = std::move(rhs.data_ptr_);
-			result_ptr_ = std::move(rhs.result_ptr_);
+				/*
+				 * Move operator
+				 */
+				Task& operator=(Task&& rhs) noexcept
+				{
+					id_ = rhs.id_;
+					data_ptr_ = std::move(rhs.data_ptr_);
+					result_ptr_ = std::move(rhs.result_ptr_);
 
-			return *this;
-		}
+					return *this;
+				}
 
-		void execute()
-		{
-			Implementation::execute(data_ptr_.get(), result_ptr_.get());
-		}
+				void execute()
+				{
+					Implementation::execute(data_ptr_.get(), result_ptr_.get());
+				}
 
-	private:
-		/*
-		 * disallow copies
-		 */
-		Task(const Task& other) = delete;
-		Task& operator=(const Task& rhs) = delete;
+			private:
+				/*
+				 * disallow copies
+				 */
+				Task(const Task& other) = delete;
+				Task& operator=(const Task& rhs) = delete;
 
-	private:
-		std::uint32_t id_;
-		std::unique_ptr<typename Implementation::data_type> data_ptr_;
-		std::unique_ptr<typename Implementation::result_type> result_ptr_;
-};
-
+			private:
+				std::uint32_t id_;
+				std::unique_ptr<typename Implementation::data_type> data_ptr_;
+				std::unique_ptr<typename Implementation::result_type> result_ptr_;
+		};
+	}
+}
 
 #endif /* TASK_H_ */

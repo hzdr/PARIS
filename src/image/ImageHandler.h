@@ -16,35 +16,42 @@
 
 #include "Image.h"
 
-template <class HandlerPolicy>
-class ImageHandler : public HandlerPolicy
+namespace ddafa
 {
-	public:
-		/*
-		 * Loads an image from the given path. The image data will be converted to float if needed.
-		 */
-		Image loadImage(std::string path)
+	namespace image
+	{
+		template <class Implementation>
+		class ImageHandler : public Implementation
 		{
-			return HandlerPolicy::loadImage(path);
-		}
+			public:
+				/*
+				 * Loads an image from the given path. The image data will be converted to float if needed.
+				 */
+				Image loadImage(std::string path)
+				{
+					return Implementation::loadImage(path);
+				}
 
-		/*
-		 * Saves an image to the given path. The image will be saved in floating point format.
-		 */
-		void saveImage(Image&& image, std::string path)
-		{
-			HandlerPolicy::saveImage(std::forward<Image&&>(image), path);
-		}
+				/*
+				 * Saves an image to the given path. The image will be saved in floating point format.
+				 */
+				void saveImage(Image&& image, std::string path)
+				{
+					Implementation::saveImage(std::forward<Image&&>(image), path);
+				}
 
-		/*
-		 * Saves an image into a volume at the given path. The volume will be saved in floating
-		 * point format.
-		 */
-		void saveToVolume(Image&& image, std::string path, std::size_t index)
-		{
-			HandlerPolicy::saveToVolume(std::forward<Image&&>(image), path, index);
-		}
-};
+				/*
+				 * Saves an image into a volume at the given path. The volume will be saved in floating
+				 * point format.
+				 */
+				void saveToVolume(Image&& image, std::string path, std::size_t index)
+				{
+					Implementation::saveToVolume(std::forward<Image&&>(image), path, index);
+				}
+		};
+	}
+}
+
 
 
 #endif /* IMAGEHANDLER_H_ */

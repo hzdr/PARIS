@@ -23,11 +23,16 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class Implementation, class... Args>
-		class Stage : public InputSide<Image>, public OutputSide<Image>, public Implementation
+		class Stage
+		: public InputSide<ddafa::image::Image>
+		, public OutputSide<ddafa::image::Image>
+		, public Implementation
 		{
 			public:
 				Stage(Args&&... args)
-				: InputSide<Image>(), OutputSide<Image>(), Implementation(std::forward<Args&&>(args)...)
+				: InputSide<ddafa::image::Image>()
+				, OutputSide<ddafa::image::Image>()
+				, Implementation(std::forward<Args&&>(args)...)
 				{
 				}
 
@@ -35,7 +40,7 @@ namespace ddafa
 				{
 					while(true)
 					{
-						Image img = input_queue_.take();
+						ddafa::image::Image img = input_queue_.take();
 						if(img.valid())
 							Implementation::process(img);
 						else

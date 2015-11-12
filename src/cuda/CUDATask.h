@@ -10,12 +10,19 @@
 #ifndef CUDATASK_H_
 #define CUDATASK_H_
 
-class CUDATask
+namespace ddafa
 {
-	public:
-		using data_type = float;
-		using result_type = float;
-};
+	namespace impl
+	{
+		class CUDATask
+		{
+			public:
+				using data_type = float;
+				using result_type = float;
+		};
+	}
+}
+
 
 
 #endif /* CUDATASK_H_ */

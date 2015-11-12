@@ -14,34 +14,42 @@
 #include <mutex>
 #include <queue>
 
-template <class Object>
-class Queue
+namespace ddafa
 {
-	public:
-		void push(Object&& object)
+	namespace common
+	{
+		template <class Object>
+		class Queue
 		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			queue_.push(object);
-			cv_.notify_one();
-		}
+			public:
+				void push(Object&& object)
+				{
+					std::unique_lock<std::mutex> lock(mutex_);
+					queue_.push(object);
+					cv_.notify_one();
+				}
 
-		Object take()
-		{
-			std::unique_lock<std::mutex> lock(mutex_);
-			while(queue_.empty())
-				cv_.wait(lock);
+				Object take()
+				{
+					std::unique_lock<std::mutex> lock(mutex_);
+					while(queue_.empty())
+						cv_.wait(lock);
 
-			Object ret = queue_.front();
-			queue_.pop();
-			return ret;
-		}
+					Object ret = queue_.front();
+					queue_.pop();
+					return ret;
+				}
 
-	private:
-		std::mutex mutex_;
-		std::condition_variable cv_;
-		std::queue<Object> queue_;
+			private:
+				std::mutex mutex_;
+				std::condition_variable cv_;
+				std::queue<Object> queue_;
 
-};
+		};
+	}
+}
+
+
 
 
 #endif /* QUEUE_H_ */

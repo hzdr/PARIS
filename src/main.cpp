@@ -9,15 +9,15 @@
 
 #include "common/Queue.h"
 
-#include "image/implementations/TIFFHandler.h"
+#include "image/implementations/TIFF.h"
 
 #include "cuda/CUDAMaster.h"
 
 int main()
 {
-	ImageHandler<TIFFHandler> tiff_handler;
+	ddafa::image::ImageHandler<ddafa::impl::TIFF> tiff_handler;
 
-	Master<CUDAMaster, int> cuda_master(0);
+	ddafa::master_worker::Master<ddafa::impl::CUDAMaster, int> cuda_master(0);
 
 	std::cout << "Hello, HZDR!" << std::endl;
 }

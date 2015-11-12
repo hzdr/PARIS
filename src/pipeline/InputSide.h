@@ -28,7 +28,7 @@ namespace ddafa
 				}
 
 			protected:
-				Queue<InputType> input_queue_;
+				ddafa::common::Queue<InputType> input_queue_;
 		};
 	}
 }

@@ -24,25 +24,25 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SourceStage : public OutputSide<Image>, public ImageHandler
+		class SourceStage : public OutputSide<ddafa::image::Image>, public ImageHandler
 		{
 			public:
 				SourceStage(std::string path)
-				: OutputSide<Image>(), ImageHandler(), dir_string_{path}
+				: OutputSide<ddafa::image::Image>(), ImageHandler(), dir_string_{path}
 				{
 				}
 
 				void start()
 				{
 					// TODO: read target directory
-					Image img = ImageHandler::loadImage("my/fancy/path.tif");
+					ddafa::image::Image img = ImageHandler::loadImage("my/fancy/path.tif");
 					if(img.valid())
 						output(std::move(img));
 					else
 						throw std::runtime_error("Invalid image file: %PATH");
 
 					// all images loaded, send poisonous pill
-					output(Image());
+					output(ddafa::image::Image());
 				}
 
 			private:

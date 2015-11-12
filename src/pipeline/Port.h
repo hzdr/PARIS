@@ -34,7 +34,7 @@ namespace ddafa
 				}
 
 			private:
-				InputSide<DataType> next_;
+				std::shared_ptr<InputSide<DataType>> next_;
 		};
 	}
 }

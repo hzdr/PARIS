@@ -13,19 +13,26 @@
 #include "CUDATask.h"
 #include "CUDAWorker.h"
 
-class CUDAMaster
+namespace ddafa
 {
-	public:
-		using task_type = CUDATask;
-		using worker_type = CUDAWorker;
+	namespace impl
+	{
+		class CUDAMaster
+		{
+			public:
+				using task_type = CUDATask;
+				using worker_type = CUDAWorker;
 
-	public:
-		CUDAMaster(int device_num);
-		~CUDAMaster();
+			public:
+				CUDAMaster(int device_num);
+				~CUDAMaster();
 
-	private:
-		int device_;
-};
+			private:
+				int device_;
+		};
+	}
+}
+
 
 
 #endif /* CUDAMASTER_H_ */

@@ -13,19 +13,25 @@
 
 #include "CUDAMaster.h"
 
-CUDAMaster::CUDAMaster(int device_num)
-: device_{device_num}
+namespace ddafa
 {
-	cudaDeviceProp properties;
-	cudaError_t err = cudaGetDeviceProperties(&properties, device_);
+	namespace impl
+	{
+		CUDAMaster::CUDAMaster(int device_num)
+		: device_{device_num}
+		{
+			cudaDeviceProp properties;
+			cudaError_t err = cudaGetDeviceProperties(&properties, device_);
 
-	if(err != cudaSuccess)
-		throw std::runtime_error("CUDAMaster: Invalid device #" + std::to_string(device_));
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDAMaster: Invalid device #" + std::to_string(device_));
 
-	std::cout << "CUDAMaster for device #" << device_ << " constructed." << std::endl;
-}
+			std::cout << "CUDAMaster for device #" << device_ << " constructed." << std::endl;
+		}
 
-CUDAMaster::~CUDAMaster()
-{
-	std::cout << "CUDAMaster for device #" << device_ << " destructed." << std::endl;
+		CUDAMaster::~CUDAMaster()
+		{
+			std::cout << "CUDAMaster for device #" << device_ << " destructed." << std::endl;
+		}
+	}
 }
