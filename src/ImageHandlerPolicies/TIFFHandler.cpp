@@ -50,7 +50,7 @@ Image TIFFHandler::loadImage(std::string path)
 	return Image(width, height, data); // the data is now owned by the Image object so we don't have to free it
 }
 
-void TIFFHandler::saveImage(const Image& image, std::string path)
+void TIFFHandler::saveImage(Image&& image, std::string path)
 {
 	TIFF* tif = TIFFOpen(path.c_str(), "w");
 	if(tif == nullptr)
@@ -75,12 +75,6 @@ void TIFFHandler::saveImage(const Image& image, std::string path)
 	}
 
 	TIFFClose(tif);
-}
-
-void TIFFHandler::saveImage(Image&& image, std::string path)
-{
-	// reference collapsing rule: Image&& becomes Image& and can thus be passed to the method above
-	saveImage(image, path);
 }
 
 // TODO: saveVolume

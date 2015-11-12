@@ -18,7 +18,6 @@ class TIFFHandler
 {
 	public:
 		Image loadImage(std::string path);
-		void saveImage(const Image& image, std::string path);
 		void saveImage(Image&& image, std::string path);
 		//TODO: saveToVolume
 
