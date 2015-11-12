@@ -3,6 +3,8 @@
 #include "Image.h"
 #include "ImageHandler.h"
 
+#include "Task.h"
+
 #include "ImageHandlerPolicies/TIFFHandler.h"
 
 int main()
