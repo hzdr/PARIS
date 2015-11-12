@@ -38,7 +38,8 @@ namespace ddafa
 				 * Move constructor
 				 */
 				Master(Master&& other) noexcept
-				: workers_{std::move(other.workers_)}
+				: Implementation(std::forward<Master&&>(other))
+				, workers_{std::move(other.workers_)}
 				, task_queue_{std::move(other.task_queue_)}
 				, result_queue_{std::move(other.result_queue_)}
 				{

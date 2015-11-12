@@ -42,7 +42,7 @@ namespace ddafa
 					{
 						ddafa::image::Image img = input_queue_.take();
 						if(img.valid())
-							Implementation::process(img);
+							Implementation::process(std::move(img));
 						else
 						{
 							// received poisonous pill, fetch results and end

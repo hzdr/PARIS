@@ -19,6 +19,9 @@ namespace ddafa
 			public:
 				using data_type = float;
 				using result_type = float;
+
+			protected:
+				~CUDATask();
 		};
 	}
 }

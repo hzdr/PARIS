@@ -29,6 +29,11 @@ namespace ddafa
 			std::cout << "CUDAMaster for device #" << device_ << " constructed." << std::endl;
 		}
 
+		CUDAMaster::CUDAMaster(CUDAMaster&& other)
+		: device_{other.device_}
+		{
+		}
+
 		CUDAMaster::~CUDAMaster()
 		{
 			std::cout << "CUDAMaster for device #" << device_ << " destructed." << std::endl;

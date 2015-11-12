@@ -22,7 +22,7 @@ namespace ddafa
 	namespace master_worker
 	{
 		template <class Implementation>
-		class Worker
+		class Worker : public Implementation
 		{
 			public:
 				/*

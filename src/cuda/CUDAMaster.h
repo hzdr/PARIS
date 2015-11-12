@@ -25,6 +25,9 @@ namespace ddafa
 
 			public:
 				CUDAMaster(int device_num);
+				CUDAMaster(CUDAMaster&& other);
+
+			protected:
 				~CUDAMaster();
 
 			private:

@@ -20,6 +20,9 @@ namespace ddafa
 		{
 			public:
 				using task_type = CUDATask;
+
+			protected:
+				~CUDAWorker();
 		};
 	}
 }
