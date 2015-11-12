@@ -16,14 +16,16 @@
 #include <memory>
 #include <utility>
 
-template <class Implementation, typename DataType, typename ResultType>
+template <class Implementation>
 class Task : public Implementation
 {
 	public:
 		/*
 		 * Construct a new task. The pointers will be owned by the Task object from here.
 		 */
-		Task(std::uint32_t task_id, DataType* task_data, ResultType* result_data) noexcept
+		Task(std::uint32_t task_id,
+				typename Implementation::data_type* task_data,
+				typename Implementation::result_type* result_data) noexcept
 		: id_{task_id}, data_ptr_{task_data}, result_ptr_{result_data}
 		{
 		}
@@ -41,9 +43,9 @@ class Task : public Implementation
 		 */
 		Task& operator=(Task&& rhs) noexcept
 		{
-			id_ = other.id_;
-			data_ptr_ = std::move(other.data_ptr_);
-			result_ptr_ = std::move(other.result_ptr_);
+			id_ = rhs.id_;
+			data_ptr_ = std::move(rhs.data_ptr_);
+			result_ptr_ = std::move(rhs.result_ptr_);
 
 			return *this;
 		}
@@ -62,8 +64,8 @@ class Task : public Implementation
 
 	private:
 		std::uint32_t id_;
-		std::unique_ptr<DataType> data_ptr_;
-		std::unique_ptr<ResultType> result_ptr_;
+		std::unique_ptr<typename Implementation::data_type> data_ptr_;
+		std::unique_ptr<typename Implementation::result_type> result_ptr_;
 };
 
 
