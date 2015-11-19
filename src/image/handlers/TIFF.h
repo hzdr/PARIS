@@ -13,6 +13,7 @@
 #include <string>
 
 #include "../Image.h"
+#include "../StdImage.h"
 
 namespace ddafa
 {
@@ -20,13 +21,14 @@ namespace ddafa
 	{
 		class TIFF
 		{
-		public:
-			ddafa::image::Image loadImage(std::string path);
-			void saveImage(ddafa::image::Image&& image, std::string path);
-			//TODO: saveToVolume
+			using image_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
+			public:
+					image_type loadImage(std::string path);
+					void saveImage(image_type&& image, std::string path);
+					//TODO: saveToVolume
 
 		protected:
-			~TIFF(); // disable undefined behavior
+					~TIFF(); // disable undefined behavior
 		};
 	}
 }

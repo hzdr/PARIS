@@ -9,7 +9,7 @@
 
 #include "common/Queue.h"
 
-#include "image/implementations/TIFF.h"
+#include "image/handlers/TIFF.h"
 
 #include "cuda/CUDAMaster.h"
 

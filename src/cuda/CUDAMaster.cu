@@ -138,11 +138,10 @@ namespace ddafa
 			return number_of_workers_;
 		}
 
-		ddafa::master_worker::Task<CUDAMaster::task_type>
-		CUDAMaster::createTask(const ddafa::image::Image* img_ptr)
+		CUDAMaster::task_type CUDAMaster::createTask(const CUDAMaster::image_type* img_ptr)
 		{
 			std::cout << "CUDAMaster: STUB: createTask() called" << std::endl;
-			return ddafa::master_worker::Task<task_type>(0, nullptr, nullptr);
+			return task_type(0, nullptr, nullptr);
 		}
 	}
 }

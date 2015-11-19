@@ -16,11 +16,14 @@
 #include <memory>
 #include <utility>
 
+#include "StdImage.h"
+
 namespace ddafa
 {
 	namespace image
 	{
-		class Image
+		template <typename Data = float, class Implementation = ddafa::impl::StdImage<Data>>
+		class Image : public Implementation
 		{
 			public:
 				/*
@@ -37,11 +40,11 @@ namespace ddafa
 				 * Image object will own the pointer that gets passed to it. In every case valid_ will be set to
 				 * true after construction.
 				 */
-				Image(std::uint32_t img_width, std::uint32_t img_height, float* img_data = nullptr)
+				Image(std::uint32_t img_width, std::uint32_t img_height, Data* img_data = nullptr)
 				: width_{img_width}, height_{img_height}, data_{img_data}, valid_{true}
 				{
 					if(data_ == nullptr)
-							data_ = std::unique_ptr<float>(new float[width_ * height_]);
+							data_ = Implementation::allocate(width_ * height_);
 				}
 
 				/*
@@ -54,8 +57,8 @@ namespace ddafa
 						data_ = nullptr;
 					else
 					{
-						data_ = std::unique_ptr<float>(new float[width_ * height_]);
-						std::copy(other.data_.get(), other.data_.get() + (width_ * height_), data_.get());
+						data_ = Implementation::allocate(width_ * height_);
+						Implementation::copy(other.data_.get(), data_.get(), (width_ * height_));
 					}
 				}
 
@@ -73,8 +76,8 @@ namespace ddafa
 					else
 					{
 						data_.reset(nullptr); // delete old content if any
-						data_ = std::unique_ptr<float>(new float[width_ * height_]);
-						std::copy(rhs.data_.get(), rhs.data_.get() + (width_ * height_), data_.get());
+						data_ = Implementation::allocate(width_ * height_);
+						Implementation::copy(rhs.data_.get(), data_.get(), (width_ * height_));
 					}
 					return *this;
 
@@ -123,7 +126,7 @@ namespace ddafa
 				 * returns a non-owning pointer to the data. Do not delete this pointer as the Image object will take
 				 * care of the memory.
 				 */
-				float* data() const noexcept
+				Data* data() const noexcept
 				{
 					return data_.get();
 				}
@@ -139,7 +142,7 @@ namespace ddafa
 			private:
 				std::uint32_t width_;
 				std::uint32_t height_;
-				std::unique_ptr<float> data_;
+				std::unique_ptr<Data, typename Implementation::deleter_type> data_;
 				bool valid_;
 		};
 	}

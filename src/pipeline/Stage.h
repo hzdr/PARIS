@@ -46,6 +46,7 @@ namespace ddafa
 						else
 						{
 							// received poisonous pill, fetch results and end
+							Implementation::process(std::move(img));
 							auto result = Implementation::wait();
 							output(std::move(result));
 							break;

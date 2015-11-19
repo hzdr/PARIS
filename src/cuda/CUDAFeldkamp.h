@@ -14,9 +14,11 @@
 #include <vector>
 
 #include "../image/Image.h"
+#include "../image/StdImage.h"
 
 #include "../master_worker/Master.h"
 
+#include "CUDAImage.h"
 #include "CUDAMaster.h"
 
 namespace ddafa
@@ -25,16 +27,21 @@ namespace ddafa
 	{
 		class CUDAFeldkamp
 		{
+			private:
+				using master_type = ddafa::master_worker::Master<CUDAMaster, int&>;
+				using input_image_type = ddafa::image::Image<float, CUDAImage<float>>;
+				using output_image_type = ddafa::image::Image<float, StdImage<float>>;
+
 			public:
 				CUDAFeldkamp();
-				void process(ddafa::image::Image&& img);
-				ddafa::image::Image wait();
+				void process(input_image_type&& img);
+				output_image_type wait();
 
 			protected:
 				~CUDAFeldkamp();
 
 			private:
-				std::vector<ddafa::master_worker::Master<CUDAMaster, int&>> masters_;
+				std::vector<master_type> masters_;
 				std::vector<std::thread> master_threads_;
 		};
 	}

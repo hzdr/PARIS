@@ -24,12 +24,14 @@ namespace ddafa
 		class Task : public Implementation
 		{
 			public:
+				using data_type = typename Implementation::data_type;
+				using result_type = typename Implementation::result_type;
+
+			public:
 				/*
 				 * Construct a new task. The pointers will be owned by the Task object from here.
 				 */
-				Task(std::uint32_t task_id,
-						typename Implementation::data_type* task_data,
-						typename Implementation::result_type* result_data) noexcept
+				Task(std::uint32_t task_id, data_type* task_data, result_type* result_data) noexcept
 				: id_{task_id}, data_ptr_{task_data}, result_ptr_{result_data}, valid_{data_ptr_ != nullptr}
 				{
 				}
@@ -38,7 +40,8 @@ namespace ddafa
 				 * Move constructor
 				 */
 				Task(Task&& other) noexcept
-				: id_{other.id_}, data_ptr_{std::move(other.data_ptr_)}
+				: Implementation(std::forward<Task&&>(other))
+				, id_{other.id_}, data_ptr_{std::move(other.data_ptr_)}
 				, result_ptr_{std::move(other.result_ptr_)}, valid_{other.valid_}
 				{
 				}
@@ -77,8 +80,8 @@ namespace ddafa
 
 			private:
 				std::uint32_t id_;
-				std::unique_ptr<typename Implementation::data_type> data_ptr_;
-				std::unique_ptr<typename Implementation::result_type> result_ptr_;
+				std::unique_ptr<data_type> data_ptr_;
+				std::unique_ptr<result_type> result_ptr_;
 				bool valid_;
 		};
 	}

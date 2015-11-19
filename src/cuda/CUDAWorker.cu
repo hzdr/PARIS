@@ -25,11 +25,10 @@ namespace ddafa
 		{
 		}
 
-		ddafa::master_worker::Task<CUDAWorker::task_type>
-		CUDAWorker::process(ddafa::master_worker::Task<task_type>&& current_task)
+		CUDAWorker::result_type	CUDAWorker::process(CUDAWorker::task_type&& current_task)
 		{
 			std::cout << "CUDAWorker: STUB: process() called" << std::endl;
-			return ddafa::master_worker::Task<CUDAWorker::task_type>(0, nullptr, nullptr);
+			return result_type(0, nullptr, nullptr);
 		}
 	}
 }

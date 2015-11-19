@@ -10,6 +10,7 @@
 #ifndef CUDAMASTER_H_
 #define CUDAMASTER_H_
 
+#include "CUDAImage.h"
 #include "CUDATask.h"
 #include "CUDAWorker.h"
 
@@ -23,20 +24,19 @@ namespace ddafa
 	{
 		class CUDAMaster
 		{
-			public:
-				using task_type = CUDATask;
-				using worker_type = CUDAWorker;
+			protected:
+				using task_type = ddafa::master_worker::Task<CUDATask>;
+				using worker_type = ddafa::master_worker::Worker<CUDAWorker>;
+				using data_type = typename task_type::data_type;
+				using image_type = ddafa::image::Image<data_type, CUDAImage<data_type>>;
 
-			public:
 				CUDAMaster(int device_num);
 				CUDAMaster(CUDAMaster&& other);
+				~CUDAMaster();
+
 				void start();
 				void stop();
-
-				ddafa::master_worker::Task<task_type> createTask(const ddafa::image::Image* img_ptr);
-
-			protected:
-				~CUDAMaster();
+				task_type createTask(const image_type* img_ptr);
 				int workerCount() const noexcept;
 
 			private:

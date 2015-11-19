@@ -16,11 +16,10 @@ namespace ddafa
 	{
 		class CUDATask
 		{
-			public:
+			protected:
 				using data_type = float;
 				using result_type = float;
 
-			protected:
 				~CUDATask();
 		};
 	}

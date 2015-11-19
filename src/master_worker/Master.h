@@ -29,11 +29,19 @@ namespace ddafa
 		template <class Implementation, class... Args>
 		class Master : public Implementation
 		{
+			using task_type = typename Implementation::task_type;
+			using task_queue_type = ddafa::common::Queue<task_type>;
+			using result_queue_type = task_queue_type;
+			using data_type = typename Implementation::data_type;
+			using image_type = typename Implementation::image_type;
+			using worker_type = typename Implementation::worker_type;
+
 			public:
+
 				Master(Args&&... args)
 				: Implementation(std::forward<Args&&>(args)...)
-				, task_queue_{std::make_shared<ddafa::common::Queue<Task<typename Implementation::task_type>>>()}
-				, result_queue_ {std::make_shared<ddafa::common::Queue<Task<typename Implementation::task_type>>>()}
+				, task_queue_{std::make_shared<task_queue_type>()}
+				, result_queue_ {std::make_shared<result_queue_type>()}
 				{
 					for(auto i = 0; i < Implementation::workerCount(); ++i)
 						workers_.emplace_back(task_queue_, result_queue_);
@@ -68,12 +76,12 @@ namespace ddafa
 				{
 					Implementation::start();
 					for(auto&& worker : workers_)
-						worker_threads_.emplace_back(&Worker<typename Implementation::worker_type>::start,
-														&worker);
+						worker_threads_.emplace_back(&worker_type::start, &worker);
 
 					while(true)
 					{
-						const ddafa::image::Image* img_ptr = input_queue_.take();
+						const image_type* img_ptr = input_queue_.take();
+
 						if(!img_ptr->valid())
 							break; // poisonous pill
 
@@ -91,7 +99,7 @@ namespace ddafa
 						thread.join();
 				}
 
-				void input(const ddafa::image::Image* img)
+				void input(const image_type* img)
 				{
 					input_queue_.push(img);
 				}
@@ -104,11 +112,11 @@ namespace ddafa
 				Master& operator=(const Master& rhs) = delete;
 
 			private:
-				std::vector<Worker<typename Implementation::worker_type>> workers_;
+				std::vector<worker_type> workers_;
 				std::vector<std::thread> worker_threads_;
-				ddafa::common::Queue<const ddafa::image::Image*> input_queue_;
-				std::shared_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> task_queue_;
-				std::shared_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> result_queue_;
+				ddafa::common::Queue<const image_type*> input_queue_;
+				std::shared_ptr<task_queue_type> task_queue_;
+				std::shared_ptr<result_queue_type> result_queue_;
 		};
 	}
 }

@@ -22,8 +22,8 @@ struct Geometry
 	float det_pixel_size_vert;				// size of pixel (distance between pixel centers) in vertical direction
 
 	// Support
-	float dist_src;							// distance between source and object
-	float dist_det;							// distance between source and detector
+	float dist_src;							// distance between object and source
+	float dist_det;							// distance between object and detector
 
 	// Target volume
 	std::size_t vol_rows;					// number of rows

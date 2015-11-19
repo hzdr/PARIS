@@ -16,20 +16,21 @@
 #include <tiffio.h>
 
 #include "../Image.h"
+#include "../StdImage.h"
 #include "TIFF.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		ddafa::image::Image TIFF::loadImage(std::string path)
+		TIFF::image_type TIFF::loadImage(std::string path)
 		{
 			// as TIFF is an incomplete type we cannot wrap it into unique_ptr
 			::TIFF* tif = TIFFOpen(path.c_str(), "r");
 			if(tif == nullptr)
 			{
 				TIFFClose(tif);
-				return ddafa::image::Image(); // return invalid image
+				return image_type(); // return invalid image
 			}
 
 			// everything okay, time to read
@@ -51,10 +52,10 @@ namespace ddafa
 			}
 
 			TIFFClose(tif);
-			return ddafa::image::Image(width, height, data); // the data is now owned by the Image object
+			return image_type(width, height, data); // the data is now owned by the Image object
 		}
 
-		void TIFF::saveImage(ddafa::image::Image&& image, std::string path)
+		void TIFF::saveImage(TIFF::image_type&& image, std::string path)
 		{
 			::TIFF* tif = TIFFOpen(path.c_str(), "w");
 			if(tif == nullptr)

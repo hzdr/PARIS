@@ -39,26 +39,26 @@ namespace ddafa
 				masters_.emplace_back(i);
 
 			for(auto&& master : masters_)
-				master_threads_.emplace_back(&ddafa::master_worker::Master<CUDAMaster, int&>::start, &master);
+				master_threads_.emplace_back(&master_type::start, &master);
 		}
 
 		CUDAFeldkamp::~CUDAFeldkamp()
 		{
 		}
 
-		void CUDAFeldkamp::process(ddafa::image::Image&& img)
+		void CUDAFeldkamp::process(CUDAFeldkamp::input_image_type&& img)
 		{
 			// do NOT delete this pointer
-			ddafa::image::Image* img_ptr = &img;
+			input_image_type* img_ptr = &img;
 			for(auto&& master : masters_)
 				master.input(img_ptr);
 		}
 
-		ddafa::image::Image CUDAFeldkamp::wait()
+		CUDAFeldkamp::output_image_type CUDAFeldkamp::wait()
 		{
 			for(auto&& thread : master_threads_)
 				thread.join();
-			return ddafa::image::Image();
+			return output_image_type();
 		}
 	}
 }

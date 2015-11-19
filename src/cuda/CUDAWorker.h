@@ -20,16 +20,13 @@ namespace ddafa
 	{
 		class CUDAWorker
 		{
-			public:
-				using task_type = CUDATask;
-
-			public:
-				void start();
-
-				ddafa::master_worker::Task<task_type>
-				process(ddafa::master_worker::Task<task_type>&& current_task);
-
 			protected:
+				using task_type = ddafa::master_worker::Task<CUDATask>;
+				using result_type = task_type;
+
+				void start();
+				result_type process(task_type&& current_task);
+
 				~CUDAWorker();
 		};
 	}

@@ -24,12 +24,15 @@ namespace ddafa
 		template <class Implementation>
 		class Worker : public Implementation
 		{
+			using task_type = typename Implementation::task_type;
+			using task_queue_type = ddafa::common::Queue<task_type>;
+			using result_queue_type = task_queue_type;
+
 			public:
 				/*
 				 * Constructs a new worker.
 				 */
-				Worker( std::weak_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> task_queue,
-						std::weak_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> result_queue)
+				Worker(std::weak_ptr<task_queue_type> task_queue, std::weak_ptr<result_queue_type> result_queue)
 				: Implementation(), task_queue_{task_queue.lock()}, result_queue_{result_queue.lock()}
 				{
 				}
@@ -76,8 +79,8 @@ namespace ddafa
 				Worker& operator=(const Worker& rhs) = delete;
 
 			private:
-				std::shared_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> task_queue_;
-				std::shared_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> result_queue_;
+				std::shared_ptr<task_queue_type> task_queue_;
+				std::shared_ptr<result_queue_type> result_queue_;
 		};
 	}
 }
