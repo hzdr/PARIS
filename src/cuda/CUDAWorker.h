@@ -12,6 +12,8 @@
 
 #include "CUDATask.h"
 
+#include "../master_worker/Task.h"
+
 namespace ddafa
 {
 	namespace impl
@@ -20,6 +22,12 @@ namespace ddafa
 		{
 			public:
 				using task_type = CUDATask;
+
+			public:
+				void start();
+
+				ddafa::master_worker::Task<task_type>
+				process(ddafa::master_worker::Task<task_type>&& current_task);
 
 			protected:
 				~CUDAWorker();

@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+#include <utility>
 
 namespace ddafa
 {
@@ -22,10 +23,15 @@ namespace ddafa
 		class Queue
 		{
 			public:
-				void push(Object&& object)
+				/*
+				 * Item and Object are of the same type but we need this extra template to make use of the
+				 * nice reference collapsing rules
+				 */
+				template <class Item>
+				void push(Item&& item)
 				{
 					std::unique_lock<std::mutex> lock(mutex_);
-					queue_.push(object);
+					queue_.push(std::forward<Item>(item));
 					cv_.notify_one();
 				}
 
@@ -35,7 +41,7 @@ namespace ddafa
 					while(queue_.empty())
 						cv_.wait(lock);
 
-					Object ret = queue_.front();
+					Object ret = std::move(queue_.front());
 					queue_.pop();
 					return ret;
 				}

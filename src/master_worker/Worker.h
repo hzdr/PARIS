@@ -28,7 +28,7 @@ namespace ddafa
 				/*
 				 * Constructs a new worker.
 				 */
-				Worker(std::weak_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> task_queue,
+				Worker( std::weak_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> task_queue,
 						std::weak_ptr<ddafa::common::Queue<Task<typename Implementation::task_type>>> result_queue)
 				: Implementation(), task_queue_{task_queue.lock()}, result_queue_{result_queue.lock()}
 				{
@@ -52,6 +52,20 @@ namespace ddafa
 					task_queue_ = std::move(rhs.task_queue_);
 					result_queue_ = std::move(rhs.result_queue_);
 					return *this;
+				}
+
+				void start()
+				{
+					Implementation::start();
+
+					while(true)
+					{
+						auto&& task = task_queue_->take();
+						if(!task.valid())
+							break;
+
+						result_queue_->push(Implementation::process(std::move(task)));
+					}
 				}
 
 			private:

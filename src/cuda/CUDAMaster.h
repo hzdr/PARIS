@@ -13,6 +13,10 @@
 #include "CUDATask.h"
 #include "CUDAWorker.h"
 
+#include "../image/Image.h"
+#include "../master_worker/Task.h"
+#include "../master_worker/Worker.h"
+
 namespace ddafa
 {
 	namespace impl
@@ -26,12 +30,18 @@ namespace ddafa
 			public:
 				CUDAMaster(int device_num);
 				CUDAMaster(CUDAMaster&& other);
+				void start();
+				void stop();
+
+				ddafa::master_worker::Task<task_type> createTask(const ddafa::image::Image* img_ptr);
 
 			protected:
 				~CUDAMaster();
+				int workerCount() const noexcept;
 
 			private:
 				int device_;
+				int number_of_workers_;
 		};
 	}
 }
