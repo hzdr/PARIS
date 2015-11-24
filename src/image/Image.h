@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include "StdImage.h"
@@ -22,7 +23,7 @@ namespace ddafa
 {
 	namespace image
 	{
-		template <typename Data = float, class Implementation = ddafa::impl::StdImage<Data>>
+		template <typename Data, class Implementation>
 		class Image : public Implementation
 		{
 			public:
@@ -80,7 +81,6 @@ namespace ddafa
 						Implementation::copy(rhs.data_.get(), data_.get(), (width_ * height_));
 					}
 					return *this;
-
 				}
 
 				/*

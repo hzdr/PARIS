@@ -10,6 +10,8 @@
 #ifndef CUDAWEIGHTING_H_
 #define CUDAWEIGHTING_H_
 
+#include "../common/Geometry.h"
+#include "../common/Queue.h"
 #include "../image/Image.h"
 #include "../image/StdImage.h"
 
@@ -22,16 +24,22 @@ namespace ddafa
 		class CUDAWeighting
 		{
 			public:
-				using input_image_type = ddafa::image::Image<float, StdImage<float>>;
-				using output_image_type = ddafa::image::Image<float, CUDAImage<float>>;
+				using input_type = ddafa::image::Image<float, StdImage<float>>;
+				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
 
 			public:
-				CUDAWeighting();
-				void process(input_image_type&& img);
-				output_image_type wait();
+				CUDAWeighting(ddafa::common::Geometry geo);
+				void process(input_type&& img);
+				output_type wait();
 
 			protected:
 				~CUDAWeighting();
+
+			private:
+				ddafa::common::Geometry geo_;
+				ddafa::common::Queue<output_type> results_;
+				float h_min_;
+				float v_min_;
 		};
 	}
 }

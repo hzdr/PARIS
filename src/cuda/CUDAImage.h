@@ -24,14 +24,14 @@ namespace ddafa
 {
 	namespace impl
 	{
-		template <typename Data = float>
+		template <typename Data>
 		class CUDAImage
 		{
 			public:
 				using deleter_type = CUDADeleter;
 
 			public:
-				std::unique_ptr<Data> allocate(std::size_t size)
+				std::unique_ptr<Data, deleter_type> allocate(std::size_t size)
 				{
 					void *ptr = nullptr;
 					cudaError_t err = cudaMalloc(&ptr, size);
@@ -68,6 +68,8 @@ namespace ddafa
 					}
 				}
 
+			private:
+				int device_;
 		};
 	}
 }

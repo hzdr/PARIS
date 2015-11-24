@@ -46,19 +46,19 @@ namespace ddafa
 		{
 		}
 
-		void CUDAFeldkamp::process(CUDAFeldkamp::input_image_type&& img)
+		void CUDAFeldkamp::process(CUDAFeldkamp::input_type&& img)
 		{
 			// do NOT delete this pointer
-			input_image_type* img_ptr = &img;
+			input_type* img_ptr = &img;
 			for(auto&& master : masters_)
 				master.input(img_ptr);
 		}
 
-		CUDAFeldkamp::output_image_type CUDAFeldkamp::wait()
+		CUDAFeldkamp::output_type CUDAFeldkamp::wait()
 		{
 			for(auto&& thread : master_threads_)
 				thread.join();
-			return output_image_type();
+			return CUDAFeldkamp::output_type();
 		}
 	}
 }

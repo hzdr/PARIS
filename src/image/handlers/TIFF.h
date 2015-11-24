@@ -21,13 +21,15 @@ namespace ddafa
 	{
 		class TIFF
 		{
-			using image_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
+			public:
+				using image_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
+
 			public:
 					image_type loadImage(std::string path);
 					void saveImage(image_type&& image, std::string path);
 					//TODO: saveToVolume
 
-		protected:
+			protected:
 					~TIFF(); // disable undefined behavior
 		};
 	}

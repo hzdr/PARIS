@@ -11,7 +11,12 @@
 #ifndef SINKSTAGE_H_
 #define SINKSTAGE_H_
 
+#ifdef DDAFA_DEBUG
+#include <iostream>
+#endif
+
 #include <string>
+#include <utility>
 
 #include "../image/Image.h"
 
@@ -22,23 +27,32 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SinkStage : public InputSide<ddafa::image::Image>, public ImageHandler
+		class SinkStage : public ImageHandler, public InputSide<typename ImageHandler::image_type>
 		{
 			public:
+				using input_type = typename ImageHandler::image_type;
+
+			public:
 				SinkStage(std::string path)
-				: InputSide<ddafa::image::Image>(), ImageHandler(), target_dir_{path}
+				: InputSide<input_type>(), ImageHandler(), target_dir_{path}
 				{
 				}
 
-				void wait()
+				void run()
 				{
 					while(true)
 					{
-						ddafa::image::Image img = input_queue_.take();
+						input_type img = this->input_queue_.take();
 						if(img.valid())
-							ImageHandler::saveImage("my/fancy/path.tif");
+							ImageHandler::saveImage(std::move(img), "my/fancy/path.tif");
 						else
+						{
+#ifdef DDAFA_DEBUG
+							std::cout << "SinkStage: Poisonous pill arrived, terminating pipeline." << std::endl;
+#endif
 							break; // poisonous pill
+						}
+
 					}
 				}
 

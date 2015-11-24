@@ -28,16 +28,16 @@ namespace ddafa
 					if(port_ == nullptr)
 						throw std::runtime_error("OutputSide: Missing port");
 
-					port_.forward(std::forward<OutputType&&>(output));
+					port_->forward(std::forward<OutputType&&>(output));
 				}
 
-				void attach(Port* port) noexcept
+				void attach(Port<OutputType>* port) noexcept
 				{
 					port_.reset(port);
 				}
 
 			protected:
-				std::unique_ptr<Port> port_;
+				std::unique_ptr<Port<OutputType>> port_;
 		};
 	}
 }

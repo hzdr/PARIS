@@ -11,6 +11,9 @@
 #ifndef SOURCESTAGE_H_
 #define SOURCESTAGE_H_
 
+#ifdef DDAFA_DEBUG
+#include <iostream>
+#endif
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -24,25 +27,31 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SourceStage : public OutputSide<ddafa::image::Image>, public ImageHandler
+		class SourceStage : public ImageHandler, public OutputSide<typename ImageHandler::image_type>
 		{
 			public:
+				using output_type = typename ImageHandler::image_type;
+
+			public:
 				SourceStage(std::string path)
-				: OutputSide<ddafa::image::Image>(), ImageHandler(), dir_string_{path}
+				: OutputSide<output_type>(), ImageHandler(), dir_string_{path}
 				{
 				}
 
-				void start()
+				void run()
 				{
 					// TODO: read target directory
-					ddafa::image::Image img = ImageHandler::loadImage("my/fancy/path.tif");
+					output_type img = ImageHandler::loadImage("my/fancy/path.tif");
 					if(img.valid())
-						output(std::move(img));
+						this->output(std::move(img));
 					else
 						throw std::runtime_error("Invalid image file: %PATH");
 
 					// all images loaded, send poisonous pill
-					output(ddafa::image::Image());
+#ifdef DDAFA_DEBUG
+					std::cout << "SourceStage: Loading complete, sending poisonous pill" << std::endl;
+#endif
+					this->output(output_type());
 				}
 
 			private:

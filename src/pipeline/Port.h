@@ -25,7 +25,7 @@ namespace ddafa
 			public:
 				void forward(DataType&& data)
 				{
-					next_.input(std::forward<DataType&&>(data));
+					next_->input(std::forward<DataType&&>(data));
 				}
 
 				void attach(std::shared_ptr<InputSide<DataType>> next) noexcept

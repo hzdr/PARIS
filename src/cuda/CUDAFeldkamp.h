@@ -29,13 +29,13 @@ namespace ddafa
 		{
 			private:
 				using master_type = ddafa::master_worker::Master<CUDAMaster, int&>;
-				using input_image_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_image_type = ddafa::image::Image<float, StdImage<float>>;
+				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
+				using output_type = ddafa::image::Image<float, StdImage<float>>;
 
 			public:
 				CUDAFeldkamp();
-				void process(input_image_type&& img);
-				output_image_type wait();
+				void process(input_type&& img);
+				output_type wait();
 
 			protected:
 				~CUDAFeldkamp();

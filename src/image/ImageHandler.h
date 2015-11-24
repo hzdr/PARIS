@@ -25,12 +25,14 @@ namespace ddafa
 		class ImageHandler : public Implementation
 		{
 			public:
+				using image_type = typename Implementation::image_type;
+
+			public:
 				/*
 				 * Loads an image from the given path. The image data will be converted to the given
 				 * data type if needed.
 				 */
-				template <typename Data = float, class ImageImplementation = ddafa::impl::StdImage<Data>>
-				Image<Data, ImageImplementation> loadImage(std::string path)
+				image_type loadImage(std::string path)
 				{
 					return Implementation::loadImage(path);
 				}
@@ -38,20 +40,18 @@ namespace ddafa
 				/*
 				 * Saves an image to the given path. The image will be saved in floating point format.
 				 */
-				template <typename Data = float, class ImageImplementation = ddafa::impl::StdImage<Data>>
-				void saveImage(Image<Data, ImageImplementation>&& image, std::string path)
+				void saveImage(image_type&& image, std::string path)
 				{
-					Implementation::saveImage(std::forward<Image<Data, ImageImplementation>&&>(image), path);
+					Implementation::saveImage(std::forward<image_type&&>(image), path);
 				}
 
 				/*
 				 * Saves an image into a volume at the given path. The volume will be saved in floating
 				 * point format.
 				 */
-				template <typename Data = float, class ImageImplementation = ddafa::impl::StdImage<Data>>
-				void saveToVolume(Image<Data, ImageImplementation>&& image, std::string path, std::size_t index)
+				void saveToVolume(image_type&& image, std::string path, std::size_t index)
 				{
-					Implementation::saveToVolume(std::forward<Image<Data, ImageImplementation>&&>(image),
+					Implementation::saveToVolume(std::forward<image_type&&>(image),
 													path, index);
 				}
 		};

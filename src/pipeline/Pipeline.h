@@ -9,25 +9,58 @@
 #define PIPELINE_H_
 
 #include <memory>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
-#include "InputSide.h"
-#include "OutputSide.h"
 #include "Port.h"
-#include "SourceStage.h"
-#include "SinkStage.h"
 
 namespace ddafa
 {
 	namespace pipeline
 	{
-		template <class Data>
-		void connect(std::shared_ptr<OutputSide<Data>> first, std::shared_ptr<InputSide<Data>> second)
+		class Pipeline
 		{
-			Port *port = new Port;
-			first->attach(port);
-			port->attach(second);
-		}
+			public:
+				template <class First, class Second>
+				void connect(First first, Second second)
+				{
+					// this pointer will be managed by "first", don't delete
+					auto port = new Port<typename First::element_type::output_type>;
+					first->attach(port);
+					port->attach(second);
+				}
+
+				template <class PipelineStage, typename... Args>
+				std::shared_ptr<PipelineStage> create(Args&&... args)
+				{
+					return std::make_shared<PipelineStage>(std::forward<Args&&>(args)...);
+				}
+
+				template <class Stage>
+				void run(Stage stage)
+				{
+					stage_threads_.emplace_back(&Stage::element_type::run, stage);
+				}
+
+				template <class Stage, class... Stages>
+				void run(Stage stage, Stages... stages)
+				{
+					run(stage);
+					run(stages...);
+				}
+
+				void wait()
+				{
+					for(auto&& t : stage_threads_)
+						t.join();
+				}
+
+			private:
+				std::vector<std::thread> stage_threads_;
+		};
+
 	}
 }
 
