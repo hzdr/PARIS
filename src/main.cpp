@@ -1,10 +1,11 @@
 #include <iostream>
+#include <stdexcept>
 
 #include "common/Geometry.h"
 
 #include "image/Image.h"
 #include "image/ImageHandler.h"
-#include "image/handlers/TIFF.h"
+#include "image/handlers/TIFF/TIFF.h"
 
 #include "pipeline/Pipeline.h"
 #include "pipeline/SinkStage.h"
@@ -37,25 +38,33 @@ ddafa::common::Geometry createGeometry()
 	return geo;
 }
 
-int main()
+int main(int argc, char** argv)
 {
 	using tiff_handler = ddafa::image::ImageHandler<ddafa::impl::TIFF>;
 	using source_stage = ddafa::pipeline::SourceStage<tiff_handler>;
 	using sink_stage = ddafa::pipeline::SinkStage<tiff_handler>;
 	using weighting_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAWeighting>;
 
-	ddafa::pipeline::Pipeline pipeline;
+	try
+	{
+		ddafa::pipeline::Pipeline pipeline;
 
-	auto source = pipeline.create<source_stage>("path");
-	//auto weighting = pipeline.create<weighting_stage>(createGeometry());
-	auto sink = pipeline.create<sink_stage>("path");
+		auto source = pipeline.create<source_stage>("path");
+		//auto weighting = pipeline.create<weighting_stage>(createGeometry());
+		auto sink = pipeline.create<sink_stage>("path");
 
-	//ddafa::pipeline::connect(source, weighting);
-	//ddafa::pipeline::connect(weighting, sink);
-	pipeline.connect(source, sink);
+		pipeline.connect(source, sink);
 
-	pipeline.run(source, sink);
-	pipeline.wait();
+		pipeline.run(source, sink);
+		pipeline.wait();
+	}
+	catch(const std::runtime_error& err)
+	{
+		std::cout << "=========================" << std::endl;
+		std::cout << "A runtime error occurred: " << std::endl;
+		std::cout << err.what() << std::endl;
+		std::cout << "=========================" << std::endl;
+	}
 
-	std::cout << "Hello, HZDR!" << std::endl;
+	return 0;
 }

@@ -59,10 +59,7 @@ namespace ddafa
 					{
 						input_type img = this->input_queue_.take();
 						if(img.valid())
-						{
 							Implementation::process(std::move(img));
-							continue;
-						}
 						else
 						{
 							// received poisonous pill, time to die
@@ -81,10 +78,7 @@ namespace ddafa
 					{
 						output_type result = Implementation::wait();
 						if(result.valid())
-						{
 							output(std::move(result));
-							continue;
-						}
 						else
 						{
 #ifdef DDAFA_DEBUG

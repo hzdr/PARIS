@@ -27,7 +27,7 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SourceStage : public ImageHandler, public OutputSide<typename ImageHandler::image_type>
+		class SourceStage : public OutputSide<typename ImageHandler::image_type>, public ImageHandler
 		{
 			public:
 				using output_type = typename ImageHandler::image_type;

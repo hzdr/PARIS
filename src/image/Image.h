@@ -41,7 +41,8 @@ namespace ddafa
 				 * Image object will own the pointer that gets passed to it. In every case valid_ will be set to
 				 * true after construction.
 				 */
-				Image(std::uint32_t img_width, std::uint32_t img_height, Data* img_data = nullptr)
+				Image(std::uint32_t img_width, std::uint32_t img_height,
+						std::unique_ptr<Data, typename Implementation::deleter_type>&& img_data = nullptr)
 				: width_{img_width}, height_{img_height}, data_{img_data}, valid_{true}
 				{
 					if(data_ == nullptr)

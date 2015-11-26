@@ -27,7 +27,7 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SinkStage : public ImageHandler, public InputSide<typename ImageHandler::image_type>
+		class SinkStage : public InputSide<typename ImageHandler::image_type>, public ImageHandler
 		{
 			public:
 				using input_type = typename ImageHandler::image_type;

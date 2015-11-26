@@ -68,6 +68,16 @@ namespace ddafa
 					}
 				}
 
+				void setDevice(int device_id)
+				{
+					device_ = device_id;
+				}
+
+				int device()
+				{
+					return device_;
+				}
+
 			private:
 				int device_;
 		};

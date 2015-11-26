@@ -10,6 +10,9 @@
 #ifndef CUDAWEIGHTING_H_
 #define CUDAWEIGHTING_H_
 
+#include <cstddef>
+#include <cstdint>
+
 #include "../common/Geometry.h"
 #include "../common/Queue.h"
 #include "../image/Image.h"
@@ -36,10 +39,15 @@ namespace ddafa
 				~CUDAWeighting();
 
 			private:
+				void processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height);
+
+			private:
 				ddafa::common::Geometry geo_;
 				ddafa::common::Queue<output_type> results_;
 				float h_min_;
 				float v_min_;
+				float d_dist_;
+				int devices_;
 		};
 	}
 }
