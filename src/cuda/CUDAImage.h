@@ -33,7 +33,7 @@ namespace ddafa
 			public:
 				std::unique_ptr<Data, deleter_type> allocate(std::size_t size)
 				{
-					void *ptr = nullptr;
+					void *ptr;
 					cudaError_t err = cudaMalloc(&ptr, size);
 					switch(err)
 					{

@@ -31,7 +31,13 @@ namespace ddafa
 			int grid_size = (input_size + block_size - 1) / block_size;
 
 			kernel<<<grid_size, block_size>>>(args...);
-			cudaDeviceSynchronize();
+			cudaError_t err = cudaPeekAtLastError();
+			if(err != cudaSuccess)
+				throw std::runtime_error("launch: " + std::string(cudaGetErrorString(err)));
+
+			err = cudaDeviceSynchronize();
+			if(err != cudaSuccess)
+				throw std::runtime_error("launch: " + std::string(cudaGetErrorString(err)));
 
 #ifdef DDAFA_DEBUG
 			// calculate theoretical occupancy

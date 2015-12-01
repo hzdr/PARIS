@@ -11,14 +11,13 @@
 #ifndef SOURCESTAGE_H_
 #define SOURCESTAGE_H_
 
-#ifdef DDAFA_DEBUG
 #include <iostream>
-#endif
 #include <stdexcept>
 #include <string>
 #include <utility>
 
 #include "../image/Image.h"
+#include "../image/StdImage.h"
 
 #include "OutputSide.h"
 
@@ -27,10 +26,11 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SourceStage : public OutputSide<typename ImageHandler::image_type>, public ImageHandler
+		class SourceStage : public OutputSide<ddafa::image::Image<float, ddafa::impl::StdImage<float>>>
+						  , public ImageHandler
 		{
 			public:
-				using output_type = typename ImageHandler::image_type;
+				using output_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
 
 			public:
 				SourceStage(std::string path)
@@ -41,11 +41,11 @@ namespace ddafa
 				void run()
 				{
 					// TODO: read target directory
-					output_type img = ImageHandler::loadImage("my/fancy/path.tif");
+					output_type img = ImageHandler::template loadImage<float>("/home/ufxray/Schreibtisch/Feldkamp/Schaum/out-0033.his");
 					if(img.valid())
 						this->output(std::move(img));
 					else
-						throw std::runtime_error("Invalid image file: %PATH");
+						std::cout << "SourceStage: WARNING: Skipping invalid image" << std::endl;
 
 					// all images loaded, send poisonous pill
 #ifdef DDAFA_DEBUG

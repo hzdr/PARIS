@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "../image/Image.h"
+#include "../image/StdImage.h"
 
 #include "InputSide.h"
 
@@ -27,10 +28,11 @@ namespace ddafa
 	namespace pipeline
 	{
 		template <class ImageHandler>
-		class SinkStage : public InputSide<typename ImageHandler::image_type>, public ImageHandler
+		class SinkStage : public InputSide<ddafa::image::Image<float, ddafa::impl::StdImage<float>>>
+						, public ImageHandler
 		{
 			public:
-				using input_type = typename ImageHandler::image_type;
+				using input_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
 
 			public:
 				SinkStage(std::string path)
@@ -44,7 +46,7 @@ namespace ddafa
 					{
 						input_type img = this->input_queue_.take();
 						if(img.valid())
-							ImageHandler::saveImage(std::move(img), "my/fancy/path.tif");
+							ImageHandler::template saveImage<float>(std::move(img), "/home/ufxray/Schreibtisch/Feldkamp/out.tif");
 						else
 						{
 #ifdef DDAFA_DEBUG

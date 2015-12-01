@@ -14,6 +14,8 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include "../../Image.h"
 #include "../../StdImage.h"
@@ -39,7 +41,7 @@ namespace ddafa
 
 			public:
 				template <typename T>
-				ddafa::image::Image<T, ddafa::impl::StdImage<T>> loadImage(std::string path)
+				ddafa::image::Image<T, StdImage<T>> loadImage(std::string path)
 				{
 					// read file header
 					HISHeader header;
@@ -73,29 +75,73 @@ namespace ddafa
 						throw std::runtime_error("HIS loader: No implementation for datatype of file " + path);
 
 					// jump over image header
-					std::uint8_t* image_header = new std::uint8_t[header.image_header_size];
-					readEntry(file, image_header, header.image_header_size);
+					auto image_header = std::unique_ptr<std::uint8_t>(new std::uint8_t[header.image_header_size]);
+					readEntry(file, image_header.get(), header.image_header_size);
 						// ...
-					delete[] imageHeader;
+					image_header.reset();
 
 					// calculate dimensions
 					std::uint32_t width = header.brx - header.ulx + 1;
 					std::uint32_t height = header.bry - header.uly + 1;
 					std::uint32_t number_of_projections  = header.number_of_frames;
+					if(number_of_projections > 1)
+						throw std::runtime_error("HIS loader: No support for more than one projection per file");
 
 					// read image data
-					std::size_t buffer_size = width * height * sizeoftype(header.type_of_numbers);
-					std::unique_ptr<std::uint8_t> buffer(new std::uint8_t[buffer_size]);
-					std::unique_ptr<T, typename StdImage::deleter_type> img_buffer(new T[width * height]);
+					std::unique_ptr<T, typename StdImage<T>::deleter_type> img_buffer(new T[width * height]);
 
 					switch(header.type_of_numbers)
 					{
+						case tn_unsigned_char:
+						{
+							std::unique_ptr<std::uint8_t> buffer(new std::uint8_t[width * height]);
+							readEntry(file, buffer.get(), width * height * sizeof(std::uint8_t));
+							readBuffer<T, std::uint8_t>(img_buffer.get(), buffer.get(), width, height);
+							break;
+						}
 
+						case tn_unsigned_short:
+						{
+							std::unique_ptr<std::uint16_t> buffer(new std::uint16_t[width * height]);
+							readEntry(file, buffer.get(), width * height * sizeof(std::uint16_t));
+							readBuffer<T, std::uint16_t>(img_buffer.get(), buffer.get(), width, height);
+							break;
+						}
+
+						case tn_dword:
+						{
+							std::unique_ptr<std::uint32_t> buffer(new std::uint32_t[width * height]);
+							readEntry(file, buffer.get(), width * height * sizeof(std::uint32_t));
+							readBuffer<T, std::uint32_t>(img_buffer.get(), buffer.get(), width, height);
+							break;
+						}
+
+						case tn_double:
+						{
+							std::unique_ptr<double> buffer(new double[width * height]);
+							readEntry(file, buffer.get(), width * height * sizeof(double));
+							readBuffer<T, double>(img_buffer.get(), buffer.get(), width, height);
+							break;
+						}
+
+						case tn_float:
+						{
+							std::unique_ptr<float> buffer(new float[width * height]);
+							readEntry(file, buffer.get(), width * height * sizeof(float));
+							readBuffer<T, float>(img_buffer.get(), buffer.get(), width, height);
+							break;
+						}
+
+						default:
+							throw std::runtime_error("HIS loader: No implementation for data type of file "
+														+ path);
 					}
+
+					return ddafa::image::Image<T, StdImage<T>>(width, height, std::move(img_buffer));
 				}
 
 			protected:
-				~HIS();
+				~HIS() {}
 
 			private:
 				template <typename T>
@@ -105,21 +151,30 @@ namespace ddafa
 				}
 
 				template <typename T>
-				inline explicit void readEntry(std::ifstream& file, T* entry, std::size_t size)
+				inline void readEntry(std::ifstream& file, T* entry, std::size_t size)
 				{
 					file.read(reinterpret_cast<char *>(entry), size);
 				}
 
-				inline std::size_t sizeoftype(std::uint16_t type)
+				template <typename Wanted, typename Actual>
+				inline typename std::enable_if<std::is_same<Wanted, Actual>::value>::type
+				readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
 				{
-					switch(type)
+					for(std::size_t j = 0; j < height; ++j)
 					{
-						case tn_unsigned_char:	return sizeof(std::uint8_t);
-						case tn_unsigned_short:	return sizeof(std::uint16_t);
-						case tn_dword:			return sizeof(std::uint32_t);
-						case tn_double:			return sizeof(double);
-						case tn_float:			return sizeof(float);
-						default:				throw std::runtime_error("HIS loader: Invalid data type");
+						for(std::size_t i = 0; i < width; ++i)
+							dest[i + j * width] = buf[i + j * width];
+					}
+				}
+
+				template <typename Wanted, typename Actual>
+				inline typename std::enable_if<!std::is_same<Wanted, Actual>::value>::type
+				readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
+				{
+					for(std::size_t j = 0; j < height; ++j)
+					{
+						for(std::size_t i = 0; i < width; ++i)
+							dest[i + j * width] = Wanted(buf[i + j * width]);
 					}
 				}
 		};

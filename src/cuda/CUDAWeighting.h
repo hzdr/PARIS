@@ -31,7 +31,7 @@ namespace ddafa
 				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
 
 			public:
-				CUDAWeighting(ddafa::common::Geometry geo);
+				CUDAWeighting(ddafa::common::Geometry&& geo);
 				void process(input_type&& img);
 				output_type wait();
 

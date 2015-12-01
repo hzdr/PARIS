@@ -43,7 +43,7 @@ namespace ddafa
 				 */
 				Image(std::uint32_t img_width, std::uint32_t img_height,
 						std::unique_ptr<Data, typename Implementation::deleter_type>&& img_data = nullptr)
-				: width_{img_width}, height_{img_height}, data_{img_data}, valid_{true}
+				: width_{img_width}, height_{img_height}, data_{std::move(img_data)}, valid_{true}
 				{
 					if(data_ == nullptr)
 							data_ = Implementation::allocate(width_ * height_);

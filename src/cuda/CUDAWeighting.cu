@@ -9,12 +9,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
 #include "CUDACommon.h"
+#include "CUDADeleter.h"
 #include "CUDAWeighting.h"
 
 #include "../image/Image.h"
@@ -34,6 +37,8 @@ namespace ddafa
 				return;
 
 			int idx = i + j * width; // current pixel
+			if(idx >= width * height)
+				return;
 
 			// detector coordinates
 			float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
@@ -46,25 +51,15 @@ namespace ddafa
 			img[idx] = img[idx] * w_ij;
 		}
 
-		CUDAWeighting::CUDAWeighting(ddafa::common::Geometry geo)
+		CUDAWeighting::CUDAWeighting(ddafa::common::Geometry&& geo)
 		: geo_(geo)
 		, h_min_{-geo.det_offset_horiz - ((geo.det_pixels_row * geo.det_pixel_size_horiz) / 2)}
 		, v_min_{-geo.det_offset_vert - ((geo.det_pixel_column * geo.det_pixel_size_vert) / 2)}
 		, d_dist_{geo.dist_det - geo.dist_src}
 		{
 			cudaError_t err = cudaGetDeviceCount(&devices_);
-
-			switch(err)
-			{
-				case cudaSuccess:
-					break;
-
-				case cudaErrorNoDevice:
-					throw std::runtime_error("CUDAWeighting: No CUDA devices found.");
-
-				case cudaErrorInsufficientDriver:
-					throw std::runtime_error("CUDAWeighting: Insufficient driver.");
-			}
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
 		}
 
 		CUDAWeighting::~CUDAWeighting()
@@ -83,38 +78,24 @@ namespace ddafa
 			std::vector<std::thread> processor_threads;
 			for(int i = 0; i < devices_; ++i)
 			{
+				std::cout << "CUDAWeighting: Copying to device #" << i << std::endl;
 				// copy image to device
 				cudaSetDevice(i);
 				float* dev_buffer;
 				std::size_t size = img.width() * img.height() * sizeof(float);
 				cudaError_t err = cudaMalloc(&dev_buffer, size);
 
-				switch(err)
-				{
-					case cudaErrorMemoryAllocation:
-						throw std::runtime_error("CUDAWeighting: Error while allocating memory");
+				if(err != cudaSuccess)
+					throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
 
-					case cudaSuccess:
-						default:
-						break;
-				}
+				std::cout << "CUDAWeighting: Image dimensions are " << img.width()
+						<< "x" << img.height() << std::endl;
+				std::cout << "Size on device: " << size << " bytes" << std::endl;
 
 				err = cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice);
-				switch(err)
-				{
-					case cudaErrorInvalidValue:
-						throw std::runtime_error("CUDAWeighting: Invalid value");
+				if(err != cudaSuccess)
+					throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
 
-					case cudaErrorInvalidDevicePointer:
-						throw std::runtime_error("CUDAWeighting: Invalid device pointer");
-
-					case cudaErrorInvalidMemcpyDirection:
-						throw std::runtime_error("CUDAWeighting: Invalid memcpy direction");
-
-					case cudaSuccess:
-						default:
-						break;
-				}
 				// execute kernel
 				processor_threads.emplace_back(&CUDAWeighting::processor, this, dev_buffer, size,
 												img.width(), img.height());
@@ -131,12 +112,15 @@ namespace ddafa
 
 		void CUDAWeighting::processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height)
 		{
-			launch(size, weight, buffer, width, height, h_min_, v_min_, d_dist_,
-					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
-			output_type result(width, height, buffer);
-
 			int device;
 			cudaGetDevice(&device);
+			std::cout << "CUDAWeighting: processing on device #" << device << std::endl;
+
+			launch(size, weight, buffer, width, height, h_min_, v_min_, d_dist_,
+					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+			output_type result(width, height, std::unique_ptr<float, CUDADeleter>(buffer));
+
+
 
 			result.setDevice(device);
 

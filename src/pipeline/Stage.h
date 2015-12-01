@@ -78,13 +78,13 @@ namespace ddafa
 					{
 						output_type result = Implementation::wait();
 						if(result.valid())
-							output(std::move(result));
+							this->output(std::move(result));
 						else
 						{
 #ifdef DDAFA_DEBUG
 							std::cout << "Stage: Poisonous pill arrived at take(), cleaning up" << std::endl;
 #endif
-							output(std::move(result));
+							this->output(std::move(result));
 							break;
 						}
 					}
