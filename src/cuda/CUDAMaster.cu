@@ -24,7 +24,7 @@ namespace ddafa
 			cudaError_t err = cudaGetDeviceProperties(&properties, device_);
 
 			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAMaster: Invalid device #" + std::to_string(device_));
+				throw std::runtime_error("CUDAMaster::CUDAMaster: " + std::string(cudaGetErrorString(err)));
 
 			if(properties.concurrentKernels == 0)
 				std::cout << "CUDAMaster: WARNING: Device #" << device_ << " does not support concurrent kernels."
@@ -111,26 +111,11 @@ namespace ddafa
 		{
 			cudaError_t err = cudaSetDevice(device_); // bind device to current thread
 			if(err != cudaSuccess)
-			{
-				switch(err)
-				{
-					case cudaErrorInvalidDevice:
-						throw std::runtime_error("CUDAMaster: Invalid device #" + std::to_string(device_));
-
-					case cudaErrorDeviceAlreadyInUse:
-						throw std::runtime_error("CUDAMaster: Device #" + std::to_string(device_)
-													+ " already in use");
-
-					default:
-						throw std::runtime_error("CUDAMaster: Unknown error while binding device #" +
-													std::to_string(device_) + " to current thread.");
-				}
-			}
+				throw std::runtime_error("CUDAMaster::start: " + std::string(cudaGetErrorString(err)));
 		}
 
 		void CUDAMaster::stop()
 		{
-
 		}
 
 		int CUDAMaster::workerCount() const noexcept

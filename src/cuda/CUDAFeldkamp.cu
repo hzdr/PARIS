@@ -6,8 +6,9 @@
  *
  *      This class is the concrete backprojection implementation for the Stage class. Implementation file.
  */
-#
+
 #include <stdexcept>
+#include <string>
 
 #include "../image/Image.h"
 #include "../master_worker/Master.h"
@@ -22,18 +23,8 @@ namespace ddafa
 		{
 			int device_count;
 			cudaError_t err = cudaGetDeviceCount(&device_count);
-
-			switch(err)
-			{
-				case cudaSuccess:
-					break;
-
-				case cudaErrorNoDevice:
-					throw std::runtime_error("CUDAFeldkamp: No CUDA devices found.");
-
-				case cudaErrorInsufficientDriver:
-					throw std::runtime_error("CUDAFeldkamp: Insufficient driver.");
-			}
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDAFeldkamp::CUDAFeldkamp: " + std::string(cudaGetErrorString(err)));
 
 			for(int i = 0; i < device_count; ++i)
 				masters_.emplace_back(i);

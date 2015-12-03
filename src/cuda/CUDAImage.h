@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
 #ifndef __CUDACC__
 #include <cuda_runtime.h>
@@ -35,15 +36,8 @@ namespace ddafa
 				{
 					void *ptr;
 					cudaError_t err = cudaMalloc(&ptr, size);
-					switch(err)
-					{
-						case cudaErrorMemoryAllocation:
-							throw std::runtime_error("CUDAImage: Error while allocating memory");
-
-						case cudaSuccess:
-						default:
-							break;
-					}
+					if(err != cudaSuccess)
+						throw std::runtime_error("CUDAImage::allocate: " + std::string(cudaGetErrorString(err)));
 
 					return std::unique_ptr<Data, deleter_type>(static_cast<Data*>(ptr));
 				}
@@ -51,21 +45,8 @@ namespace ddafa
 				void copy(const Data* src, Data* dest, std::size_t size)
 				{
 					cudaError_t err = cudaMemcpy(dest, src, size, cudaMemcpyDeviceToDevice);
-					switch(err)
-					{
-						case cudaErrorInvalidValue:
-							throw std::runtime_error("CUDAImage: Invalid value");
-
-						case cudaErrorInvalidDevicePointer:
-							throw std::runtime_error("CUDAImage: Invalid device value");
-
-						case cudaErrorInvalidMemcpyDirection:
-							throw std::runtime_error("CUDAImage: Invalid memcpy direction");
-
-						case cudaSuccess:
-						default:
-							break;
-					}
+					if(err != cudaSuccess)
+						throw std::runtime_error("CUDAImage::copy: " + std::string(cudaGetErrorString(err)));
 				}
 
 				void setDevice(int device_id)

@@ -8,6 +8,7 @@
  */
 
 #include <stdexcept>
+#include <string>
 
 #include "CUDADeleter.h"
 
@@ -18,18 +19,8 @@ namespace ddafa
 		void CUDADeleter::operator()(void *p)
 		{
 			cudaError_t err = cudaFree(p);
-			switch(err)
-			{
-				case cudaErrorInvalidDevicePointer:
-					throw std::runtime_error("CUDADeleter: Invalid device pointer");
-
-				case cudaErrorInitializationError:
-					throw std::runtime_error("CUDADeleter: Initialization error");
-
-				case cudaSuccess:
-				default:
-					break;
-			}
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDADeleter::operator(): " + std::string(cudaGetErrorString(err)));
 		}
 	}
 }

@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -22,18 +23,8 @@ namespace ddafa
 		CUDAToStdImage::CUDAToStdImage()
 		{
 			cudaError_t err = cudaGetDeviceCount(&devices_);
-
-			switch(err)
-			{
-				case cudaSuccess:
-					break;
-
-				case cudaErrorNoDevice:
-					throw std::runtime_error("CUDAToStdImage: No CUDA devices found.");
-
-				case cudaErrorInsufficientDriver:
-					throw std::runtime_error("CUDAToStdImage: Insufficient driver.");
-			}
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDAToStdImage::CUDAToStdImage: " + std::string(cudaGetErrorString(err)));
 		}
 
 		CUDAToStdImage::~CUDAToStdImage()
@@ -71,21 +62,8 @@ namespace ddafa
 			std::size_t size = img.width() * img.height() * sizeof(float);
 
 			cudaError_t err = cudaMemcpy(host_buffer.get(), img.data(), size, cudaMemcpyDeviceToHost);
-			switch(err)
-			{
-				case cudaErrorInvalidValue:
-					throw std::runtime_error("CUDAToStdImage: Invalid value");
-
-				case cudaErrorInvalidDevicePointer:
-					throw std::runtime_error("CUDAToStdImage: Invalid device pointer");
-
-				case cudaErrorInvalidMemcpyDirection:
-					throw std::runtime_error("CUDAToStdImage: Invalid memcpy direction");
-
-				case cudaSuccess:
-					default:
-					break;
-			}
+			if(err != cudaSuccess)
+				throw std::runtime_error("CUDAToStdImage::processor: " + std::string(cudaGetErrorString(err)));
 
 			results_.push(output_type(img.width(), img.height(), std::move(host_buffer)));
 		}

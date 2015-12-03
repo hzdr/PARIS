@@ -57,7 +57,7 @@ namespace ddafa
 		{
 			cudaError_t err = cudaGetDeviceCount(&devices_);
 			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
+				throw std::runtime_error("CUDAWeighting::CUDAWeighting: " + std::string(cudaGetErrorString(err)));
 		}
 
 		CUDAWeighting::~CUDAWeighting()
@@ -84,7 +84,7 @@ namespace ddafa
 				cudaError_t err = cudaMalloc(&dev_buffer, size);
 
 				if(err != cudaSuccess)
-					throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
+					throw std::runtime_error("CUDAWeighting::process: " + std::string(cudaGetErrorString(err)));
 
 				std::cout << "CUDAWeighting: Image dimensions are " << img.width()
 						<< "x" << img.height() << std::endl;
@@ -92,7 +92,7 @@ namespace ddafa
 
 				err = cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice);
 				if(err != cudaSuccess)
-					throw std::runtime_error("CUDAWeighting: " + std::string(cudaGetErrorString(err)));
+					throw std::runtime_error("CUDAWeighting::process " + std::string(cudaGetErrorString(err)));
 
 				// execute kernel
 				processor_threads.emplace_back(&CUDAWeighting::processor, this, dev_buffer, size,
