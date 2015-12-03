@@ -67,6 +67,10 @@ int main(int argc, char** argv)
 		pipeline.connect(converter, sink);
 
 		pipeline.run(source, weighting, converter, sink);
+
+		/*pipeline.connect(source, sink);
+		pipeline.run(source, sink);*/
+
 		pipeline.wait();
 	}
 	catch(const std::runtime_error& err)

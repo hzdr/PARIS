@@ -36,9 +36,7 @@ namespace ddafa
 			if((j >= width) || (i >= height))
 				return;
 
-			int idx = i + j * width; // current pixel
-			if(idx >= width * height)
-				return;
+			int idx = j + i * width; // current pixel
 
 			// detector coordinates
 			float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
