@@ -11,9 +11,6 @@
 #ifndef STAGE_H_
 #define STAGE_H_
 
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
 #include <thread>
 #include <utility>
 
@@ -63,9 +60,6 @@ namespace ddafa
 						else
 						{
 							// received poisonous pill, time to die
-#ifdef DDAFA_DEBUG
-							std::cout << "Stage: Poisonous pill arrived at push(), cleaning up" << std::endl;
-#endif
 							Implementation::process(std::move(img));
 							break;
 						}
@@ -81,9 +75,6 @@ namespace ddafa
 							this->output(std::move(result));
 						else
 						{
-#ifdef DDAFA_DEBUG
-							std::cout << "Stage: Poisonous pill arrived at take(), cleaning up" << std::endl;
-#endif
 							this->output(std::move(result));
 							break;
 						}

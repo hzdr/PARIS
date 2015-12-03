@@ -50,7 +50,7 @@ namespace ddafa
 						else
 						{
 #ifdef DDAFA_DEBUG
-							std::cout << "SinkStage: Poisonous pill arrived, terminating pipeline." << std::endl;
+							std::cout << "SinkStage: Poisonous pill arrived, terminating." << std::endl;
 #endif
 							break; // poisonous pill
 						}
