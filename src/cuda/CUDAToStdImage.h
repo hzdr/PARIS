@@ -37,9 +37,11 @@ namespace ddafa
 
 			private:
 				void processor(input_type&& img);
+				void finish();
 
 			private:
 				ddafa::common::Queue<output_type> results_;
+				std::vector<std::thread> processor_threads_;
 				int devices_;
 
 		};

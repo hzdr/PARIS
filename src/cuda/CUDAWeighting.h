@@ -12,6 +12,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <thread>
+#include <vector>
 
 #include "../common/Geometry.h"
 #include "../common/Queue.h"
@@ -40,6 +42,7 @@ namespace ddafa
 
 			private:
 				void processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height);
+				void finish();
 
 			private:
 				ddafa::common::Geometry geo_;
@@ -48,6 +51,7 @@ namespace ddafa
 				float v_min_;
 				float d_dist_;
 				int devices_;
+				std::vector<std::thread> processor_threads_;
 		};
 	}
 }

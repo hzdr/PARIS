@@ -9,12 +9,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#ifdef DDAFA_DEBUG
 #include <iostream>
+#endif
 #include <stdexcept>
 #include <string>
-#include <thread>
 #include <utility>
-#include <vector>
 
 #include "CUDACommon.h"
 #include "CUDADeleter.h"
@@ -69,14 +69,15 @@ namespace ddafa
 			if(!img.valid())
 			{
 				// received poisonous pill, time to die
-				results_.push(output_type());
+				finish();
 				return;
 			}
 
-			std::vector<std::thread> processor_threads;
 			for(int i = 0; i < devices_; ++i)
 			{
+#ifdef DDAFA_DEBUG
 				std::cout << "CUDAWeighting: Copying to device #" << i << std::endl;
+#endif
 				// copy image to device
 				cudaSetDevice(i);
 				float* dev_buffer;
@@ -86,21 +87,20 @@ namespace ddafa
 				if(err != cudaSuccess)
 					throw std::runtime_error("CUDAWeighting::process: " + std::string(cudaGetErrorString(err)));
 
+#ifdef DDAFA_DEBUG
 				std::cout << "CUDAWeighting: Image dimensions are " << img.width()
 						<< "x" << img.height() << std::endl;
 				std::cout << "Size on device: " << size << " bytes" << std::endl;
+#endif
 
 				err = cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice);
 				if(err != cudaSuccess)
 					throw std::runtime_error("CUDAWeighting::process " + std::string(cudaGetErrorString(err)));
 
 				// execute kernel
-				processor_threads.emplace_back(&CUDAWeighting::processor, this, dev_buffer, size,
+				processor_threads_.emplace_back(&CUDAWeighting::processor, this, dev_buffer, size,
 												img.width(), img.height());
 			}
-
-			for(auto&& t : processor_threads)
-				t.join();
 		}
 
 		CUDAWeighting::output_type CUDAWeighting::wait()
@@ -112,7 +112,9 @@ namespace ddafa
 		{
 			int device;
 			cudaGetDevice(&device);
+#ifdef DDAFA_DEBUG
 			std::cout << "CUDAWeighting: processing on device #" << device << std::endl;
+#endif
 
 			launch(size, weight, buffer, width, height, h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
@@ -121,6 +123,17 @@ namespace ddafa
 			result.setDevice(device);
 
 			results_.push(std::move(result));
+		}
+
+		void CUDAWeighting::finish()
+		{
+#ifdef DDAFA_DEBUG
+			std::cout << "CUDAWeighting: Received poisonous pill, called finish()" << std::endl;
+#endif
+			for(auto&& t : processor_threads_)
+				t.join();
+
+			results_.push(output_type());
 		}
 	}
 }

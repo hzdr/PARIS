@@ -8,11 +8,13 @@
  */
 
 #include <cstddef>
+#ifdef DDAFA_DEBUG
+#include <iostream>
+#endif
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <vector>
 
 #include "CUDAToStdImage.h"
 
@@ -35,20 +37,16 @@ namespace ddafa
 		{
 			if(!img.valid())
 			{
-				results_.push(output_type());
+				finish();
 				return;
 			}
 
-			std::vector<std::thread> processor_threads;
 			for(int i = 0; i < devices_; ++i)
 			{
 				cudaSetDevice(i);
 				if(img.device() == i)
-					processor_threads.emplace_back(&CUDAToStdImage::processor, this, std::move(img));
+					processor_threads_.emplace_back(&CUDAToStdImage::processor, this, std::move(img));
 			}
-
-			for(auto&& t : processor_threads)
-				t.join();
 		}
 
 		CUDAToStdImage::output_type CUDAToStdImage::wait()
@@ -66,6 +64,17 @@ namespace ddafa
 				throw std::runtime_error("CUDAToStdImage::processor: " + std::string(cudaGetErrorString(err)));
 
 			results_.push(output_type(img.width(), img.height(), std::move(host_buffer)));
+		}
+
+		void CUDAToStdImage::finish()
+		{
+#ifdef DDAFA_DEBUG
+			std::cout << "CUDAToStdImage: Received poisonous pill, called finish()" << std::endl;
+#endif
+			for(auto&& t : processor_threads_)
+				t.join();
+
+			results_.push(output_type());
 		}
 	}
 }
