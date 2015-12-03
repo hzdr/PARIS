@@ -116,10 +116,8 @@ namespace ddafa
 
 			launch(size, weight, buffer, width, height, h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+
 			output_type result(width, height, std::unique_ptr<float, CUDADeleter>(buffer));
-
-
-
 			result.setDevice(device);
 
 			results_.push(std::move(result));
