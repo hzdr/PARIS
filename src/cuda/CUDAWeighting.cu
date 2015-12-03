@@ -33,27 +33,28 @@ namespace ddafa
 			int j = blockIdx.x * blockDim.x + threadIdx.x; // row index
 			int i = blockIdx.y * blockDim.y + threadIdx.y; // column index
 
-			if((j >= width) || (i >= height))
-				return;
+			if((j < width) && (i < height))
+			{
+				int idx = j + i * width; // current pixel
 
-			int idx = j + i * width; // current pixel
+				// detector coordinates
+				float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
+				float v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
 
-			// detector coordinates
-			float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
-			float v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
+				// calculate weight
+				float w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
-			// calculate weight
-			float w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
-
-			// apply
-			img[idx] = img[idx] * w_ij;
+				// apply
+				img[idx] = img[idx] * w_ij;
+			}
+			__syncthreads();
 		}
 
 		CUDAWeighting::CUDAWeighting(ddafa::common::Geometry&& geo)
 		: geo_(geo)
 		, h_min_{-geo.det_offset_horiz - ((geo.det_pixels_row * geo.det_pixel_size_horiz) / 2)}
 		, v_min_{-geo.det_offset_vert - ((geo.det_pixel_column * geo.det_pixel_size_vert) / 2)}
-		, d_dist_{geo.dist_det - geo.dist_src}
+		, d_dist_{307.5} //FIXME: Remove fixed value
 		{
 			cudaError_t err = cudaGetDeviceCount(&devices_);
 			if(err != cudaSuccess)
@@ -110,13 +111,14 @@ namespace ddafa
 
 		void CUDAWeighting::processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height)
 		{
+
 			int device;
 			cudaGetDevice(&device);
 #ifdef DDAFA_DEBUG
 			std::cout << "CUDAWeighting: processing on device #" << device << std::endl;
 #endif
 
-			launch(size, weight, buffer, width, height, h_min_, v_min_, d_dist_,
+			launch2D(width, height, weight, buffer, width, height, h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 
 			output_type result(width, height, std::unique_ptr<float, CUDADeleter>(buffer));
