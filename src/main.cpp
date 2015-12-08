@@ -15,6 +15,7 @@
 #include "pipeline/SourceStage.h"
 #include "pipeline/Stage.h"
 
+#include "cuda/CUDAFilter.h"
 #include "cuda/CUDAToStdImage.h"
 #include "cuda/CUDAWeighting.h"
 
@@ -26,7 +27,7 @@ ddafa::common::Geometry createGeometry()
 	geo.det_pixel_column = 401;
 	geo.det_pixel_size_horiz = 0.2f;
 	geo.det_pixel_size_vert = 0.2f;
-	geo.det_offset_horiz = 4.6f;
+	geo.det_offset_horiz = 4.6f * geo.det_pixel_size_horiz; // 4.6 pixel, nicht mm
 	geo.det_offset_vert = 0.0f;
 
 	geo.dist_src = 200;
@@ -51,6 +52,7 @@ int main(int argc, char** argv)
 	using source_stage = ddafa::pipeline::SourceStage<his_handler>;
 	using sink_stage = ddafa::pipeline::SinkStage<tiff_handler>;
 	using weighting_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAWeighting, ddafa::common::Geometry>;
+	using filter_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAFilter, ddafa::common::Geometry>;
 	using converter_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAToStdImage>;
 
 	try
@@ -59,14 +61,16 @@ int main(int argc, char** argv)
 
 		auto source = pipeline.create<source_stage>("path");
 		auto weighting = pipeline.create<weighting_stage>(createGeometry());
+		auto filter = pipeline.create<filter_stage>(createGeometry());
 		auto converter = pipeline.create<converter_stage>();
 		auto sink = pipeline.create<sink_stage>("path");
 
 		pipeline.connect(source, weighting);
-		pipeline.connect(weighting, converter);
+		pipeline.connect(weighting, filter);
+		pipeline.connect(filter, converter);
 		pipeline.connect(converter, sink);
 
-		pipeline.run(source, weighting, converter, sink);
+		pipeline.run(source, weighting, filter, converter, sink);
 
 		/*pipeline.connect(source, sink);
 		pipeline.run(source, sink);*/

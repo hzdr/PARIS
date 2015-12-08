@@ -20,13 +20,14 @@
 #include "CUDADeleter.h"
 #include "CUDAWeighting.h"
 
+#include "../common/Geometry.h"
 #include "../image/Image.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		__global__ void weight(float* img, unsigned width, unsigned height,
+		__global__ void weight(float* img, unsigned int width, unsigned int height,
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
 		{
@@ -56,9 +57,7 @@ namespace ddafa
 		, v_min_{-geo.det_offset_vert - ((geo.det_pixel_column * geo.det_pixel_size_vert) / 2)}
 		, d_dist_{307.5} //FIXME: Remove fixed value
 		{
-			cudaError_t err = cudaGetDeviceCount(&devices_);
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAWeighting::CUDAWeighting: " + std::string(cudaGetErrorString(err)));
+			assertCuda(cudaGetDeviceCount(&devices_));
 		}
 
 		CUDAWeighting::~CUDAWeighting()
@@ -80,13 +79,10 @@ namespace ddafa
 				std::cout << "CUDAWeighting: Copying to device #" << i << std::endl;
 #endif
 				// copy image to device
-				cudaSetDevice(i);
+				assertCuda(cudaSetDevice(i));
 				float* dev_buffer;
 				std::size_t size = img.width() * img.height() * sizeof(float);
-				cudaError_t err = cudaMalloc(&dev_buffer, size);
-
-				if(err != cudaSuccess)
-					throw std::runtime_error("CUDAWeighting::process: " + std::string(cudaGetErrorString(err)));
+				assertCuda(cudaMalloc(&dev_buffer, size));
 
 #ifdef DDAFA_DEBUG
 				std::cout << "CUDAWeighting: Image dimensions are " << img.width()
@@ -94,13 +90,11 @@ namespace ddafa
 				std::cout << "Size on device: " << size << " bytes" << std::endl;
 #endif
 
-				err = cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice);
-				if(err != cudaSuccess)
-					throw std::runtime_error("CUDAWeighting::process " + std::string(cudaGetErrorString(err)));
+				assertCuda(cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice));
 
 				// execute kernel
 				processor_threads_.emplace_back(&CUDAWeighting::processor, this, dev_buffer, size,
-												img.width(), img.height());
+												img.width(), img.height(), i);
 			}
 		}
 
@@ -109,11 +103,9 @@ namespace ddafa
 			return results_.take();
 		}
 
-		void CUDAWeighting::processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height)
+		void CUDAWeighting::processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height, int device)
 		{
-
-			int device;
-			cudaGetDevice(&device);
+			assertCuda(cudaSetDevice(device));
 #ifdef DDAFA_DEBUG
 			std::cout << "CUDAWeighting: processing on device #" << device << std::endl;
 #endif
@@ -134,6 +126,10 @@ namespace ddafa
 #endif
 			for(auto&& t : processor_threads_)
 				t.join();
+
+#ifdef DDAFA_DEBUG
+			std::cout << "CUDAWeighting: All threads joined." << std::endl;
+#endif
 
 			results_.push(output_type());
 		}

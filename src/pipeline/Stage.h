@@ -80,7 +80,6 @@ namespace ddafa
 						}
 					}
 				}
-
 		};
 	}
 }

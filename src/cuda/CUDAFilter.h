@@ -10,12 +10,17 @@
 #ifndef CUDAFILTER_H_
 #define CUDAFILTER_H_
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <thread>
 #include <vector>
 
+#include "../common/Geometry.h"
 #include "../common/Queue.h"
 #include "../image/Image.h"
 
+#include "CUDADeleter.h"
 #include "CUDAImage.h"
 
 namespace ddafa
@@ -29,7 +34,7 @@ namespace ddafa
 				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
 
 			public:
-				CUDAFilter();
+				CUDAFilter(ddafa::common::Geometry&& geo);
 				void process(input_type&& img);
 				output_type wait();
 
@@ -37,13 +42,16 @@ namespace ddafa
 				~CUDAFilter();
 
 			private:
-				void processor();
+				void filterProcessor(float* buffer, float tau, int device);
+				void processor(input_type&& img, int device);
 				void finish();
 
 			private:
 				ddafa::common::Queue<output_type> results_;
 				std::vector<std::thread> processor_threads_;
 				int devices_;
+				std::size_t filter_length_;
+				std::vector<std::unique_ptr<float[], CUDADeleter>> rs_;
 		};
 	}
 }

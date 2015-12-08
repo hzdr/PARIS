@@ -41,7 +41,7 @@ namespace ddafa
 				~CUDAWeighting();
 
 			private:
-				void processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height);
+				void processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height, int device);
 				void finish();
 
 			private:

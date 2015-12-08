@@ -36,7 +36,7 @@ namespace ddafa
 				~CUDAToStdImage();
 
 			private:
-				void processor(input_type&& img);
+				void processor(input_type&& img, int device);
 				void finish();
 
 			private:
