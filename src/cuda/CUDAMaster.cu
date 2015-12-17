@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "CUDAAssert.h"
 #include "CUDAMaster.h"
 
 namespace ddafa
@@ -21,10 +22,7 @@ namespace ddafa
 		: device_{device_num}, number_of_workers_{1}
 		{
 			cudaDeviceProp properties;
-			cudaError_t err = cudaGetDeviceProperties(&properties, device_);
-
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAMaster::CUDAMaster: " + std::string(cudaGetErrorString(err)));
+			assertCuda(cudaGetDeviceProperties(&properties, device_));
 
 			if(properties.concurrentKernels == 0)
 				std::cout << "CUDAMaster: WARNING: Device #" << device_ << " does not support concurrent kernels."
@@ -109,9 +107,7 @@ namespace ddafa
 
 		void CUDAMaster::start()
 		{
-			cudaError_t err = cudaSetDevice(device_); // bind device to current thread
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAMaster::start: " + std::string(cudaGetErrorString(err)));
+			assertCuda(cudaSetDevice(device_)); // bind device to current thread
 		}
 
 		void CUDAMaster::stop()

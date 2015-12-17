@@ -13,6 +13,7 @@
 #include "../image/Image.h"
 #include "../master_worker/Master.h"
 
+#include "CUDAAssert.h"
 #include "CUDAFeldkamp.h"
 
 namespace ddafa
@@ -22,9 +23,7 @@ namespace ddafa
 		CUDAFeldkamp::CUDAFeldkamp()
 		{
 			int device_count;
-			cudaError_t err = cudaGetDeviceCount(&device_count);
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAFeldkamp::CUDAFeldkamp: " + std::string(cudaGetErrorString(err)));
+			assertCuda(cudaGetDeviceCount(&device_count));
 
 			for(int i = 0; i < device_count; ++i)
 				masters_.emplace_back(i);

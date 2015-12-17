@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 
+#include "CUDAAssert.h"
 #include "CUDADeleter.h"
 
 namespace ddafa
@@ -18,9 +19,8 @@ namespace ddafa
 	{
 		void CUDADeleter::operator()(void *p)
 		{
-			cudaError_t err = cudaFree(p);
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDADeleter::operator(): " + std::string(cudaGetErrorString(err)));
+			if(p != nullptr)
+				assertCuda(cudaFree(p));
 		}
 	}
 }

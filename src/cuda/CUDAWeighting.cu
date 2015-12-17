@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "CUDAAssert.h"
 #include "CUDACommon.h"
 #include "CUDADeleter.h"
 #include "CUDAWeighting.h"
@@ -126,10 +127,6 @@ namespace ddafa
 #endif
 			for(auto&& t : processor_threads_)
 				t.join();
-
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAWeighting: All threads joined." << std::endl;
-#endif
 
 			results_.push(output_type());
 		}

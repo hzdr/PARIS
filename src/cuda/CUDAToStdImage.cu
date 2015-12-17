@@ -16,7 +16,7 @@
 #include <string>
 #include <thread>
 
-#include "CUDACommon.h"
+#include "CUDAAssert.h"
 #include "CUDAToStdImage.h"
 
 namespace ddafa
@@ -25,9 +25,7 @@ namespace ddafa
 	{
 		CUDAToStdImage::CUDAToStdImage()
 		{
-			cudaError_t err = cudaGetDeviceCount(&devices_);
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDAToStdImage::CUDAToStdImage: " + std::string(cudaGetErrorString(err)));
+			assertCuda(cudaGetDeviceCount(&devices_));
 		}
 
 		CUDAToStdImage::~CUDAToStdImage()
@@ -56,11 +54,11 @@ namespace ddafa
 
 		void CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device)
 		{
-			cudaAssert(cudaSetDevice(device));
+			assertCuda(cudaSetDevice(device));
 			std::unique_ptr<float> host_buffer(new float[img.width() * img.height()]);
 			std::size_t size = img.width() * img.height() * sizeof(float);
 
-			cudaAssert(cudaMemcpy(host_buffer.get(), img.data(), size, cudaMemcpyDeviceToHost));
+			assertCuda(cudaMemcpy(host_buffer.get(), img.data(), size, cudaMemcpyDeviceToHost));
 
 			results_.push(output_type(img.width(), img.height(), std::move(host_buffer)));
 		}

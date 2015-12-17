@@ -14,49 +14,14 @@
 #ifdef DDAFA_DEBUG
 #include <iostream>
 #endif
+#include <utility>
 
-#include <cufft.h>
+#include "CUDAAssert.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		inline void assertCuda(cudaError_t err)
-		{
-			if(err != cudaSuccess)
-				throw std::runtime_error("CUDA assertion failed: " + std::string(cudaGetErrorString(err)));
-		}
-
-		inline std::string getCufftErrorString(cufftResult result)
-		{
-			switch(result)
-			{
-				case CUFFT_SUCCESS: return "The cuFFT operation was successful";
-				case CUFFT_INVALID_PLAN: return "cuFFT was passed an invalid plan handle";
-				case CUFFT_ALLOC_FAILED: return "cuFFT failed to allocate GPU or CPU memory";
-				case CUFFT_INVALID_TYPE: return "Invalid type";
-				case CUFFT_INVALID_VALUE: return "Invalid pointer or parameter";
-				case CUFFT_INTERNAL_ERROR: return "Driver or internal cuFFT library error";
-				case CUFFT_EXEC_FAILED: return "Failed to execute an FFT on the GPU";
-				case CUFFT_SETUP_FAILED: return "The cuFFT library failed to initialize";
-				case CUFFT_INVALID_SIZE: return "User specified an invalid transform size";
-				case CUFFT_UNALIGNED_DATA: return "Unaligned data";
-				case CUFFT_INCOMPLETE_PARAMETER_LIST: return "Missing parameters in call";
-				case CUFFT_INVALID_DEVICE: return "Execution of plan was on different GPU than plan creation";
-				case CUFFT_PARSE_ERROR: return "Internal plan database error";
-				case CUFFT_NO_WORKSPACE: return "No workspace has been provided prior to plan execution";
-				case CUFFT_NOT_IMPLEMENTED: return "This feature is not implemented for your cuFFT version";
-				case CUFFT_LICENSE_ERROR: return "NVIDIA license required. The file was either not found, is out of data, or otherwise invalid";
-				default: return "Unknown error";
-			}
-		}
-
-		inline void assertCufft(cufftResult result)
-		{
-			if(result != CUFFT_SUCCESS)
-				throw std::runtime_error("cuFFT assertion failed: " + getCufftErrorString(result));
-		}
-
 		template <typename... Args>
 		void launch1D(std::size_t input_size, void(*kernel)(Args...), Args... args)
 		{
@@ -68,7 +33,7 @@ namespace ddafa
 			// calculate de facto occupation based on input size
 			int grid_size = (input_size + block_size - 1) / block_size;
 
-			kernel<<<grid_size, block_size>>>(args...);
+			kernel<<<grid_size, block_size>>>(std::forward<Args>(args)...);
 			assertCuda(cudaPeekAtLastError());
 			assertCuda(cudaStreamSynchronize(0));
 
@@ -117,7 +82,6 @@ namespace ddafa
 			std::cout << "Grid size: " << grid_size.x << "x" << grid_size.y << std::endl;
 			std::cout << "Block size: " << block_size.x << "x" << block_size.y << std::endl;
 #endif
-
 			kernel<<<grid_size, block_size>>>(args...);
 			assertCuda(cudaPeekAtLastError());
 			assertCuda(cudaStreamSynchronize(0));

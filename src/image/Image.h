@@ -53,7 +53,8 @@ namespace ddafa
 				 * Copy constructor
 				 */
 				Image(const Image& other)
-				: width_{other.width_}, height_{other.height_}, valid_{other.valid_}
+				: Implementation(other)
+				, width_{other.width_}, height_{other.height_}, valid_{other.valid_}
 				{
 					if(other.data_ == nullptr)
 						data_ = nullptr;
@@ -81,6 +82,8 @@ namespace ddafa
 						data_ = Implementation::allocate(width_ * height_);
 						Implementation::copy(rhs.data_.get(), data_.get(), (width_ * height_));
 					}
+
+					Implementation::operator=(rhs);
 					return *this;
 				}
 
@@ -88,7 +91,9 @@ namespace ddafa
 				 * Move constructor
 				 */
 				Image(Image&& other) noexcept
-				: width_{other.width_}, height_{other.height_}, data_{std::move(other.data_)}, valid_{other.valid_}
+				: Implementation(std::move(other))
+				, width_{other.width_}, height_{other.height_}, data_{std::move(other.data_)}
+				, valid_{other.valid_}
 				{
 					other.valid_ = false; // invalid after we moved its data
 				}
@@ -102,6 +107,8 @@ namespace ddafa
 					height_ = rhs.height_;
 					data_ = std::move(rhs.data_);
 					valid_ = rhs.valid_;
+
+					Implementation::operator=(std::move(rhs));
 
 					rhs.valid_ = false;
 					return *this;

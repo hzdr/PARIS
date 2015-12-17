@@ -10,15 +10,13 @@
 #ifndef CUDAIMAGE_H_
 #define CUDAIMAGE_H_
 
+#include <climits>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <string>
 
-#ifndef __CUDACC__
-#include <cuda_runtime.h>
-#endif
-
+#include "CUDAAssert.h"
 #include "CUDADeleter.h"
 
 namespace ddafa
@@ -32,21 +30,43 @@ namespace ddafa
 				using deleter_type = CUDADeleter;
 
 			public:
+				CUDAImage()
+				: device_{INT_MIN}
+				{
+				}
+
+				CUDAImage(const CUDAImage& other)
+				: device_{other.device_}
+				{
+				}
+
+				CUDAImage& operator=(const CUDAImage& rhs)
+				{
+					device_ = rhs.device_;
+					return *this;
+				}
+
+				CUDAImage(CUDAImage&& other)
+				: device_{other.device_}
+				{
+				}
+
+				CUDAImage& operator=(CUDAImage&& rhs)
+				{
+					device_ = rhs.device_;
+					return *this;
+				}
+
 				std::unique_ptr<Data, deleter_type> allocate(std::size_t size)
 				{
 					void *ptr;
-					cudaError_t err = cudaMalloc(&ptr, size);
-					if(err != cudaSuccess)
-						throw std::runtime_error("CUDAImage::allocate: " + std::string(cudaGetErrorString(err)));
-
+					assertCuda(cudaMalloc(&ptr, size));
 					return std::unique_ptr<Data, deleter_type>(static_cast<Data*>(ptr));
 				}
 
 				void copy(const Data* src, Data* dest, std::size_t size)
 				{
-					cudaError_t err = cudaMemcpy(dest, src, size, cudaMemcpyDeviceToDevice);
-					if(err != cudaSuccess)
-						throw std::runtime_error("CUDAImage::copy: " + std::string(cudaGetErrorString(err)));
+					assertCuda(cudaMemcpy(dest, src, size, cudaMemcpyDeviceToDevice));
 				}
 
 				void setDevice(int device_id)
@@ -57,6 +77,11 @@ namespace ddafa
 				int device()
 				{
 					return device_;
+				}
+
+			protected:
+				~CUDAImage()
+				{
 				}
 
 			private:
