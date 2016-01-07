@@ -10,6 +10,8 @@
 #ifndef CUDAASSERT_H_
 #define CUDAASSERT_H_
 
+#include <stdexcept>
+
 #ifndef __CUDACC__
 #include <cuda_runtime.h>
 #endif
@@ -51,7 +53,7 @@ namespace ddafa
 				case CUFFT_INVALID_DEVICE: return "Execution of plan was on different GPU than plan creation";
 				case CUFFT_PARSE_ERROR: return "Internal plan database error";
 				case CUFFT_NO_WORKSPACE: return "No workspace has been provided prior to plan execution";
-				case CUFFT_NOT_IMPLEMENTED: return "This feature is not implemented for your cuFFT version";
+				case CUFFT_NOT_IMPLEMENTED: return "This feature was not implemented for your cuFFT version";
 				case CUFFT_LICENSE_ERROR: return "NVIDIA license required. The file was either not found, is out of data, or otherwise invalid";
 				default: return "Unknown error";
 			}

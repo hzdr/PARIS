@@ -33,9 +33,10 @@ namespace ddafa
 {
 	namespace impl
 	{
-		__global__ void createFilter(float* r, std::size_t size, float tau)
+		__global__ void createFilter(float* __restrict__ r, const int* __restrict__ j,
+				std::size_t size, float tau)
 		{
-			int j = blockIdx.x * blockDim.x + threadIdx.x;
+			int x = getX();
 
 			/*
 			 * r(j) with j = [ -(filter_length - 2)/2, ..., 0, ..., filter_length/2 ]
@@ -44,27 +45,29 @@ namespace ddafa
 			 * 			1/8 * 1/tau^2						j = 0
 			 * r(j) = {	0									j even
 			 * 			-(1 / (2 * j^2 * pi^2 * tau^2))		j odd
+			 *
 			 */
-			if(j < size)
+			if(x < size)
 			{
-				if(j == (size / 2) - 1) // is j = 0?
-					r[j] = (1.f / 8.f) * (1.f / powf(tau, 2)); // j = 0
+				if(j[x] == (size / 2) - 1) // is j = 0?
+					r[x] = (1.f / 8.f) * (1.f / powf(tau, 2)); // j = 0
 				else // j != 0
 				{
-					if(j % 2 == 0) // is j even?
-						r[j] = 0.f; // j is even
+					if(j[x] % 2 == 0) // is j even?
+						r[x] = 0.f; // j is even
 					else // j is odd
-						r[j] = (-1.f / (2.f * powf(j, 2) * powf(M_PI, 2) * powf(tau, 2)));
+						r[x] = (-1.f / (2.f * powf(j[x], 2) * powf(M_PI, 2) * powf(tau, 2)));
+
 				}
 			}
 			__syncthreads();
 		}
 
-		__global__ void convertProjection(float* output, const float* input,
+		__global__ void convertProjection(float* __restrict__ output, const float* __restrict__ input,
 				unsigned int width, unsigned int height, std::size_t filter_length)
 		{
-			int x = blockIdx.x * blockDim.x + threadIdx.x;
-			int y = blockIdx.y * blockDim.y + threadIdx.y;
+			int x = getX();
+			int y = getY();
 
 			if((x < filter_length) && (y < height))
 			{
@@ -73,28 +76,31 @@ namespace ddafa
 					output[idx] = input[idx];
 				else
 					output[idx] = 0.0f;
+
+				if(isnan(output[idx]))
+					printf("Outputting NaN in convertProjection()\n");
 			}
 			__syncthreads();
 		}
 
-		__global__ void convertFiltered(float* output, const float* input,
+		__global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
 				unsigned int width, unsigned int height, std::size_t filter_length)
 		{
-			int x = blockIdx.x * blockDim.x + threadIdx.x;
-			int y = blockIdx.y * blockDim.y + threadIdx.y;
+			int x = getX();
+			int y = getY();
 
 			if((x < width) && (y < height)) {
 				int idx = x + y * width;
-				output[idx] = input[idx] / (filter_length * height);
+				output[idx] = input[idx] / filter_length;
 			}
 			__syncthreads();
 		}
 
-		__global__ void applyFilter(cufftComplex* data, const cufftComplex* filter,
+		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
 				std::size_t filter_length, std::uint32_t data_height)
 		{
-			int x = blockIdx.x * blockDim.x + threadIdx.x;
-			int y = blockIdx.y * blockDim.y + threadIdx.y;
+			int x = getX();
+			int y = getY();
 
 			if((x < filter_length) && (y < data_height))
 			{
@@ -131,7 +137,19 @@ namespace ddafa
 				float *dev_buffer;
 				assertCuda(cudaMalloc(&dev_buffer, filter_length_ * sizeof(float)));
 
-				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, dev_buffer, tau, i);
+				std::int32_t j_host_buffer[filter_length_];
+				auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
+				std::int32_t j = ((filter_length_signed -2) / 2);
+				for(std::size_t k = 0; k <= (filter_length_); ++k, ++j)
+					j_host_buffer[k] = j;
+
+				std::int32_t *j_dev_buffer;
+				assertCuda(cudaMalloc(&j_dev_buffer, filter_length_ * sizeof(std::int32_t)));
+				assertCuda(cudaMemcpy(j_dev_buffer, j_host_buffer, filter_length_ * sizeof(std::int32_t),
+										cudaMemcpyHostToDevice));
+
+				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, dev_buffer,
+						j_dev_buffer, tau, i);
 			}
 
 			for(auto&& t : filter_creation_threads)
@@ -163,14 +181,16 @@ namespace ddafa
 			return results_.take();
 		}
 
-		void CUDAFilter::filterProcessor(float *buffer, float tau, int device)
+		void CUDAFilter::filterProcessor(float* buffer, std::int32_t* j_buffer, float tau, int device)
 		{
 			assertCuda(cudaSetDevice(device));
 #ifdef DDAFA_DEBUG
 			std::cout << "CUDAFilter: Creating filter on device #" << device << std::endl;
 #endif
-			launch1D(filter_length_, createFilter, buffer, filter_length_, tau);
+			launch1D(filter_length_, createFilter, buffer, static_cast<const std::int32_t*>(j_buffer),
+					filter_length_, tau);
 			rs_[device].reset(buffer);
+			assertCuda(cudaFree(j_buffer));
 		}
 
 		void CUDAFilter::processor(CUDAFilter::input_type&& img, int device)
@@ -226,21 +246,18 @@ namespace ddafa
 
 			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
 			assertCufft(cufftExecR2C(projectionPlan, static_cast<cufftReal*>(converted.get()), transformed.get()));
-			assertCuda(cudaStreamSynchronize(0));
-
 			assertCufft(cufftExecR2C(filterPlan, static_cast<cufftReal*>(rs_[device].get()), filter.get()));
-			assertCuda(cudaStreamSynchronize(0));
 
 			// multiply the results
 			launch2D(transformed_filter_length, img.height(), applyFilter, transformed.get(),
-					(const cufftComplex*) filter.get(), transformed_filter_length, img.height());
+				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height());
 
 			// run inverse FFT -- note that C2R transformations are implicitly inverse
 			assertCufft(cufftExecC2R(inversePlan, transformed.get(), static_cast<cufftReal*>(converted.get())));
-			assertCuda(cudaStreamSynchronize(0));
 
 			// convert back to image dimensions and normalize
-			launch2D(filter_length_, img.height(), convertFiltered, img.data(), (const float*) converted.get(), img.width(), img.height(), filter_length_);
+			launch2D(filter_length_, img.height(), convertFiltered, img.data(),
+					static_cast<const float*>(converted.get()),	img.width(), img.height(), filter_length_);
 
 			// clean up
 			assertCufft(cufftDestroy(inversePlan));

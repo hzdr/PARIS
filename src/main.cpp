@@ -72,9 +72,6 @@ int main(int argc, char** argv)
 
 		pipeline.run(source, weighting, filter, converter, sink);
 
-		/*pipeline.connect(source, sink);
-		pipeline.run(source, sink);*/
-
 		pipeline.wait();
 	}
 	catch(const std::runtime_error& err)

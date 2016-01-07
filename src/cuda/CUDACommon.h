@@ -22,6 +22,9 @@ namespace ddafa
 {
 	namespace impl
 	{
+		__device__ unsigned int getX();
+		__device__ unsigned int getY();
+
 		template <typename... Args>
 		void launch1D(std::size_t input_size, void(*kernel)(Args...), Args... args)
 		{

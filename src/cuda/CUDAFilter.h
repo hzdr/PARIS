@@ -42,7 +42,7 @@ namespace ddafa
 				~CUDAFilter();
 
 			private:
-				void filterProcessor(float* buffer, float tau, int device);
+				void filterProcessor(float* buffer, std::int32_t* j_buffer, float tau, int device);
 				void processor(input_type&& img, int device);
 				void finish();
 
