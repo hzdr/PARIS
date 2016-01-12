@@ -18,7 +18,7 @@
 
 #include "CUDAAssert.h"
 #include "CUDACommon.h"
-#include "CUDADeleter.h"
+#include "CUDADeviceDeleter.h"
 #include "CUDAWeighting.h"
 
 #include "../common/Geometry.h"
@@ -32,8 +32,8 @@ namespace ddafa
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
 		{
-			int j = blockIdx.x * blockDim.x + threadIdx.x; // row index
-			int i = blockIdx.y * blockDim.y + threadIdx.y; // column index
+			int j = getX(); // row index
+			int i = getY(); // column index
 
 			if((j < width) && (i < height))
 			{
@@ -113,8 +113,9 @@ namespace ddafa
 
 			launch2D(width, height, weight, buffer, width, height, h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+			assertCuda(cudaStreamSynchronize(0));
 
-			output_type result(width, height, std::unique_ptr<float, CUDADeleter>(buffer));
+			output_type result(width, height, std::unique_ptr<float, CUDADeviceDeleter>(buffer));
 			result.setDevice(device);
 
 			results_.push(std::move(result));

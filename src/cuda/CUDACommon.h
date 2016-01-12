@@ -38,7 +38,6 @@ namespace ddafa
 
 			kernel<<<grid_size, block_size>>>(std::forward<Args>(args)...);
 			assertCuda(cudaPeekAtLastError());
-			assertCuda(cudaStreamSynchronize(0));
 
 #ifdef DDAFA_DEBUG
 			// calculate theoretical occupancy
@@ -87,7 +86,6 @@ namespace ddafa
 #endif
 			kernel<<<grid_size, block_size>>>(args...);
 			assertCuda(cudaPeekAtLastError());
-			assertCuda(cudaStreamSynchronize(0));
 		}
 	}
 }

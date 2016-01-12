@@ -17,17 +17,17 @@
 #include <string>
 
 #include "CUDAAssert.h"
-#include "CUDADeleter.h"
+#include "CUDADeviceDeleter.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		template <typename Data>
+		template <typename Data, class Deleter = CUDADeviceDeleter>
 		class CUDAImage
 		{
 			public:
-				using deleter_type = CUDADeleter;
+				using deleter_type = Deleter;
 
 			public:
 				CUDAImage()

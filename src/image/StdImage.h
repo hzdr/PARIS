@@ -19,11 +19,12 @@ namespace ddafa
 {
 	namespace impl
 	{
-		template <typename Data>
+		template <typename Data, class Allocator = std::allocator<Data>>
 		class StdImage
 		{
 			public:
 				using deleter_type = std::default_delete<Data>;
+				using allocator_type = Allocator;
 
 			public:
 				std::unique_ptr<Data> allocate(std::size_t size)
