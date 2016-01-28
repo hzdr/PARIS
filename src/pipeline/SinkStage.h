@@ -19,7 +19,6 @@
 #include <utility>
 
 #include "../image/Image.h"
-#include "../image/StdImage.h"
 
 #include "InputSide.h"
 
@@ -27,16 +26,16 @@ namespace ddafa
 {
 	namespace pipeline
 	{
-		template <class ImageHandler>
-		class SinkStage : public InputSide<ddafa::image::Image<float, ddafa::impl::StdImage<float>>>
-						, public ImageHandler
+		template <class ImageSaver>
+		class SinkStage : public ImageSaver
+						, public InputSide<ddafa::image::Image<float, typename ImageSaver::image_type>>
 		{
 			public:
-				using input_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
+				using input_type = ddafa::image::Image<float, typename ImageSaver::image_type>;
 
 			public:
-				SinkStage(std::string path)
-				: InputSide<input_type>(), ImageHandler(), target_dir_{path}
+				SinkStage(const std::string& path, const std::string& prefix)
+				: InputSide<input_type>(), ImageSaver(), target_dir_{path}, prefix_{prefix}
 				{
 				}
 
@@ -46,7 +45,7 @@ namespace ddafa
 					{
 						input_type img = this->input_queue_.take();
 						if(img.valid())
-							ImageHandler::template saveImage<float>(std::move(img), "/home/ufxray/Schreibtisch/Feldkamp/out.tif");
+							ImageSaver::template saveImage<float>(std::move(img), "/media/HDD1/Feldkamp/out.tif");
 						else
 						{
 #ifdef DDAFA_DEBUG
@@ -60,6 +59,7 @@ namespace ddafa
 
 			private:
 				std::string target_dir_;
+				std::string prefix_;
 		};
 	}
 }

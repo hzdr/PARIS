@@ -17,7 +17,6 @@
 #include <utility>
 
 #include "../image/Image.h"
-#include "../image/StdImage.h"
 
 #include "OutputSide.h"
 
@@ -25,23 +24,23 @@ namespace ddafa
 {
 	namespace pipeline
 	{
-		template <class ImageHandler>
-		class SourceStage : public OutputSide<ddafa::image::Image<float, ddafa::impl::StdImage<float>>>
-						  , public ImageHandler
+		template <class ImageLoader>
+		class SourceStage : public ImageLoader
+						  , public OutputSide<ddafa::image::Image<float, typename ImageLoader::image_type>>
 		{
 			public:
-				using output_type = ddafa::image::Image<float, ddafa::impl::StdImage<float>>;
+				using output_type = ddafa::image::Image<float, typename ImageLoader::image_type>;
 
 			public:
 				SourceStage(std::string path)
-				: OutputSide<output_type>(), ImageHandler(), dir_string_{path}
+				: OutputSide<output_type>(), ImageLoader(), dir_string_{path}
 				{
 				}
 
 				void run()
 				{
 					// TODO: read target directory
-					output_type img = ImageHandler::template loadImage<float>("/home/ufxray/Schreibtisch/Feldkamp/Schaum/out-0033.his");
+					output_type img = ImageLoader::template loadImage<float>("/media/HDD1/Feldkamp/Schaum/out-0033.his");
 					if(img.valid())
 						this->output(std::move(img));
 					else

@@ -34,7 +34,7 @@ namespace ddafa
 				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
 
 			public:
-				CUDAFilter(ddafa::common::Geometry&& geo);
+				CUDAFilter(const ddafa::common::Geometry& geo);
 				void process(input_type&& img);
 				output_type wait();
 
@@ -42,7 +42,7 @@ namespace ddafa
 				~CUDAFilter();
 
 			private:
-				void filterProcessor(float* buffer, std::int32_t* j_buffer, int device);
+				void filterProcessor(int);
 				void processor(input_type&& img, int device);
 				void finish();
 

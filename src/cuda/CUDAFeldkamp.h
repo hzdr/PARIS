@@ -18,6 +18,8 @@
 
 #include "../master_worker/Master.h"
 
+#include "CUDAHostAllocator.h"
+#include "CUDAHostDeleter.h"
 #include "CUDAImage.h"
 #include "CUDAMaster.h"
 
@@ -30,7 +32,7 @@ namespace ddafa
 			private:
 				using master_type = ddafa::master_worker::Master<CUDAMaster, int&>;
 				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_type = ddafa::image::Image<float, StdImage<float>>;
+				using output_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
 
 			public:
 				CUDAFeldkamp();

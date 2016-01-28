@@ -10,15 +10,13 @@
 #ifndef CUDADEVICEDELETER_H_
 #define CUDADEVICEDELETER_H_
 
-#include "CUDADeviceAllocator.h"
-
 namespace ddafa
 {
 	namespace impl
 	{
-		struct CUDADeviceDeleter : private CUDADeviceAllocator
+		struct CUDADeviceDeleter
 		{
-			void operator()(void *p);
+			void operator()(void*);
 		};
 	}
 }

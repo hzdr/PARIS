@@ -23,7 +23,7 @@ namespace ddafa
 {
 	namespace pipeline
 	{
-		template <class Implementation, class... Args>
+		template <class Implementation>
 		class Stage
 		: public InputSide<typename Implementation::input_type>
 		, public OutputSide<typename Implementation::output_type>
@@ -34,10 +34,11 @@ namespace ddafa
 				using output_type = typename Implementation::output_type;
 
 			public:
+				template <typename... Args>
 				Stage(Args&&... args)
 				: InputSide<input_type>()
 				, OutputSide<output_type>()
-				, Implementation(std::forward<Args&&>(args)...)
+				, Implementation(std::forward<Args>(args)...)
 				{
 				}
 

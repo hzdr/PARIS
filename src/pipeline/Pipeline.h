@@ -35,7 +35,7 @@ namespace ddafa
 				template <class PipelineStage, typename... Args>
 				std::shared_ptr<PipelineStage> create(Args&&... args)
 				{
-					return std::make_shared<PipelineStage>(std::forward<Args&&>(args)...);
+					return std::make_shared<PipelineStage>(std::forward<Args>(args)...);
 				}
 
 				template <class Stage>

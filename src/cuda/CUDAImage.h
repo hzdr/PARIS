@@ -17,17 +17,19 @@
 #include <string>
 
 #include "CUDAAssert.h"
+#include "CUDADeviceAllocator.h"
 #include "CUDADeviceDeleter.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		template <typename Data, class Deleter = CUDADeviceDeleter>
-		class CUDAImage
+		template <typename Data, class Allocator = CUDADeviceAllocator<Data>, class Deleter = CUDADeviceDeleter>
+		class CUDAImage : public Allocator
 		{
 			public:
 				using deleter_type = Deleter;
+				using allocator_type = Allocator;
 
 			public:
 				CUDAImage()
@@ -59,9 +61,7 @@ namespace ddafa
 
 				std::unique_ptr<Data, deleter_type> allocate(std::size_t size)
 				{
-					void *ptr;
-					assertCuda(cudaMalloc(&ptr, size));
-					return std::unique_ptr<Data, deleter_type>(static_cast<Data*>(ptr));
+					return std::unique_ptr<Data, deleter_type>(Allocator::allocate(size));
 				}
 
 				void copy(const Data* src, Data* dest, std::size_t size)

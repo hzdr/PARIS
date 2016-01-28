@@ -20,6 +20,8 @@
 #include "../image/Image.h"
 #include "../image/StdImage.h"
 
+#include "CUDAHostAllocator.h"
+#include "CUDAHostDeleter.h"
 #include "CUDAImage.h"
 
 namespace ddafa
@@ -29,20 +31,21 @@ namespace ddafa
 		class CUDAWeighting
 		{
 			public:
-				using input_type = ddafa::image::Image<float, StdImage<float>>;
+				using input_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
 				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
 
 			public:
-				CUDAWeighting(ddafa::common::Geometry&& geo);
-				void process(input_type&& img);
+				CUDAWeighting(const ddafa::common::Geometry&);
+				void process(input_type&&);
 				output_type wait();
 
 			protected:
 				~CUDAWeighting();
 
 			private:
-				void processor(float* buffer, std::size_t size, std::uint32_t width, std::uint32_t height, int device);
+				void processor(const input_type&, int);
 				void finish();
+				output_type copyToDevice(const input_type&);
 
 			private:
 				ddafa::common::Geometry geo_;

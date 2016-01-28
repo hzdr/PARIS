@@ -7,6 +7,7 @@
  *      A custom deleter for CUDA host memory that is managed by smart pointers. Implementation file.
  */
 
+#include "CUDAAssert.h"
 #include "CUDAHostDeleter.h"
 
 namespace ddafa
@@ -15,7 +16,7 @@ namespace ddafa
 	{
 		void CUDAHostDeleter::operator()(void *p)
 		{
-			deallocate(p);
+			assertCuda(cudaFreeHost(p));
 		}
 	}
 }

@@ -17,8 +17,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "../../Image.h"
-#include "../../StdImage.h"
+#include "../Image.h"
+#include "../StdImage.h"
 
 #include "HISHeader.h"
 
@@ -26,8 +26,14 @@ namespace ddafa
 {
 	namespace impl
 	{
-		class HIS
+		template <typename T, class Allocator = std::allocator<T>, class Deleter = std::default_delete<T>>
+		class HIS : public Allocator
 		{
+			public:
+				using allocator_type = Allocator;
+				using deleter_type = Deleter;
+				using image_type = StdImage<T, allocator_type, deleter_type>;
+
 			private:
 				enum Datatype
 				{
@@ -40,8 +46,9 @@ namespace ddafa
 				};
 
 			public:
-				template <typename T>
-				ddafa::image::Image<T, StdImage<T>> loadImage(std::string path)
+				template <typename U>
+				typename std::enable_if<std::is_same<T, U>::value, ddafa::image::Image<U, image_type>>::type
+				loadImage(std::string path)
 				{
 					// read file header
 					HISHeader header;
@@ -88,7 +95,7 @@ namespace ddafa
 						throw std::runtime_error("HIS loader: No support for more than one projection per file");
 
 					// read image data
-					std::unique_ptr<T, typename StdImage<T>::deleter_type> img_buffer(new T[width * height]);
+					std::unique_ptr<U, deleter_type> img_buffer(Allocator::allocate(width * height));
 
 					switch(header.type_of_numbers)
 					{
@@ -96,7 +103,7 @@ namespace ddafa
 						{
 							std::unique_ptr<std::uint8_t> buffer(new std::uint8_t[width * height]);
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint8_t));
-							readBuffer<T, std::uint8_t>(img_buffer.get(), buffer.get(), width, height);
+							readBuffer<U, std::uint8_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
 						}
 
@@ -104,7 +111,7 @@ namespace ddafa
 						{
 							std::unique_ptr<std::uint16_t> buffer(new std::uint16_t[width * height]);
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint16_t));
-							readBuffer<T, std::uint16_t>(img_buffer.get(), buffer.get(), width, height);
+							readBuffer<U, std::uint16_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
 						}
 
@@ -112,7 +119,7 @@ namespace ddafa
 						{
 							std::unique_ptr<std::uint32_t> buffer(new std::uint32_t[width * height]);
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint32_t));
-							readBuffer<T, std::uint32_t>(img_buffer.get(), buffer.get(), width, height);
+							readBuffer<U, std::uint32_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
 						}
 
@@ -120,7 +127,7 @@ namespace ddafa
 						{
 							std::unique_ptr<double> buffer(new double[width * height]);
 							readEntry(file, buffer.get(), width * height * sizeof(double));
-							readBuffer<T, double>(img_buffer.get(), buffer.get(), width, height);
+							readBuffer<U, double>(img_buffer.get(), buffer.get(), width, height);
 							break;
 						}
 
@@ -128,7 +135,7 @@ namespace ddafa
 						{
 							std::unique_ptr<float> buffer(new float[width * height]);
 							readEntry(file, buffer.get(), width * height * sizeof(float));
-							readBuffer<T, float>(img_buffer.get(), buffer.get(), width, height);
+							readBuffer<U, float>(img_buffer.get(), buffer.get(), width, height);
 							break;
 						}
 
@@ -137,21 +144,21 @@ namespace ddafa
 														+ path);
 					}
 
-					return ddafa::image::Image<T, StdImage<T>>(width, height, std::move(img_buffer));
+					return ddafa::image::Image<U, image_type>(width, height, std::move(img_buffer));
 				}
 
 			protected:
 				~HIS() {}
 
 			private:
-				template <typename T>
-				inline void readEntry(std::ifstream& file, T& entry)
+				template <typename U>
+				inline void readEntry(std::ifstream& file, U& entry)
 				{
 					file.read(reinterpret_cast<char *>(&entry), sizeof(entry));
 				}
 
-				template <typename T>
-				inline void readEntry(std::ifstream& file, T* entry, std::size_t size)
+				template <typename U>
+				inline void readEntry(std::ifstream& file, U* entry, std::size_t size)
 				{
 					file.read(reinterpret_cast<char *>(entry), size);
 				}

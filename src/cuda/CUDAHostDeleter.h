@@ -16,7 +16,7 @@ namespace ddafa
 {
 	namespace impl
 	{
-		class CUDAHostDeleter : private CUDAHostAllocator
+		struct CUDAHostDeleter
 		{
 			void operator()(void *p);
 		};

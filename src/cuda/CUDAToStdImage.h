@@ -13,6 +13,8 @@
 #include <thread>
 #include <vector>
 
+#include "CUDAHostAllocator.h"
+#include "CUDAHostDeleter.h"
 #include "CUDAImage.h"
 #include "../common/Queue.h"
 #include "../image/Image.h"
@@ -22,11 +24,11 @@ namespace ddafa
 {
 	namespace impl
 	{
-		class CUDAToStdImage
+		class CUDAToStdImage : public CUDAHostAllocator<float>
 		{
 			public:
 				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_type = ddafa::image::Image<float, StdImage<float>>;
+				using output_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
 
 				CUDAToStdImage();
 				void process(input_type&& img);

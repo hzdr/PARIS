@@ -10,16 +10,16 @@
 #include <stdexcept>
 #include <string>
 
+#include "CUDAAssert.h"
 #include "CUDADeviceDeleter.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		void CUDADeviceDeleter::operator()(void *p)
+		void CUDADeviceDeleter::operator()(void* p)
 		{
-				deallocate(p);
+				assertCuda(cudaFree(p));
 		}
 	}
 }
-

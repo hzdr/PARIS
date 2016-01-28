@@ -127,9 +127,9 @@ namespace ddafa
 			__syncthreads();
 		}
 
-		CUDAFilter::CUDAFilter(ddafa::common::Geometry&& geo)
+		CUDAFilter::CUDAFilter(const ddafa::common::Geometry& geo)
 		: filter_length_{static_cast<decltype(filter_length_)>(
-				2 * std::pow(2, std::ceil(std::log2(float(geo.det_pixel_column))))
+				2 * std::pow(2, std::ceil(std::log2(float(geo.det_pixels_column))))
 				)}
 		, tau_{geo.det_pixel_size_horiz}
 		{
@@ -140,24 +140,7 @@ namespace ddafa
 			std::vector<std::thread> filter_creation_threads;
 			for(int i = 0; i < devices_; ++i)
 			{
-				assertCuda(cudaSetDevice(i));
-				float *dev_buffer;
-				assertCuda(cudaMalloc(&dev_buffer, filter_length_ * sizeof(float)));
-
-				std::int32_t j_host_buffer[filter_length_];
-				auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
-				std::int32_t j = -((filter_length_signed - 2) / 2);
-				for(std::size_t k = 0; k <= (filter_length_); ++k, ++j)
-					j_host_buffer[k] = j;
-
-
-				std::int32_t *j_dev_buffer;
-				assertCuda(cudaMalloc(&j_dev_buffer, filter_length_ * sizeof(std::int32_t)));
-				assertCuda(cudaMemcpy(j_dev_buffer, j_host_buffer, filter_length_ * sizeof(std::int32_t),
-										cudaMemcpyHostToDevice));
-
-				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, dev_buffer,
-						j_dev_buffer, i);
+				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, i);
 			}
 
 			for(auto&& t : filter_creation_threads)
@@ -189,16 +172,34 @@ namespace ddafa
 			return results_.take();
 		}
 
-		void CUDAFilter::filterProcessor(float* buffer, std::int32_t* j_buffer, int device)
+		void CUDAFilter::filterProcessor(int device)
 		{
 			assertCuda(cudaSetDevice(device));
 #ifdef DDAFA_DEBUG
 			std::cout << "CUDAFilter: Creating filter on device #" << device << std::endl;
 #endif
-			launch1D(filter_length_, createFilter, buffer, static_cast<const std::int32_t*>(j_buffer),
+			float* buffer_raw;
+			assertCuda(cudaMalloc(&buffer_raw, filter_length_ * sizeof(float)));
+			std::unique_ptr<float[], CUDADeviceDeleter> buffer(buffer_raw);
+
+			// see documentation in kernel createFilter for explanation
+			std::int32_t j_host_buffer[filter_length_];
+			auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
+			std::int32_t j = -((filter_length_signed - 2) / 2);
+			for(std::size_t k = 0; k <= (filter_length_); ++k, ++j)
+				j_host_buffer[k] = j;
+
+			std::int32_t* j_dev_buffer_raw;
+			assertCuda(cudaMalloc(&j_dev_buffer_raw, filter_length_ * sizeof(std::int32_t)));
+			std::unique_ptr<std::int32_t[], CUDADeviceDeleter> j_dev_buffer(j_dev_buffer_raw);
+			assertCuda(cudaMemcpy(j_dev_buffer.get(), j_host_buffer, filter_length_ * sizeof(std::int32_t),
+									cudaMemcpyHostToDevice));
+
+			launch1D(filter_length_,
+					createFilter,
+					buffer.get(), static_cast<const std::int32_t*>(j_dev_buffer.get()),
 					filter_length_, tau_);
-			rs_[device].reset(buffer);
-			assertCuda(cudaFree(j_buffer));
+			rs_[device] = std::move(buffer);
 		}
 
 		void CUDAFilter::processor(CUDAFilter::input_type&& img, int device)

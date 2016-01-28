@@ -17,8 +17,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "StdImage.h"
-
 namespace ddafa
 {
 	namespace image
