@@ -17,19 +17,21 @@
 #include <string>
 
 #include "CUDAAssert.h"
-#include "CUDADeviceAllocator.h"
+#include "CUDADeviceAllocator2D.h"
 #include "CUDADeviceDeleter.h"
 
 namespace ddafa
 {
 	namespace impl
 	{
-		template <typename Data, class Allocator = CUDADeviceAllocator<Data>, class Deleter = CUDADeviceDeleter>
+		template <typename Data, class Allocator = CUDADeviceAllocator2D<Data>, class Deleter = CUDADeviceDeleter>
 		class CUDAImage : public Allocator
 		{
 			public:
 				using deleter_type = Deleter;
 				using allocator_type = Allocator;
+				using size_type = std::size_t;
+				using value_type = Data;
 
 			public:
 				CUDAImage()
@@ -59,14 +61,17 @@ namespace ddafa
 					return *this;
 				}
 
-				std::unique_ptr<Data, deleter_type> allocate(std::size_t size)
+				std::unique_ptr<value_type, deleter_type> allocate(size_type width, size_type height, size_type* pitch)
 				{
-					return std::unique_ptr<Data, deleter_type>(Allocator::allocate(size));
+					return std::unique_ptr<value_type, deleter_type>(Allocator::allocate(width, height, pitch));
 				}
 
-				void copy(const Data* src, Data* dest, std::size_t size)
+				void copy(const value_type* src, value_type* dest, size_type width, size_type height, size_type pitch)
 				{
-					assertCuda(cudaMemcpy(dest, src, size, cudaMemcpyDeviceToDevice));
+					assertCuda(cudaMemcpy2D(dest, pitch,
+											src, pitch,
+											width, height,
+											cudaMemcpyDeviceToDevice));
 				}
 
 				void setDevice(int device_id)

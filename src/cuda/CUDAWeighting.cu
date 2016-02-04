@@ -28,16 +28,17 @@ namespace ddafa
 {
 	namespace impl
 	{
-		__global__ void weight(float* img, unsigned int width, unsigned int height,
+		__global__ void weight(float* img,
+								std::size_t width, std::size_t height, std::size_t pitch,
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
 		{
-			int j = getX(); // row index
-			int i = getY(); // column index
+			int j = getX(); // column index
+			int i = getY(); // row index
 
 			if((j < width) && (i < height))
 			{
-				int idx = j + i * width; // current pixel
+				float* row = reinterpret_cast<float*>(reinterpret_cast<char*>(img) + i * pitch);
 
 				// detector coordinates
 				float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
@@ -47,7 +48,7 @@ namespace ddafa
 				float w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
 				// apply
-				img[idx] = img[idx] * w_ij;
+				row[j] = row[j] * w_ij;
 			}
 			__syncthreads();
 		}
@@ -96,7 +97,7 @@ namespace ddafa
 			result.setDevice(device);
 			launch2D(result.width(), result.height(),
 					weight,
-					result.data(), result.width(), result.height(), h_min_, v_min_, d_dist_,
+					result.data(), result.width(), result.height(), result.pitch(), h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 			assertCuda(cudaStreamSynchronize(0));
 			results_.push(std::move(result));
@@ -116,17 +117,17 @@ namespace ddafa
 		CUDAWeighting::output_type CUDAWeighting::copyToDevice(const CUDAWeighting::input_type& img)
 		{
 			float* dev_buffer;
-			std::size_t size = img.width() * img.height() * sizeof(float);
-			assertCuda(cudaMalloc(&dev_buffer, size));
+			std::size_t pitch;
+			std::size_t host_pitch = img.width() * sizeof(float);
+			assertCuda(cudaMallocPitch(&dev_buffer, &pitch, img.width() * sizeof(float), img.height()));
+			assertCuda(cudaMemcpy2D(dev_buffer, pitch,
+									img.data(), host_pitch,
+									img.width() * sizeof(float), img.height(),
+									cudaMemcpyHostToDevice));
+			output_type ret(img.width(), img.height(), std::unique_ptr<float, CUDADeviceDeleter>(dev_buffer));
+			ret.pitch(pitch);
 
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAWeighting: Image dimensions are " << img.width()
-					<< "x" << img.height() << std::endl;
-			std::cout << "Size on device: " << size << " bytes" << std::endl;
-#endif
-			assertCuda(cudaMemcpy(dev_buffer, img.data(), size, cudaMemcpyHostToDevice));
-
-			return output_type(img.width(), img.height(), std::unique_ptr<float, CUDADeviceDeleter>(dev_buffer));
+			return ret;
 		}
 	}
 }

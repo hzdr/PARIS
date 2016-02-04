@@ -95,7 +95,8 @@ namespace ddafa
 						throw std::runtime_error("HIS loader: No support for more than one projection per file");
 
 					// read image data
-					std::unique_ptr<U, deleter_type> img_buffer(Allocator::allocate(width * height));
+					std::size_t pitch;
+					std::unique_ptr<U, deleter_type> img_buffer(Allocator::allocate(width, height, &pitch));
 
 					switch(header.type_of_numbers)
 					{

@@ -103,6 +103,7 @@ int main(int argc, char** argv)
 		pipeline.connect(converter, sink);
 
 		pipeline.run(source, weighting, filter, converter, sink);
+		// pipeline.run(source, weighting, converter, sink);
 
 		pipeline.wait();
 	}

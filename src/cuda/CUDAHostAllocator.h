@@ -35,10 +35,11 @@ namespace ddafa
 				using difference_type = std::ptrdiff_t;
 
 			public:
-				pointer allocate(size_type n)
+				pointer allocate(size_type width, size_type height, size_type* pitch)
 				{
 					void* p;
-					assertCuda(cudaMallocHost(&p, n * sizeof(value_type)));
+					assertCuda(cudaMallocHost(&p, width * height * sizeof(value_type)));
+					*pitch = width * sizeof(value_type);
 					return static_cast<pointer>(p);
 				}
 

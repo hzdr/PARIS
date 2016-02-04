@@ -12,6 +12,7 @@
 #define IMAGE_H_
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -25,11 +26,16 @@ namespace ddafa
 		class Image : public Implementation
 		{
 			public:
+				using value_type = Data;
+				using deleter_type = typename Implementation::deleter_type;
+				using size_type = std::size_t;
+
+			public:
 				/*
 				 * Constructs an empty image.
 				 */
 				Image() noexcept
-				: width_{0}, height_{0}, data_{nullptr}, valid_{false}
+				: width_{0}, height_{0}, pitch_{0}, data_{nullptr}, valid_{false}
 				{
 				}
 
@@ -39,12 +45,12 @@ namespace ddafa
 				 * Image object will own the pointer that gets passed to it. In every case valid_ will be set to
 				 * true after construction.
 				 */
-				Image(std::uint32_t img_width, std::uint32_t img_height,
-						std::unique_ptr<Data, typename Implementation::deleter_type>&& img_data = nullptr)
+				Image(size_type img_width, size_type img_height,
+						std::unique_ptr<value_type, deleter_type>&& img_data = nullptr)
 				: width_{img_width}, height_{img_height}, data_{std::move(img_data)}, valid_{true}
 				{
 					if(data_ == nullptr)
-							data_ = Implementation::allocate(width_ * height_);
+							data_ = Implementation::allocate(width_, height_, &pitch_);
 				}
 
 				/*
@@ -58,8 +64,8 @@ namespace ddafa
 						data_ = nullptr;
 					else
 					{
-						data_ = Implementation::allocate(width_ * height_);
-						Implementation::copy(other.data_.get(), data_.get(), (width_ * height_));
+						data_ = Implementation::allocate(width_, height_, &pitch_);
+						Implementation::copy(other.data_.get(), data_.get(), width_, height_, pitch_);
 					}
 				}
 
@@ -77,8 +83,8 @@ namespace ddafa
 					else
 					{
 						data_.reset(nullptr); // delete old content if any
-						data_ = Implementation::allocate(width_ * height_);
-						Implementation::copy(rhs.data_.get(), data_.get(), (width_ * height_));
+						data_ = Implementation::allocate(width_, height_, &pitch_);
+						Implementation::copy(rhs.data_.get(), data_.get(), width_, height_, pitch_);
 					}
 
 					Implementation::operator=(rhs);
@@ -90,7 +96,7 @@ namespace ddafa
 				 */
 				Image(Image&& other) noexcept
 				: Implementation(std::move(other))
-				, width_{other.width_}, height_{other.height_}, data_{std::move(other.data_)}
+				, width_{other.width_}, height_{other.height_}, pitch_{other.pitch_}, data_{std::move(other.data_)}
 				, valid_{other.valid_}
 				{
 					other.valid_ = false; // invalid after we moved its data
@@ -103,6 +109,7 @@ namespace ddafa
 				{
 					width_ = rhs.width_;
 					height_ = rhs.height_;
+					pitch_ = rhs.pitch_;
 					data_ = std::move(rhs.data_);
 					valid_ = rhs.valid_;
 
@@ -115,7 +122,7 @@ namespace ddafa
 				/*
 				 * returns the image's width
 				 */
-				std::uint32_t width() const noexcept
+				size_type width() const noexcept
 				{
 					return width_;
 				}
@@ -123,7 +130,7 @@ namespace ddafa
 				/*
 				 * returns the image's height
 				 */
-				std::uint32_t height() const noexcept
+				size_type height() const noexcept
 				{
 					return height_;
 				}
@@ -132,7 +139,7 @@ namespace ddafa
 				 * returns a non-owning pointer to the data. Do not delete this pointer as the Image object will take
 				 * care of the memory.
 				 */
-				Data* data() const noexcept
+				value_type* data() const noexcept
 				{
 					return data_.get();
 				}
@@ -145,10 +152,21 @@ namespace ddafa
 					return valid_;
 				}
 
+				void pitch(size_type new_pitch) noexcept
+				{
+					pitch_ = new_pitch;
+				}
+
+				size_type pitch() const noexcept
+				{
+					return pitch_;
+				}
+
 			private:
-				std::uint32_t width_;
-				std::uint32_t height_;
-				std::unique_ptr<Data, typename Implementation::deleter_type> data_;
+				size_type width_;
+				size_type height_;
+				size_type pitch_;
+				std::unique_ptr<value_type, deleter_type> data_;
 				bool valid_;
 		};
 	}

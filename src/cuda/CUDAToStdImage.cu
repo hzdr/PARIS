@@ -55,13 +55,18 @@ namespace ddafa
 		void CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device)
 		{
 			assertCuda(cudaSetDevice(device));
+			std::size_t hostPitch;
 			std::unique_ptr<float, typename output_type::deleter_type>
-				host_buffer(CUDAHostAllocator<float>::allocate(img.width() * img.height()));
-			std::size_t size = img.width() * img.height() * sizeof(float);
+				host_buffer(CUDAHostAllocator<float>::allocate(img.width(), img.height(), &hostPitch));
 
-			assertCuda(cudaMemcpy(host_buffer.get(), img.data(), size, cudaMemcpyDeviceToHost));
+			assertCuda(cudaMemcpy2D(host_buffer.get(), hostPitch,
+									img.data(), img.pitch(),
+									img.width() * sizeof(float), img.height(),
+									cudaMemcpyDeviceToHost));
 
-			results_.push(output_type(img.width(), img.height(), std::move(host_buffer)));
+			output_type result(img.width(), img.height(), std::move(host_buffer));
+			result.pitch(hostPitch);
+			results_.push(std::move(result));
 		}
 
 		void CUDAToStdImage::finish()

@@ -64,31 +64,41 @@ namespace ddafa
 		}
 
 		__global__ void convertProjection(float* __restrict__ output, const float* __restrict__ input,
-				unsigned int width, unsigned int height, std::size_t filter_length)
+				std::size_t width, std::size_t height, std::size_t input_pitch, std::size_t output_pitch,
+				std::size_t filter_length)
 		{
 			int x = getX();
 			int y = getY();
 
 			if((x < filter_length) && (y < height))
 			{
-				int idx = x + y * width;
+				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+				/*int idx = x + y * width;
 				if(x < width)
 					output[idx] = input[idx];
 				else
-					output[idx] = 0.0f;
+					output[idx] = 0.0f;*/
+				if(x < width)
+					output_row[x] = input_row[x];
+				else
+					output_row[x] = 0.0f;
 			}
 			__syncthreads();
 		}
 
 		__global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
-				unsigned int width, unsigned int height, std::size_t filter_length)
+				std::size_t width, std::size_t height, std::size_t output_pitch, std::size_t input_pitch, std::size_t filter_length)
 		{
 			int x = getX();
 			int y = getY();
 
 			if((x < width) && (y < height)) {
-				int idx = x + y * width;
-				output[idx] = input[idx] / filter_length;
+				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+				//int idx = x + y * width;
+				//output[idx] = input[idx] / filter_length;
+				output_row[x] = input_row[x] / filter_length;
 			}
 			__syncthreads();
 		}
@@ -106,23 +116,30 @@ namespace ddafa
 		}
 
 		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
-				std::size_t filter_length, std::uint32_t data_height)
+				std::size_t filter_length, std::size_t data_height, std::size_t pitch)
 		{
 			int x = getX();
 			int y = getY();
 
 			if((x < filter_length) && (y < data_height))
 			{
-				int idx = x + y * filter_length;
+				// int idx = x + y * filter_length;
+				cufftComplex* row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
 
 				float a1, b1, k1, k2;
-				a1 = data[idx].x;
+				/*a1 = data[idx].x;
 				b1 = data[idx].y;
+				k1 = filter[x].x;
+				k2 = filter[x].y;*/
+				a1 = row[x].x;
+				b1 = row[x].y;
 				k1 = filter[x].x;
 				k2 = filter[x].y;
 
-				data[idx].x = a1 * k1;
-				data[idx].y = b1 * k2;
+				//data[idx].x = a1 * k1;
+				//data[idx].y = b1 * k2;
+				row[x].x = a1 * k1;
+				row[x].y = b1 * k2;
 			}
 			__syncthreads();
 		}
@@ -211,16 +228,18 @@ namespace ddafa
 #endif
 			// convert projection to new dimensions
 			float* converted_raw;
-			assertCuda(cudaMalloc(&converted_raw, sizeof(float) * filter_length_ * img.height()));
+			std::size_t converted_pitch;
+			assertCuda(cudaMallocPitch(&converted_raw, &converted_pitch, sizeof(float) * filter_length_, img.height()));
 			std::unique_ptr<float, CUDADeviceDeleter> converted(converted_raw);
 			launch2D(filter_length_, img.height(), convertProjection, converted.get(),
-					static_cast<const float*>(img.data()), img.width(), img.height(), filter_length_);
+					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted_pitch, filter_length_);
 
 			// allocate memory
 			std::size_t transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
 			cufftComplex* transformed_raw;
-			assertCuda(cudaMalloc(&transformed_raw,
-					sizeof(cufftComplex) * transformed_filter_length * img.height()));
+			std::size_t transformed_pitch;
+			assertCuda(cudaMallocPitch(&transformed_raw, &transformed_pitch,
+					sizeof(cufftComplex) * transformed_filter_length, img.height()));
 			std::unique_ptr<cufftComplex, CUDADeviceDeleter> transformed(transformed_raw);
 
 			cufftComplex* filter_raw;
@@ -230,28 +249,43 @@ namespace ddafa
 
 			// set up cuFFT
 			int n_proj[] = { static_cast<int>(filter_length_) };
+			int proj_dist = static_cast<int>(converted_pitch / sizeof(float));
+			int proj_nembed[] = { proj_dist };
+
 			int n_inverse[] = { static_cast<int>(transformed_filter_length) };
+			int trans_dist = static_cast<int>(transformed_pitch / sizeof(cufftComplex));
+			int trans_nembed[] = { trans_dist };
 
 			cufftHandle projectionPlan;
-			assertCufft(cufftCreate(&projectionPlan));
-			assertCufft(cufftSetStream(projectionPlan, 0));
-			std::size_t projWorkSize;
-			assertCufft(cufftMakePlanMany(projectionPlan, 1, n_proj, n_proj, 1, filter_length_,
-										n_inverse, 1, transformed_filter_length, CUFFT_R2C,
-										img.height(), &projWorkSize));
+			assertCufft(cufftPlanMany(&projectionPlan, 	// plan
+										1, 				// rank (dimension)
+										n_proj,			// input dimension size
+										proj_nembed,	// input storage dimensions
+										1,				// distance between two successive input elements
+										proj_dist,		// distance between two input signals
+										trans_nembed,	// output storage dimensions
+										1,				// distance between two successive output elements
+										trans_dist, 	// distance between two output signals
+										CUFFT_R2C,		// transform data type
+										img.height() 	// batch size
+										));
 
 			cufftHandle filterPlan;
-			assertCufft(cufftCreate(&filterPlan));
-			assertCufft(cufftSetStream(filterPlan, 0));
-			std::size_t filterWorkSize;
-			assertCufft(cufftMakePlan1d(filterPlan, filter_length_, CUFFT_R2C, 1, &filterWorkSize));
+			assertCufft(cufftPlan1d(&filterPlan, filter_length_, CUFFT_R2C, 1));
 
 			cufftHandle inversePlan;
-			assertCufft(cufftCreate(&inversePlan));
-			assertCufft(cufftSetStream(inversePlan, 0));
-			std::size_t inverseWorkSize;
-			assertCufft(cufftMakePlanMany(inversePlan, 1, n_proj, n_inverse, 1, transformed_filter_length,
-										n_proj, 1, filter_length_, CUFFT_C2R, img.height(), &inverseWorkSize));
+			assertCufft(cufftPlanMany(&inversePlan,
+										1,
+										n_proj,
+										trans_nembed,
+										1,
+										trans_dist,
+										proj_nembed,
+										1,
+										proj_dist,
+										CUFFT_C2R,
+										img.height()
+										));
 
 			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
 			assertCufft(cufftExecR2C(projectionPlan, static_cast<cufftReal*>(converted.get()), transformed.get()));
@@ -262,21 +296,19 @@ namespace ddafa
 
 			// multiply the results
 			launch2D(transformed_filter_length, img.height(), applyFilter, transformed.get(),
-				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height());
+				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed_pitch);
 
 			// run inverse FFT -- note that C2R transformations are implicitly inverse
 			assertCufft(cufftExecC2R(inversePlan, transformed.get(), static_cast<cufftReal*>(converted.get())));
 
 			// convert back to image dimensions and normalize
 			launch2D(filter_length_, img.height(), convertFiltered, img.data(),
-					static_cast<const float*>(converted.get()),	img.width(), img.height(), filter_length_);
+					static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted_pitch, filter_length_);
 
 			// clean up
 			assertCufft(cufftDestroy(inversePlan));
 			assertCufft(cufftDestroy(filterPlan));
 			assertCufft(cufftDestroy(projectionPlan));
-
-			assertCuda(cudaStreamSynchronize(0));
 
 			results_.push(std::move(img));
 		}
