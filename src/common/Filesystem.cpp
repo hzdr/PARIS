@@ -39,7 +39,7 @@ namespace ddafa
 							ret.push_back(boost::filesystem::canonical(it->path()).string());
 					}
 					else
-						throw std::runtime_error(path + " exists, but is neither a regular file nor a directory.");
+						throw std::runtime_error(path + " exists but is neither a regular file nor a directory.");
 				}
 				else
 					throw std::runtime_error(path + " does not exist.");
@@ -58,7 +58,15 @@ namespace ddafa
 			try
 			{
 				boost::filesystem::path p(path);
-				return boost::filesystem::create_directories(p);
+				if(boost::filesystem::exists(p))
+				{
+					if(boost::filesystem::is_directory(p))
+						return true;
+					else
+						throw std::runtime_error(path + " exists but is not a directory.");
+				}
+				else
+					return boost::filesystem::create_directories(p);
 			}
 			catch(const boost::filesystem::filesystem_error& err)
 			{
