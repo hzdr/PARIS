@@ -11,6 +11,9 @@
 #include <stdexcept>
 #include <string>
 
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
+
 #include "CUDAAssert.h"
 #include "CUDAMaster.h"
 
@@ -25,10 +28,9 @@ namespace ddafa
 			assertCuda(cudaGetDeviceProperties(&properties, device_));
 
 			if(properties.concurrentKernels == 0)
-				std::cout << "CUDAMaster: WARNING: Device #" << device_ << " does not support concurrent kernels."
-							<< std::endl;
+				BOOST_LOG_TRIVIAL(warning) << "CUDAMaster: Device #" << device_ << " does not support concurrent kernels.";
 			else
-				std::cout << "CUDAMaster: Device #" << device_ << " supports concurrent kernels." << std::endl;
+				BOOST_LOG_TRIVIAL(debug) << "CUDAMaster: Device #" << device_ << " supports concurrent kernels.";
 
 			// this is ridiculous but CUDA doesn't supply us with the number of resident grids per device
 			switch(properties.major)
@@ -89,10 +91,10 @@ namespace ddafa
 														+ std::to_string(properties.minor) + ")");
 			}
 
-			std::cout << "CUDAMaster: Device #" << device_ << " supports " << number_of_workers_
-					<< " concurrent kernels." << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "CUDAMaster: Device #" << device_ << " supports " << number_of_workers_
+					<< " concurrent kernels.";
 
-			std::cout << "CUDAMaster for device #" << device_ << " constructed." << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "CUDAMaster for device #" << device_ << " constructed.";
 		}
 
 		CUDAMaster::CUDAMaster(CUDAMaster&& other)
@@ -102,7 +104,7 @@ namespace ddafa
 
 		CUDAMaster::~CUDAMaster()
 		{
-			std::cout << "CUDAMaster for device #" << device_ << " destructed." << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "CUDAMaster for device #" << device_ << " destructed.";
 		}
 
 		void CUDAMaster::start()
@@ -121,7 +123,7 @@ namespace ddafa
 
 		CUDAMaster::task_type CUDAMaster::createTask(const CUDAMaster::image_type* img_ptr)
 		{
-			std::cout << "CUDAMaster: STUB: createTask() called" << std::endl;
+			BOOST_LOG_TRIVIAL(warning) << "CUDAMaster: STUB: createTask() called";
 			return task_type(0, nullptr, nullptr);
 		}
 	}

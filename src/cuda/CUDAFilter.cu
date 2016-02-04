@@ -10,14 +10,14 @@
 #include <cmath>
 #include <cstddef>
 #include <ctgmath>
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <utility>
 #include <vector>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include <cufft.h>
 #include <cufftXt.h>
@@ -74,11 +74,7 @@ namespace ddafa
 			{
 				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
 				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
-				/*int idx = x + y * width;
-				if(x < width)
-					output[idx] = input[idx];
-				else
-					output[idx] = 0.0f;*/
+
 				if(x < width)
 					output_row[x] = input_row[x];
 				else
@@ -96,8 +92,6 @@ namespace ddafa
 			if((x < width) && (y < height)) {
 				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
 				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
-				//int idx = x + y * width;
-				//output[idx] = input[idx] / filter_length;
 				output_row[x] = input_row[x] / filter_length;
 			}
 			__syncthreads();
@@ -123,21 +117,14 @@ namespace ddafa
 
 			if((x < filter_length) && (y < data_height))
 			{
-				// int idx = x + y * filter_length;
 				cufftComplex* row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
 
 				float a1, b1, k1, k2;
-				/*a1 = data[idx].x;
-				b1 = data[idx].y;
-				k1 = filter[x].x;
-				k2 = filter[x].y;*/
 				a1 = row[x].x;
 				b1 = row[x].y;
 				k1 = filter[x].x;
 				k2 = filter[x].y;
 
-				//data[idx].x = a1 * k1;
-				//data[idx].y = b1 * k2;
 				row[x].x = a1 * k1;
 				row[x].y = b1 * k2;
 			}
@@ -192,9 +179,8 @@ namespace ddafa
 		void CUDAFilter::filterProcessor(int device)
 		{
 			assertCuda(cudaSetDevice(device));
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAFilter: Creating filter on device #" << device << std::endl;
-#endif
+			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Creating filter on device #" << device;
+
 			float* buffer_raw;
 			assertCuda(cudaMalloc(&buffer_raw, filter_length_ * sizeof(float)));
 			std::unique_ptr<float[], CUDADeviceDeleter> buffer(buffer_raw);
@@ -222,10 +208,8 @@ namespace ddafa
 		void CUDAFilter::processor(CUDAFilter::input_type&& img, int device)
 		{
 			assertCuda(cudaSetDevice(device));
+			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: processing on device #" << device;
 
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAFilter: processing on device #" << device << std::endl;
-#endif
 			// convert projection to new dimensions
 			float* converted_raw;
 			std::size_t converted_pitch;
@@ -252,7 +236,6 @@ namespace ddafa
 			int proj_dist = static_cast<int>(converted_pitch / sizeof(float));
 			int proj_nembed[] = { proj_dist };
 
-			int n_inverse[] = { static_cast<int>(transformed_filter_length) };
 			int trans_dist = static_cast<int>(transformed_pitch / sizeof(cufftComplex));
 			int trans_nembed[] = { trans_dist };
 
@@ -315,9 +298,7 @@ namespace ddafa
 
 		void CUDAFilter::finish()
 		{
-#ifdef DDAFA_DEBUG
-				std::cout << "CUDAFilter: Received poisonous pill, called finish()" << std::endl;
-#endif
+				BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Received poisonous pill, called finish()";
 
 				for(auto&& t : processor_threads_)
 					t.join();

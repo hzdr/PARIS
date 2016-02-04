@@ -6,6 +6,8 @@
 
 #include <cuda_runtime.h>
 
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/core.hpp>
 #include <boost/program_options.hpp>
 
 #include "common/Geometry.h"
@@ -27,8 +29,16 @@
 #include "cuda/CUDAToStdImage.h"
 #include "cuda/CUDAWeighting.h"
 
+void initLog()
+{
+#ifndef DDAFA_DEBUG
+	boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
+#endif
+}
+
 int main(int argc, char** argv)
 {
+	initLog();
 	using tiff_saver = ddafa::image::ImageSaver<ddafa::impl::TIFF<float, ddafa::impl::CUDAHostAllocator<float>, ddafa::impl::CUDAHostDeleter>>;
 	using his_loader = ddafa::image::ImageLoader<ddafa::impl::HIS<float, ddafa::impl::CUDAHostAllocator<float>, ddafa::impl::CUDAHostDeleter>>;
 	using source_stage = ddafa::pipeline::SourceStage<his_loader>;

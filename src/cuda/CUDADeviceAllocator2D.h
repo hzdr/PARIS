@@ -2,7 +2,7 @@
  * CUDADeviceAllocator2D.h
  *
  *  Created on: 02.02.2016
- *      Author: ufxray
+ *      Author: Jan Stephan
  */
 
 #ifndef CUDADEVICEALLOCATOR2D_H_

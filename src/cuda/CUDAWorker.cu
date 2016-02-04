@@ -7,7 +7,8 @@
  *      CUDA implementation policy for the Worker class. Implementation file.
  */
 
-#include <iostream>
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "CUDAWorker.h"
 
@@ -27,7 +28,7 @@ namespace ddafa
 
 		CUDAWorker::result_type	CUDAWorker::process(CUDAWorker::task_type&& current_task)
 		{
-			std::cout << "CUDAWorker: STUB: process() called" << std::endl;
+			BOOST_LOG_TRIVIAL(warning) << "CUDAWorker: STUB: process() called";
 			return result_type(0, nullptr, nullptr);
 		}
 	}

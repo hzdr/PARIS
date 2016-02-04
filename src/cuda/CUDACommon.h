@@ -11,10 +11,10 @@
 #define CUDACOMMON_H_
 
 #include <cstddef>
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
 #include <utility>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "CUDAAssert.h"
 
@@ -52,8 +52,8 @@ namespace ddafa
 			float occupancy = (max_active_blocks * block_size / props.warpSize) /
 								float(props.maxThreadsPerMultiProcessor / props.warpSize);
 
-			std::cout << "Launched blocks of size " << block_size << ". Theoretical occupancy: "
-					<< occupancy << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "Launched blocks of size " << block_size << ". Theoretical occupancy: "
+					<< occupancy;
 #endif
 		}
 
@@ -79,10 +79,10 @@ namespace ddafa
 			dim3 grid_size((size_x + block_size.x - 1)/block_size.x, (size_y + block_size.y - 1)/block_size.y);
 
 #ifdef DDAFA_DEBUG
-			std::cout << "Need " << blocks << " blocks" << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "Need " << blocks << " blocks";
 
-			std::cout << "Grid size: " << grid_size.x << "x" << grid_size.y << std::endl;
-			std::cout << "Block size: " << block_size.x << "x" << block_size.y << std::endl;
+			BOOST_LOG_TRIVIAL(debug) << "Grid size: " << grid_size.x << "x" << grid_size.y;
+			BOOST_LOG_TRIVIAL(debug) << "Block size: " << block_size.x << "x" << block_size.y;
 #endif
 			kernel<<<grid_size, block_size>>>(args...);
 			assertCuda(cudaPeekAtLastError());

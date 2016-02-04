@@ -11,10 +11,12 @@
 #ifndef SOURCESTAGE_H_
 #define SOURCESTAGE_H_
 
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "../image/Image.h"
 
@@ -44,12 +46,10 @@ namespace ddafa
 					if(img.valid())
 						this->output(std::move(img));
 					else
-						std::cout << "SourceStage: WARNING: Skipping invalid image" << std::endl;
+						BOOST_LOG_TRIVIAL(warning) << "SourceStage: Skipping invalid image";
 
 					// all images loaded, send poisonous pill
-#ifdef DDAFA_DEBUG
-					std::cout << "SourceStage: Loading complete, sending poisonous pill" << std::endl;
-#endif
+					BOOST_LOG_TRIVIAL(debug) << "SourceStage: Loading complete, sending poisonous pill";
 					this->output(output_type());
 				}
 

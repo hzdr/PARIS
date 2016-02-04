@@ -8,13 +8,13 @@
  */
 
 #include <cstddef>
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "CUDAAssert.h"
 #include "CUDAToStdImage.h"
@@ -71,9 +71,7 @@ namespace ddafa
 
 		void CUDAToStdImage::finish()
 		{
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAToStdImage: Received poisonous pill, called finish()" << std::endl;
-#endif
+			BOOST_LOG_TRIVIAL(debug) << "CUDAToStdImage: Received poisonous pill, called finish()";
 			for(auto&& t : processor_threads_)
 				t.join();
 

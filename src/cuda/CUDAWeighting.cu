@@ -9,12 +9,12 @@
 
 #include <cstddef>
 #include <cstdint>
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "CUDAAssert.h"
 #include "CUDACommon.h"
@@ -90,9 +90,8 @@ namespace ddafa
 		void CUDAWeighting::processor(const CUDAWeighting::input_type& img, int device)
 		{
 			assertCuda(cudaSetDevice(device));
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAWeighting: processing on device #" << device << std::endl;
-#endif
+			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
+
 			output_type result = copyToDevice(img);
 			result.setDevice(device);
 			launch2D(result.width(), result.height(),
@@ -105,9 +104,8 @@ namespace ddafa
 
 		void CUDAWeighting::finish()
 		{
-#ifdef DDAFA_DEBUG
-			std::cout << "CUDAWeighting: Received poisonous pill, called finish()" << std::endl;
-#endif
+			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: Received poisonous pill, called finish()";
+
 			for(auto&& t : processor_threads_)
 				t.join();
 

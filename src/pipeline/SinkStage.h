@@ -11,12 +11,11 @@
 #ifndef SINKSTAGE_H_
 #define SINKSTAGE_H_
 
-#ifdef DDAFA_DEBUG
-#include <iostream>
-#endif
-
 #include <string>
 #include <utility>
+
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
 
 #include "../image/Image.h"
 
@@ -48,9 +47,7 @@ namespace ddafa
 							ImageSaver::template saveImage<float>(std::move(img), "/media/HDD1/Feldkamp/out.tif");
 						else
 						{
-#ifdef DDAFA_DEBUG
-							std::cout << "SinkStage: Poisonous pill arrived, terminating." << std::endl;
-#endif
+							BOOST_LOG_TRIVIAL(debug) << "SinkStage: Poisonous pill arrived, terminating.";
 							break; // poisonous pill
 						}
 
