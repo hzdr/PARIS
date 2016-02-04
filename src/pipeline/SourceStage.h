@@ -14,10 +14,12 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
+#include "../common/Filesystem.h"
 #include "../image/Image.h"
 
 #include "OutputSide.h"
@@ -35,18 +37,21 @@ namespace ddafa
 
 			public:
 				SourceStage(std::string path)
-				: OutputSide<output_type>(), ImageLoader(), dir_string_{path}
+				: OutputSide<output_type>(), ImageLoader(), path_{path}
 				{
 				}
 
 				void run()
 				{
-					// TODO: read target directory
-					output_type img = ImageLoader::template loadImage<float>("/media/HDD1/Feldkamp/Schaum/out-0033.his");
-					if(img.valid())
-						this->output(std::move(img));
-					else
-						BOOST_LOG_TRIVIAL(warning) << "SourceStage: Skipping invalid image";
+					std::vector<std::string> paths = ddafa::common::readDirectory(path_);
+					for(auto&& path : paths)
+					{
+						output_type img = ImageLoader::template loadImage<float>(path);
+						if(img.valid())
+							this->output(std::move(img));
+						else
+							BOOST_LOG_TRIVIAL(warning) << "SourceStage: Skipping invalid file " << path;
+					}
 
 					// all images loaded, send poisonous pill
 					BOOST_LOG_TRIVIAL(debug) << "SourceStage: Loading complete, sending poisonous pill";
@@ -54,7 +59,7 @@ namespace ddafa
 				}
 
 			private:
-				std::string dir_string_;
+				std::string path_;
 		};
 	}
 }

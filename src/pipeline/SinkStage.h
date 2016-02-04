@@ -11,12 +11,14 @@
 #ifndef SINKSTAGE_H_
 #define SINKSTAGE_H_
 
+#include <cstdint>
 #include <string>
 #include <utility>
 
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
+#include "../common/Filesystem.h"
 #include "../image/Image.h"
 
 #include "InputSide.h"
@@ -34,28 +36,37 @@ namespace ddafa
 
 			public:
 				SinkStage(const std::string& path, const std::string& prefix)
-				: InputSide<input_type>(), ImageSaver(), target_dir_{path}, prefix_{prefix}
+				: InputSide<input_type>(), ImageSaver(), path_{path}, prefix_{prefix}
 				{
+					bool created = ddafa::common::createDirectory(path_);
+					if(!created)
+						BOOST_LOG_TRIVIAL(fatal) << "SinkStage: Could not create target directory at " << path;
+
+					if(path_.back() != '/')
+						path_.append("/");
 				}
 
 				void run()
 				{
+					std::int32_t counter = 0;
 					while(true)
 					{
 						input_type img = this->input_queue_.take();
 						if(img.valid())
-							ImageSaver::template saveImage<float>(std::move(img), "/media/HDD1/Feldkamp/out.tif");
+						{
+							ImageSaver::template saveImage<float>(std::move(img), path_ + prefix_ + std::to_string(counter));
+							++counter;
+						}
 						else
 						{
 							BOOST_LOG_TRIVIAL(debug) << "SinkStage: Poisonous pill arrived, terminating.";
 							break; // poisonous pill
 						}
-
 					}
 				}
 
 			private:
-				std::string target_dir_;
+				std::string path_;
 				std::string prefix_;
 		};
 	}

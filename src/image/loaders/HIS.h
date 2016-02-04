@@ -17,6 +17,9 @@
 #include <type_traits>
 #include <utility>
 
+#define BOOST_ALL_DYN_LINK
+#include <boost/log/trivial.hpp>
+
 #include "../Image.h"
 #include "../StdImage.h"
 
@@ -46,16 +49,21 @@ namespace ddafa
 				};
 
 			public:
+				// TODO: Implement support for more than one frame per file
 				template <typename U>
 				typename std::enable_if<std::is_same<T, U>::value, ddafa::image::Image<U, image_type>>::type
 				loadImage(std::string path)
 				{
+					using empty_return = ddafa::image::Image<U, image_type>;
 					// read file header
 					HISHeader header;
 
 					std::ifstream file(path.c_str(), std::ios_base::binary);
 					if(!file.is_open())
-						throw std::runtime_error("HIS loader: Could not open file " + path);
+					{
+						BOOST_LOG_TRIVIAL(warning) << "HIS loader: Could not open file " + path;
+						return empty_return();
+					}
 
 					readEntry(file, header.file_type);
 					readEntry(file, header.header_size);
@@ -73,13 +81,22 @@ namespace ddafa
 					readEntry(file, header.x);
 
 					if(header.file_type != HIS_FILE_ID)
-						throw std::runtime_error("HIS loader: File " + path + " is not a valid HIS file.");
+					{
+						BOOST_LOG_TRIVIAL(warning) << "HIS loader: File " << path << " is not a valid HIS file.";
+						return empty_return();
+					}
 
 					if(header.header_size != HIS_FILE_HEADER_SIZE)
-						throw std::runtime_error("HIS loader: File header size mismatch for file " + path);
+					{
+						BOOST_LOG_TRIVIAL(warning) << "HIS loader: File header size mismatch for file " << path;
+						return empty_return();
+					}
 
 					if(header.type_of_numbers == tn_not_implemented)
-						throw std::runtime_error("HIS loader: No implementation for datatype of file " + path);
+					{
+						BOOST_LOG_TRIVIAL(warning) << "HIS loader: No implementation for datatype of file " << path;
+						return empty_return();
+					}
 
 					// jump over image header
 					auto image_header = std::unique_ptr<std::uint8_t>(new std::uint8_t[header.image_header_size]);
@@ -92,7 +109,10 @@ namespace ddafa
 					std::uint32_t height = header.bry - header.uly + 1;
 					std::uint32_t number_of_projections  = header.number_of_frames;
 					if(number_of_projections > 1)
-						throw std::runtime_error("HIS loader: No support for more than one projection per file");
+					{
+						BOOST_LOG_TRIVIAL(warning) << "HIS loader: No support for more than one projection per file";
+						return empty_return();
+					}
 
 					// read image data
 					std::size_t pitch;
@@ -141,8 +161,10 @@ namespace ddafa
 						}
 
 						default:
-							throw std::runtime_error("HIS loader: No implementation for data type of file "
-														+ path);
+						{
+							BOOST_LOG_TRIVIAL(warning) << "HIS loader: No implementation for data type of file " << path;
+							return empty_return();
+						}
 					}
 
 					return ddafa::image::Image<U, image_type>(width, height, std::move(img_buffer));

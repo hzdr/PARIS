@@ -36,8 +36,9 @@ namespace ddafa
 			public:
 					template <typename U>
 					typename std::enable_if<std::is_same<T, U>::value, void>::type
-					saveImage(ddafa::image::Image<U, image_type>&& image, std::string path)
+					saveImage(ddafa::image::Image<U, image_type>&& image, std::string& path)
 					{
+						path.append(".tif");
 						::TIFF* tif = TIFFOpen(path.c_str(), "w");
 						if(tif == nullptr)
 						{
