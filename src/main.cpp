@@ -31,9 +31,15 @@
 #include "cuda/CUDAToStdImage.h"
 #include "cuda/CUDAWeighting.h"
 
+#include "cuda/CUDAFeldkampScheduler.h"
+
 void initLog()
 {
+#ifdef DDAFA_DEBUG
+	boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
+#else
 	boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
+#endif
 }
 
 int main(int argc, char** argv)
@@ -112,10 +118,12 @@ int main(int argc, char** argv)
 		pipeline.connect(filter, converter);
 		pipeline.connect(converter, sink);
 
-		pipeline.run(source, weighting, filter, converter, sink);
+		auto scheduler = ddafa::impl::CUDAFeldkampScheduler<float>::instance(geo);
+
+		//pipeline.run(source, weighting, filter, converter, sink);
 		// pipeline.run(source, weighting, converter, sink);
 
-		pipeline.wait();
+		// pipeline.wait();
 	}
 	catch(const std::runtime_error& err)
 	{
