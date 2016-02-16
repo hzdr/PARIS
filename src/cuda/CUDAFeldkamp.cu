@@ -22,10 +22,10 @@ namespace ddafa
 	{
 		CUDAFeldkamp::CUDAFeldkamp()
 		{
-			int device_count;
+			auto device_count = int{};
 			assertCuda(cudaGetDeviceCount(&device_count));
 
-			for(int i = 0; i < device_count; ++i)
+			for(auto i = 0; i < device_count; ++i)
 				masters_.emplace_back(i);
 
 			for(auto&& master : masters_)
@@ -36,7 +36,7 @@ namespace ddafa
 		{
 		}
 
-		void CUDAFeldkamp::process(CUDAFeldkamp::input_type&& img)
+		auto CUDAFeldkamp::process(CUDAFeldkamp::input_type&& img) -> void
 		{
 			// do NOT delete this pointer
 			input_type* img_ptr = &img;
@@ -44,7 +44,7 @@ namespace ddafa
 				master.input(img_ptr);
 		}
 
-		CUDAFeldkamp::output_type CUDAFeldkamp::wait()
+		auto CUDAFeldkamp::wait() -> CUDAFeldkamp::output_type
 		{
 			for(auto&& thread : master_threads_)
 				thread.join();

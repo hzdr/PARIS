@@ -31,15 +31,15 @@ namespace ddafa
 				using output_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
 
 				CUDAToStdImage();
-				void process(input_type&& img);
-				output_type wait();
+				auto process(input_type&&) -> void;
+				auto wait() -> output_type;
 
 			protected:
-				~CUDAToStdImage();
+				~CUDAToStdImage() = default;
 
 			private:
-				void processor(input_type&& img, int device);
-				void finish();
+				auto processor(input_type&&, int) -> void;
+				auto finish() -> void;
 
 			private:
 				ddafa::common::Queue<output_type> results_;

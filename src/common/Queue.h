@@ -30,18 +30,18 @@ namespace ddafa
 				template <class Item>
 				void push(Item&& item)
 				{
-					std::unique_lock<std::mutex> lock(mutex_);
+					auto lock = std::unique_lock<decltype(mutex_)>{mutex_};
 					queue_.push(std::forward<Item>(item));
 					cv_.notify_one();
 				}
 
 				Object take()
 				{
-					std::unique_lock<std::mutex> lock(mutex_);
+					auto lock = std::unique_lock<decltype(mutex_)>{mutex_};
 					while(queue_.empty())
 						cv_.wait(lock);
 
-					Object ret = std::move(queue_.front());
+					auto ret = std::move(queue_.front());
 					queue_.pop();
 					return ret;
 				}

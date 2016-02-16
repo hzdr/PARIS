@@ -17,7 +17,7 @@ namespace ddafa
 {
 	namespace impl
 	{
-		void CUDADeviceDeleter::operator()(void* p)
+		auto CUDADeviceDeleter::operator()(void* p) -> void
 		{
 				assertCuda(cudaFree(p));
 		}

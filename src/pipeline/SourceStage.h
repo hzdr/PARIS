@@ -14,7 +14,6 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
-#include <vector>
 
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
@@ -36,17 +35,17 @@ namespace ddafa
 				using output_type = ddafa::image::Image<float, typename ImageLoader::image_type>;
 
 			public:
-				SourceStage(std::string path)
-				: OutputSide<output_type>(), ImageLoader(), path_{path}
+				SourceStage(const std::string& path)
+				: ImageLoader(), OutputSide<output_type>(), path_{path}
 				{
 				}
 
-				void run()
+				auto run() -> void
 				{
-					std::vector<std::string> paths = ddafa::common::readDirectory(path_);
-					for(auto&& path : paths)
+					auto paths = ddafa::common::readDirectory(path_);
+					for(auto& path : paths)
 					{
-						output_type img = ImageLoader::template loadImage<float>(path);
+						auto img = ImageLoader::template loadImage<float>(path);
 						if(img.valid())
 							this->output(std::move(img));
 						else

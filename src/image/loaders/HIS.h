@@ -51,14 +51,14 @@ namespace ddafa
 			public:
 				// TODO: Implement support for more than one frame per file
 				template <typename U>
-				typename std::enable_if<std::is_same<T, U>::value, ddafa::image::Image<U, image_type>>::type
-				loadImage(std::string path)
+				auto loadImage(std::string path)
+					-> typename std::enable_if<std::is_same<T, U>::value, ddafa::image::Image<U, image_type>>::type
 				{
 					using empty_return = ddafa::image::Image<U, image_type>;
 					// read file header
-					HISHeader header;
+					auto header = HISHeader{};
 
-					std::ifstream file(path.c_str(), std::ios_base::binary);
+					auto& file = std::ifstream{path.c_str(), std::ios_base::binary};
 					if(!file.is_open())
 					{
 						BOOST_LOG_TRIVIAL(warning) << "HIS loader: Could not open file " + path;
@@ -105,9 +105,9 @@ namespace ddafa
 					image_header.reset();
 
 					// calculate dimensions
-					std::uint32_t width = header.brx - header.ulx + 1;
-					std::uint32_t height = header.bry - header.uly + 1;
-					std::uint32_t number_of_projections  = header.number_of_frames;
+					auto width = header.brx - header.ulx + 1;
+					auto height = header.bry - header.uly + 1;
+					auto number_of_projections  = header.number_of_frames;
 					if(number_of_projections > 1)
 					{
 						BOOST_LOG_TRIVIAL(warning) << "HIS loader: No support for more than one projection per file";
@@ -115,14 +115,14 @@ namespace ddafa
 					}
 
 					// read image data
-					std::size_t pitch;
-					std::unique_ptr<U, deleter_type> img_buffer(Allocator::allocate(width, height, &pitch));
+					auto pitch = std::size_t{};
+					auto img_buffer = std::unique_ptr<U, deleter_type>{Allocator::allocate(width, height, &pitch)};
 
 					switch(header.type_of_numbers)
 					{
 						case tn_unsigned_char:
 						{
-							std::unique_ptr<std::uint8_t> buffer(new std::uint8_t[width * height]);
+							auto buffer = std::unique_ptr<std::uint8_t>{new std::uint8_t[width * height]};
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint8_t));
 							readBuffer<U, std::uint8_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
@@ -130,7 +130,7 @@ namespace ddafa
 
 						case tn_unsigned_short:
 						{
-							std::unique_ptr<std::uint16_t> buffer(new std::uint16_t[width * height]);
+							auto buffer = std::unique_ptr<std::uint16_t>{new std::uint16_t[width * height]};
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint16_t));
 							readBuffer<U, std::uint16_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
@@ -138,7 +138,7 @@ namespace ddafa
 
 						case tn_dword:
 						{
-							std::unique_ptr<std::uint32_t> buffer(new std::uint32_t[width * height]);
+							auto buffer = std::unique_ptr<std::uint32_t>{new std::uint32_t[width * height]};
 							readEntry(file, buffer.get(), width * height * sizeof(std::uint32_t));
 							readBuffer<U, std::uint32_t>(img_buffer.get(), buffer.get(), width, height);
 							break;
@@ -146,7 +146,7 @@ namespace ddafa
 
 						case tn_double:
 						{
-							std::unique_ptr<double> buffer(new double[width * height]);
+							auto buffer = std::unique_ptr<double>{new double[width * height]};
 							readEntry(file, buffer.get(), width * height * sizeof(double));
 							readBuffer<U, double>(img_buffer.get(), buffer.get(), width, height);
 							break;
@@ -154,7 +154,7 @@ namespace ddafa
 
 						case tn_float:
 						{
-							std::unique_ptr<float> buffer(new float[width * height]);
+							auto buffer = std::unique_ptr<float>{new float[width * height]};
 							readEntry(file, buffer.get(), width * height * sizeof(float));
 							readBuffer<U, float>(img_buffer.get(), buffer.get(), width, height);
 							break;
@@ -171,24 +171,24 @@ namespace ddafa
 				}
 
 			protected:
-				~HIS() {}
+				~HIS() = default;
 
 			private:
 				template <typename U>
-				inline void readEntry(std::ifstream& file, U& entry)
+				inline auto readEntry(std::ifstream& file, U& entry) -> void
 				{
 					file.read(reinterpret_cast<char *>(&entry), sizeof(entry));
 				}
 
 				template <typename U>
-				inline void readEntry(std::ifstream& file, U* entry, std::size_t size)
+				inline auto readEntry(std::ifstream& file, U* entry, std::size_t size) -> void
 				{
 					file.read(reinterpret_cast<char *>(entry), size);
 				}
 
 				template <typename Wanted, typename Actual>
-				inline typename std::enable_if<std::is_same<Wanted, Actual>::value>::type
-				readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
+				inline auto readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
+					-> typename std::enable_if<std::is_same<Wanted, Actual>::value>::type
 				{
 					for(std::size_t j = 0; j < height; ++j)
 					{
@@ -198,8 +198,8 @@ namespace ddafa
 				}
 
 				template <typename Wanted, typename Actual>
-				inline typename std::enable_if<!std::is_same<Wanted, Actual>::value>::type
-				readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
+				inline auto readBuffer(Wanted* dest, Actual* buf, std::uint32_t width, std::uint32_t height)
+					-> typename std::enable_if<!std::is_same<Wanted, Actual>::value>::type
 				{
 					for(std::size_t j = 0; j < height; ++j)
 					{

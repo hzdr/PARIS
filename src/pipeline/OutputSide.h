@@ -23,15 +23,15 @@ namespace ddafa
 		class OutputSide
 		{
 			public:
-				void output(OutputType&& output)
+				auto output(OutputType&& out) -> void
 				{
 					if(port_ == nullptr)
 						throw std::runtime_error("OutputSide: Missing port");
 
-					port_->forward(std::forward<OutputType&&>(output));
+					port_->forward(std::forward<OutputType&&>(out));
 				}
 
-				void attach(Port<OutputType>* port) noexcept
+				auto attach(Port<OutputType>* port) noexcept -> void
 				{
 					port_.reset(port);
 				}

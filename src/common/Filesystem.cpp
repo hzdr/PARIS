@@ -22,12 +22,12 @@ namespace ddafa
 {
 	namespace common
 	{
-		std::vector<std::string> readDirectory(const std::string& path)
+		auto readDirectory(const std::string& path) -> std::vector<std::string>
 		{
-			std::vector<std::string> ret;
+			auto ret = std::vector<std::string>{};
 			try
 			{
-				boost::filesystem::path p(path);
+				auto p = boost::filesystem::path{path};
 				if(boost::filesystem::exists(p))
 				{
 					if(boost::filesystem::is_regular_file(p))
@@ -53,11 +53,11 @@ namespace ddafa
 			return ret;
 		}
 
-		bool createDirectory(const std::string& path)
+		auto createDirectory(const std::string& path) -> bool
 		{
 			try
 			{
-				boost::filesystem::path p(path);
+				auto p = boost::filesystem::path{path};
 				if(boost::filesystem::exists(p))
 				{
 					if(boost::filesystem::is_directory(p))

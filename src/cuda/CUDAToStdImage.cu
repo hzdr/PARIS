@@ -28,11 +28,7 @@ namespace ddafa
 			assertCuda(cudaGetDeviceCount(&devices_));
 		}
 
-		CUDAToStdImage::~CUDAToStdImage()
-		{
-		}
-
-		void CUDAToStdImage::process(CUDAToStdImage::input_type&& img)
+		auto CUDAToStdImage::process(CUDAToStdImage::input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -40,36 +36,39 @@ namespace ddafa
 				return;
 			}
 
-			for(int i = 0; i < devices_; ++i)
+			for(auto i = 0; i < devices_; ++i)
 			{
 				if(img.device() == i)
 					processor_threads_.emplace_back(&CUDAToStdImage::processor, this, std::move(img), i);
 			}
 		}
 
-		CUDAToStdImage::output_type CUDAToStdImage::wait()
+		auto CUDAToStdImage::wait() -> CUDAToStdImage::output_type
 		{
 			return results_.take();
 		}
 
-		void CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device)
+		auto CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device) -> void
 		{
 			assertCuda(cudaSetDevice(device));
-			std::size_t hostPitch;
-			std::unique_ptr<float, typename output_type::deleter_type>
-				host_buffer(CUDAHostAllocator<float>::allocate(img.width(), img.height(), &hostPitch));
+			auto hostPitch = std::size_t{};
+
+			auto host_buffer =
+					std::unique_ptr<float, typename output_type::deleter_type>{
+						CUDAHostAllocator<float>::allocate(img.width(), img.height(), &hostPitch)
+			};
 
 			assertCuda(cudaMemcpy2D(host_buffer.get(), hostPitch,
 									img.data(), img.pitch(),
 									img.width() * sizeof(float), img.height(),
 									cudaMemcpyDeviceToHost));
 
-			output_type result(img.width(), img.height(), std::move(host_buffer));
+			auto result = output_type(img.width(), img.height(), std::move(host_buffer));
 			result.pitch(hostPitch);
 			results_.push(std::move(result));
 		}
 
-		void CUDAToStdImage::finish()
+		auto CUDAToStdImage::finish() -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "CUDAToStdImage: Received poisonous pill, called finish()";
 			for(auto&& t : processor_threads_)

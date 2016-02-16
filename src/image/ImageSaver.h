@@ -16,8 +16,6 @@ namespace ddafa
 		class ImageSaver : public Implementation
 		{
 			public:
-				using allocator_type = typename Implementation::allocator_type;
-				using deleter_type = typename Implementation::deleter_type;
 				using image_type = typename Implementation::image_type;
 
 			public:
@@ -25,7 +23,7 @@ namespace ddafa
 				 * Saves an image to the given path.
 				 */
 				template <typename T>
-				void saveImage(Image<T, image_type>&& image, std::string path)
+				auto saveImage(Image<T, image_type>&& image, std::string path) -> void
 				{
 					Implementation::saveImage(std::forward<Image<T, image_type>&&>(image), path);
 				}
@@ -34,7 +32,7 @@ namespace ddafa
 				 * Saves an image into a volume at the given path.
 				 */
 				template <typename T>
-				void saveToVolume(Image<T, image_type>&& image, std::string path, std::size_t index)
+				auto saveToVolume(Image<T, image_type>&& image, std::string path, std::size_t index) -> void
 				{
 					Implementation::saveToVolume(std::forward<Image<T, image_type>&&>(image),
 													path, index);

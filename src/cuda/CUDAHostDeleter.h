@@ -18,7 +18,7 @@ namespace ddafa
 	{
 		struct CUDAHostDeleter
 		{
-			void operator()(void *p);
+			auto operator()(void *p) -> void;
 		};
 	}
 }

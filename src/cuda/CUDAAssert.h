@@ -18,24 +18,20 @@
 
 #include <cufft.h>
 
-#define assertCuda(x) ddafa::impl::checkCudaError(x, __FILE__, __LINE__)
-#define assertCufft(x) ddafa::impl::checkCufftError(x, __FILE__, __LINE__)
-
 namespace ddafa
 {
 	namespace impl
 	{
-		inline void checkCudaError(cudaError_t err, const char* file, int line)
+		inline auto checkCudaError(cudaError_t err, const char* file, int line) -> void
 		{
 			if(err != cudaSuccess)
 			{
 				throw std::runtime_error("CUDA assertion failed at " + std::string(file) + ":" + std::to_string(line) +
 						": " + std::string(cudaGetErrorString(err)));
 			}
-
 		}
 
-		inline std::string getCufftErrorString(cufftResult result)
+		inline auto getCufftErrorString(cufftResult result) -> std::string
 		{
 			switch(result)
 			{
@@ -59,7 +55,7 @@ namespace ddafa
 			}
 		}
 
-		inline void checkCufftError(cufftResult result, const char *file, int line)
+		inline auto checkCufftError(cufftResult result, const char *file, int line) -> void
 		{
 			if(result != CUFFT_SUCCESS)
 			{
@@ -67,6 +63,16 @@ namespace ddafa
 						": " + getCufftErrorString(result));
 			}
 
+		}
+
+		inline auto assertCuda(cudaError_t err) -> void
+		{
+			checkCudaError(err, __FILE__, __LINE__);
+		}
+
+		inline auto assertCufft(cufftResult res) -> void
+		{
+			checkCufftError(res, __FILE__, __LINE__);
 		}
 	}
 }

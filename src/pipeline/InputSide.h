@@ -22,9 +22,9 @@ namespace ddafa
 		class InputSide
 		{
 			public:
-				void input(InputType&& input)
+				auto input(InputType&& in) -> void
 				{
-					input_queue_.push(std::forward<InputType&&>(input));
+					input_queue_.push(std::forward<InputType&&>(in));
 				}
 
 			protected:

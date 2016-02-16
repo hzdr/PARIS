@@ -50,14 +50,14 @@ namespace ddafa
 				/*
 				 * Move operator
 				 */
-				Worker& operator=(Worker&& rhs)
+				auto operator=(Worker&& rhs) -> Worker&
 				{
 					task_queue_ = std::move(rhs.task_queue_);
 					result_queue_ = std::move(rhs.result_queue_);
 					return *this;
 				}
 
-				void start()
+				auto start() -> void
 				{
 					Implementation::start();
 

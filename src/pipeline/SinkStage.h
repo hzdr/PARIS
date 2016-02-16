@@ -36,7 +36,7 @@ namespace ddafa
 
 			public:
 				SinkStage(const std::string& path, const std::string& prefix)
-				: InputSide<input_type>(), ImageSaver(), path_{path}, prefix_{prefix}
+				: ImageSaver(), InputSide<input_type>(), path_{path}, prefix_{prefix}
 				{
 					bool created = ddafa::common::createDirectory(path_);
 					if(!created)
@@ -46,12 +46,12 @@ namespace ddafa
 						path_.append("/");
 				}
 
-				void run()
+				auto run() -> void
 				{
-					std::int32_t counter = 0;
+					auto counter = 0;
 					while(true)
 					{
-						input_type img = this->input_queue_.take();
+						auto img = this->input_queue_.take();
 						if(img.valid())
 						{
 							ImageSaver::template saveImage<float>(std::move(img), path_ + prefix_ + std::to_string(counter));

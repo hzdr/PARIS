@@ -36,16 +36,16 @@ namespace ddafa
 
 			public:
 				CUDAWeighting(const ddafa::common::Geometry&);
-				void process(input_type&&);
-				output_type wait();
+				auto process(input_type&&) -> void;
+				auto wait() -> output_type;
 
 			protected:
-				~CUDAWeighting();
+				~CUDAWeighting() = default;
 
 			private:
-				void processor(const input_type&, int);
-				void finish();
-				output_type copyToDevice(const input_type&);
+				auto processor(const input_type&, int) -> void;
+				auto finish() -> void;
+				auto copyToDevice(const input_type&) -> output_type;
 
 			private:
 				ddafa::common::Geometry geo_;

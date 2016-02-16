@@ -55,18 +55,19 @@ namespace ddafa
 				{
 				}
 
-				CUDAImage& operator=(CUDAImage&& rhs)
+				auto operator=(CUDAImage&& rhs) -> CUDAImage&
 				{
 					device_ = rhs.device_;
 					return *this;
 				}
 
-				std::unique_ptr<value_type, deleter_type> allocate(size_type width, size_type height, size_type* pitch)
+				auto allocate(size_type width, size_type height, size_type* pitch)
+					-> std::unique_ptr<value_type, deleter_type>
 				{
 					return std::unique_ptr<value_type, deleter_type>(Allocator::allocate(width, height, pitch));
 				}
 
-				void copy(const value_type* src, value_type* dest, size_type width, size_type height, size_type pitch)
+				auto copy(const value_type* src, value_type* dest, size_type width, size_type height, size_type pitch) -> void
 				{
 					assertCuda(cudaMemcpy2D(dest, pitch,
 											src, pitch,
@@ -74,20 +75,18 @@ namespace ddafa
 											cudaMemcpyDeviceToDevice));
 				}
 
-				void setDevice(int device_id)
+				auto setDevice(int device_id) -> void
 				{
 					device_ = device_id;
 				}
 
-				int device()
+				auto device() -> int
 				{
 					return device_;
 				}
 
 			protected:
-				~CUDAImage()
-				{
-				}
+				~CUDAImage() = default;
 
 			private:
 				int device_;

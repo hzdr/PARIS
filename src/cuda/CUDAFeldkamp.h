@@ -36,8 +36,8 @@ namespace ddafa
 
 			public:
 				CUDAFeldkamp();
-				void process(input_type&& img);
-				output_type wait();
+				auto process(input_type&&) -> void;
+				auto wait() -> output_type;
 
 			protected:
 				~CUDAFeldkamp();

@@ -62,7 +62,7 @@ namespace ddafa
 				/*
 				 * Move operator
 				 */
-				Master& operator=(Master&& rhs) noexcept
+				auto operator=(Master&& rhs) noexcept -> Master&
 				{
 					workers_ = std::move(rhs.workers_);
 					worker_threads_ = std::move(rhs.worker_threads_);
@@ -72,7 +72,7 @@ namespace ddafa
 					return *this;
 				}
 
-				void start()
+				auto start() -> void
 				{
 					Implementation::start();
 					for(auto&& worker : workers_)
@@ -80,7 +80,7 @@ namespace ddafa
 
 					while(true)
 					{
-						const image_type* img_ptr = input_queue_.take();
+						auto img_ptr = input_queue_.take();
 
 						if(!img_ptr->valid())
 							break; // poisonous pill
@@ -92,14 +92,14 @@ namespace ddafa
 					stop();
 				}
 
-				void stop()
+				auto stop() -> void
 				{
 					Implementation::stop();
 					for(auto&& thread : worker_threads_)
 						thread.join();
 				}
 
-				void input(const image_type* img)
+				auto input(const image_type* img) -> void
 				{
 					input_queue_.push(img);
 				}

@@ -11,12 +11,12 @@ namespace ddafa
 {
 	namespace impl
 	{
-		__device__ unsigned int getX()
+		__device__ auto getX() -> unsigned int
 		{
 			return blockIdx.x * blockDim.x + threadIdx.x;
 		}
 
-		__device__ unsigned int getY()
+		__device__ auto getY() -> unsigned int
 		{
 			return blockIdx.y * blockDim.y + threadIdx.y;
 		}

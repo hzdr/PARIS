@@ -24,10 +24,10 @@ namespace ddafa
 				using task_type = ddafa::master_worker::Task<CUDATask>;
 				using result_type = task_type;
 
-				void start();
-				result_type process(task_type&& current_task);
+				auto start() -> void;
+				auto process(task_type&& current_task) -> result_type;
 
-				~CUDAWorker();
+				~CUDAWorker() = default;
 		};
 	}
 }

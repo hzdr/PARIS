@@ -55,11 +55,11 @@ int main(int argc, char** argv)
 
 	try
 	{
-		std::string projection_path;
-		std::string geometry_path;
-		std::string output_path;
-		std::string prefix;
-		ddafa::common::Geometry geo;
+		auto projection_path = std::string{""};
+		auto geometry_path = std::string{""};
+		auto output_path = std::string{""};
+		auto prefix = std::string{""};
+		auto geo = ddafa::common::Geometry{};
 
 		// parse parameters
 		boost::program_options::options_description param{"Parameters"};
@@ -99,13 +99,13 @@ int main(int argc, char** argv)
 		}
 		boost::program_options::notify(param_map);
 
-		std::ifstream file{geometry_path.c_str()};
+		auto&& file = std::ifstream{geometry_path.c_str()};
 		if(file)
 			boost::program_options::store(boost::program_options::parse_config_file(file, geom), geom_map);
 		boost::program_options::notify(geom_map);
 
 		// set up pipeline
-		ddafa::pipeline::Pipeline pipeline;
+		auto pipeline = ddafa::pipeline::Pipeline{};
 
 		auto source = pipeline.create<source_stage>(projection_path);
 		auto weighting = pipeline.create<weighting_stage>(geo);
@@ -119,11 +119,6 @@ int main(int argc, char** argv)
 		pipeline.connect(converter, sink);
 
 		auto scheduler = ddafa::impl::CUDAFeldkampScheduler<float>::instance(geo);
-
-		//pipeline.run(source, weighting, filter, converter, sink);
-		// pipeline.run(source, weighting, converter, sink);
-
-		// pipeline.wait();
 	}
 	catch(const std::runtime_error& err)
 	{

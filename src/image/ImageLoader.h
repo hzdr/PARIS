@@ -23,8 +23,6 @@ namespace ddafa
 		class ImageLoader : public Implementation
 		{
 			public:
-				using allocator_type = typename Implementation::allocator_type;
-				using deleter_type = typename Implementation::deleter_type;
 				using image_type = typename Implementation::image_type;
 
 			public:
@@ -33,7 +31,7 @@ namespace ddafa
 				 * data type if needed.
 				 */
 				template <typename T>
-				Image<T, image_type> loadImage(std::string path)
+				auto loadImage(const std::string& path) -> decltype(Implementation::template loadImage<T>(path))
 				{
 					return Implementation::template loadImage<T>(path);
 				}

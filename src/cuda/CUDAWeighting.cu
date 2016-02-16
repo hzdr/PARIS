@@ -55,18 +55,14 @@ namespace ddafa
 
 		CUDAWeighting::CUDAWeighting(const ddafa::common::Geometry& geo)
 		: geo_(geo)
-		, h_min_{-(geo.det_offset_horiz * geo.det_pixel_size_horiz) - ((geo.det_pixels_row * geo.det_pixel_size_horiz) / 2)}
-		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((geo.det_pixels_column * geo.det_pixel_size_vert) / 2)}
+		, h_min_{-(geo.det_offset_horiz * geo.det_pixel_size_horiz) - ((static_cast<float>(geo.det_pixels_row) * geo.det_pixel_size_horiz) / 2)}
+		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2)}
 		, d_dist_{geo.dist_det + geo.dist_src}
 		{
 			assertCuda(cudaGetDeviceCount(&devices_));
 		}
 
-		CUDAWeighting::~CUDAWeighting()
-		{
-		}
-
-		void CUDAWeighting::process(CUDAWeighting::input_type&& img)
+		auto CUDAWeighting::process(CUDAWeighting::input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -75,24 +71,24 @@ namespace ddafa
 				return;
 			}
 
-			for(int i = 0; i < devices_; ++i)
+			for(auto i = 0; i < devices_; ++i)
 			{
 				// execute kernel
 				processor_threads_.emplace_back(&CUDAWeighting::processor, this, img, i);
 			}
 		}
 
-		CUDAWeighting::output_type CUDAWeighting::wait()
+		auto CUDAWeighting::wait() -> CUDAWeighting::output_type
 		{
 			return results_.take();
 		}
 
-		void CUDAWeighting::processor(const CUDAWeighting::input_type& img, int device)
+		auto CUDAWeighting::processor(const CUDAWeighting::input_type& img, int device) -> void
 		{
 			assertCuda(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
 
-			output_type result = copyToDevice(img);
+			auto result = copyToDevice(img);
 			result.setDevice(device);
 			launch2D(result.width(), result.height(),
 					weight,
@@ -102,7 +98,7 @@ namespace ddafa
 			results_.push(std::move(result));
 		}
 
-		void CUDAWeighting::finish()
+		auto CUDAWeighting::finish() -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: Received poisonous pill, called finish()";
 
@@ -112,17 +108,17 @@ namespace ddafa
 			results_.push(output_type());
 		}
 
-		CUDAWeighting::output_type CUDAWeighting::copyToDevice(const CUDAWeighting::input_type& img)
+		auto CUDAWeighting::copyToDevice(const CUDAWeighting::input_type& img) -> CUDAWeighting::output_type
 		{
-			float* dev_buffer;
-			std::size_t pitch;
-			std::size_t host_pitch = img.width() * sizeof(float);
+			auto dev_buffer = static_cast<float*>(nullptr);
+			auto pitch = std::size_t{};
+			auto host_pitch = img.width() * sizeof(float);
 			assertCuda(cudaMallocPitch(&dev_buffer, &pitch, img.width() * sizeof(float), img.height()));
 			assertCuda(cudaMemcpy2D(dev_buffer, pitch,
 									img.data(), host_pitch,
 									img.width() * sizeof(float), img.height(),
 									cudaMemcpyHostToDevice));
-			output_type ret(img.width(), img.height(), std::unique_ptr<float, CUDADeviceDeleter>(dev_buffer));
+			auto ret = output_type(img.width(), img.height(), std::unique_ptr<float, CUDADeviceDeleter>(dev_buffer));
 			ret.pitch(pitch);
 
 			return ret;

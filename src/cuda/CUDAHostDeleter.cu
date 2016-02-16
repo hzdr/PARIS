@@ -14,7 +14,7 @@ namespace ddafa
 {
 	namespace impl
 	{
-		void CUDAHostDeleter::operator()(void *p)
+		auto CUDAHostDeleter::operator()(void* p) -> void
 		{
 			assertCuda(cudaFreeHost(p));
 		}

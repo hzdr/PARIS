@@ -24,7 +24,7 @@ namespace ddafa
 		CUDAMaster::CUDAMaster(int device_num)
 		: device_{device_num}, number_of_workers_{1}
 		{
-			cudaDeviceProp properties;
+			auto properties = cudaDeviceProp{};
 			assertCuda(cudaGetDeviceProperties(&properties, device_));
 
 			if(properties.concurrentKernels == 0)
@@ -107,21 +107,21 @@ namespace ddafa
 			BOOST_LOG_TRIVIAL(debug) << "CUDAMaster for device #" << device_ << " destructed.";
 		}
 
-		void CUDAMaster::start()
+		auto CUDAMaster::start() -> void
 		{
 			assertCuda(cudaSetDevice(device_)); // bind device to current thread
 		}
 
-		void CUDAMaster::stop()
+		auto CUDAMaster::stop() -> void
 		{
 		}
 
-		int CUDAMaster::workerCount() const noexcept
+		auto CUDAMaster::workerCount() const noexcept -> int
 		{
 			return number_of_workers_;
 		}
 
-		CUDAMaster::task_type CUDAMaster::createTask(const CUDAMaster::image_type* img_ptr)
+		auto CUDAMaster::createTask(const CUDAMaster::image_type* img_ptr) -> CUDAMaster::task_type
 		{
 			BOOST_LOG_TRIVIAL(warning) << "CUDAMaster: STUB: createTask() called";
 			return task_type(0, nullptr, nullptr);

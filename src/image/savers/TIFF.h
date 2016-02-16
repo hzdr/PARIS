@@ -35,11 +35,11 @@ namespace ddafa
 
 			public:
 					template <typename U>
-					typename std::enable_if<std::is_same<T, U>::value, void>::type
-					saveImage(ddafa::image::Image<U, image_type>&& image, std::string& path)
+					auto saveImage(ddafa::image::Image<U, image_type>&& image, std::string& path)
+						-> typename std::enable_if<std::is_same<T, U>::value, void>::type
 					{
 						path.append(".tif");
-						::TIFF* tif = TIFFOpen(path.c_str(), "w");
+						auto tif = TIFFOpen(path.c_str(), "w");
 						if(tif == nullptr)
 						{
 							TIFFClose(tif);
@@ -55,7 +55,7 @@ namespace ddafa
 						auto data = image.data();
 						auto dataPtr = data;
 
-						for(uint32 row = 0; row < image.height(); ++row)
+						for(auto row = 0u; row < image.height(); ++row)
 						{
 							TIFFWriteScanline(tif, dataPtr, row);
 							dataPtr += image.width();

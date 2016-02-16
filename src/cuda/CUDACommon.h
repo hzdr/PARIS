@@ -22,34 +22,34 @@ namespace ddafa
 {
 	namespace impl
 	{
-		__device__ unsigned int getX();
-		__device__ unsigned int getY();
+		__device__ auto getX() -> unsigned int;
+		__device__ auto getY() -> unsigned int;
 
 		template <typename... Args>
-		void launch1D(std::size_t input_size, void(*kernel)(Args...), Args... args)
+		auto launch1D(std::size_t input_size, void(*kernel)(Args...), Args... args) -> void
 		{
 			// calculate max potential blocks
-			int block_size;
-			int min_grid_size;
+			auto block_size = int{};
+			auto min_grid_size = int{};
 			cudaOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0);
 
 			// calculate de facto occupation based on input size
-			int grid_size = (input_size + block_size - 1) / block_size;
+			auto grid_size = (input_size + block_size - 1) / block_size;
 
 			kernel<<<grid_size, block_size>>>(std::forward<Args>(args)...);
 			assertCuda(cudaPeekAtLastError());
 
 #ifdef DDAFA_DEBUG
 			// calculate theoretical occupancy
-			int max_active_blocks;
+			auto max_active_blocks = int{};
 			cudaOccupancyMaxActiveBlocksPerMultiprocessor(&max_active_blocks, kernel, block_size, 0);
 
-			int device;
+			auto device = int{};
 			cudaDeviceProp props;
 			assertCuda(cudaGetDevice(&device));
 			assertCuda(cudaGetDeviceProperties(&props, device));
 
-			float occupancy = (max_active_blocks * block_size / props.warpSize) /
+			auto occupancy = (max_active_blocks * block_size / props.warpSize) /
 								float(props.maxThreadsPerMultiProcessor / props.warpSize);
 
 			BOOST_LOG_TRIVIAL(debug) << "Launched blocks of size " << block_size << ". Theoretical occupancy: "
@@ -58,25 +58,27 @@ namespace ddafa
 		}
 
 		template <typename... Args>
-		void launch2D(std::size_t size_x, std::size_t size_y, void(*kernel)(Args...), Args... args)
+		auto launch2D(std::size_t size_x, std::size_t size_y, void(*kernel)(Args...), Args... args) -> void
 		{
 			auto roundUp = [](std::uint32_t numToRound, std::uint32_t multiple)
 			{
 				if(multiple == 0)
 					return numToRound;
 
-				int remainder = numToRound % multiple;
+				auto remainder = numToRound % multiple;
 				if(remainder == 0)
 					return numToRound;
 
 				return numToRound + multiple - remainder;
 			};
 
-			int threads = roundUp(size_x * size_y, 1024);
-			int blocks = threads / 1024;
+			auto threads = roundUp(static_cast<unsigned int>(size_x * size_y), 1024);
+			auto blocks = threads / 1024;
 
-			dim3 block_size(roundUp(size_x/blocks, 32), roundUp(size_y/blocks, 32));
-			dim3 grid_size((size_x + block_size.x - 1)/block_size.x, (size_y + block_size.y - 1)/block_size.y);
+			auto block_size = dim3{roundUp(static_cast<unsigned int>(size_x/blocks), 32),
+									roundUp(static_cast<unsigned int>(size_y)/blocks, 32)};
+			auto grid_size = dim3{static_cast<unsigned int>((size_x + block_size.x - 1)/block_size.x),
+									static_cast<unsigned int>((size_y + block_size.y - 1)/block_size.y)};
 
 #ifdef DDAFA_DEBUG
 			BOOST_LOG_TRIVIAL(debug) << "Need " << blocks << " blocks";

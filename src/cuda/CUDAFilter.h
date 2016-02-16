@@ -35,16 +35,16 @@ namespace ddafa
 
 			public:
 				CUDAFilter(const ddafa::common::Geometry& geo);
-				void process(input_type&& img);
-				output_type wait();
+				auto process(input_type&& img) -> void;
+				auto wait() -> output_type;
 
 			protected:
 				~CUDAFilter();
 
 			private:
-				void filterProcessor(int);
-				void processor(input_type&& img, int device);
-				void finish();
+				auto filterProcessor(int) -> void;
+				auto processor(input_type&& img, int device) -> void;
+				auto finish() -> void;
 
 			private:
 				ddafa::common::Queue<output_type> results_;

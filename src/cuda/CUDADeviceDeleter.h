@@ -16,7 +16,7 @@ namespace ddafa
 	{
 		struct CUDADeviceDeleter
 		{
-			void operator()(void*);
+			auto operator()(void*) -> void;
 		};
 	}
 }

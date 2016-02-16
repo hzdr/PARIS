@@ -30,14 +30,14 @@ namespace ddafa
 				using data_type = typename task_type::data_type;
 				using image_type = ddafa::image::Image<data_type, CUDAImage<data_type>>;
 
-				CUDAMaster(int device_num);
-				CUDAMaster(CUDAMaster&& other);
+				CUDAMaster(int);
+				CUDAMaster(CUDAMaster&&);
 				~CUDAMaster();
 
-				void start();
-				void stop();
-				task_type createTask(const image_type* img_ptr);
-				int workerCount() const noexcept;
+				auto start() -> void;
+				auto stop() -> void;
+				auto createTask(const image_type*) -> task_type;
+				auto workerCount() const noexcept -> int;
 
 			private:
 				int device_;

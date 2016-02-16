@@ -33,10 +33,10 @@ namespace ddafa
 {
 	namespace impl
 	{
-		__global__ void createFilter(float* __restrict__ r, const int* __restrict__ j,
+		__global__ void createFilter(float* __restrict__ r, const std::int32_t* __restrict__ j,
 				std::size_t size, float tau)
 		{
-			int x = getX();
+			auto x = getX();
 
 			/*
 			 * r(j) with j = [ -(filter_length - 2)/2, ..., 0, ..., filter_length/2 ]
@@ -67,13 +67,13 @@ namespace ddafa
 				std::size_t width, std::size_t height, std::size_t input_pitch, std::size_t output_pitch,
 				std::size_t filter_length)
 		{
-			int x = getX();
-			int y = getY();
+			auto x = getX();
+			auto y = getY();
 
 			if((x < filter_length) && (y < height))
 			{
-				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
-				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
 
 				if(x < width)
 					output_row[x] = input_row[x];
@@ -84,14 +84,15 @@ namespace ddafa
 		}
 
 		__global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
-				std::size_t width, std::size_t height, std::size_t output_pitch, std::size_t input_pitch, std::size_t filter_length)
+				std::size_t width, std::size_t height, std::size_t output_pitch,
+				std::size_t input_pitch, std::size_t filter_length)
 		{
-			int x = getX();
-			int y = getY();
+			auto x = getX();
+			auto y = getY();
 
 			if((x < width) && (y < height)) {
-				float* output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
-				const float* input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
 				output_row[x] = input_row[x] / filter_length;
 			}
 			__syncthreads();
@@ -99,10 +100,10 @@ namespace ddafa
 
 		__global__ void createK(cufftComplex* __restrict__ data, std::size_t filter_length, float tau)
 		{
-			int x = getX();
+			auto x = getX();
 			if(x < filter_length)
 			{
-				float result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
+				auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
 				data[x].x = result;
 				data[x].y = result;
 			}
@@ -112,14 +113,14 @@ namespace ddafa
 		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
 				std::size_t filter_length, std::size_t data_height, std::size_t pitch)
 		{
-			int x = getX();
-			int y = getY();
+			auto x = getX();
+			auto y = getY();
 
 			if((x < filter_length) && (y < data_height))
 			{
-				cufftComplex* row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
+				auto row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
 
-				float a1, b1, k1, k2;
+				auto a1 = 0.f, b1 = 0.f, k1 = 0.f, k2 = 0.f;
 				a1 = row[x].x;
 				b1 = row[x].y;
 				k1 = filter[x].x;
@@ -139,10 +140,10 @@ namespace ddafa
 		{
 			assertCuda(cudaGetDeviceCount(&devices_));
 
-			rs_.resize(devices_);
+			rs_.resize(static_cast<unsigned int>(devices_));
 
-			std::vector<std::thread> filter_creation_threads;
-			for(int i = 0; i < devices_; ++i)
+			auto filter_creation_threads = std::vector<std::thread>{};
+			for(auto i = 0; i < devices_; ++i)
 			{
 				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, i);
 			}
@@ -155,7 +156,7 @@ namespace ddafa
 		{
 		}
 
-		void CUDAFilter::process(CUDAFilter::input_type&& img)
+		auto CUDAFilter::process(CUDAFilter::input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -164,115 +165,115 @@ namespace ddafa
 				return;
 			}
 
-			for(int i = 0; i < devices_; ++i)
+			for(auto i = 0; i < devices_; ++i)
 			{
 				if(img.device() == i)
 					processor_threads_.emplace_back(&CUDAFilter::processor, this, std::move(img), i);
 			}
 		}
 
-		CUDAFilter::output_type CUDAFilter::wait()
+		auto CUDAFilter::wait() -> CUDAFilter::output_type
 		{
 			return results_.take();
 		}
 
-		void CUDAFilter::filterProcessor(int device)
+		auto CUDAFilter::filterProcessor(int device) -> void
 		{
 			assertCuda(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Creating filter on device #" << device;
 
-			float* buffer_raw;
+			auto buffer_raw = static_cast<float*>(nullptr);
 			assertCuda(cudaMalloc(&buffer_raw, filter_length_ * sizeof(float)));
-			std::unique_ptr<float[], CUDADeviceDeleter> buffer(buffer_raw);
+			auto buffer = std::unique_ptr<float[], CUDADeviceDeleter>{buffer_raw};
 
-			// see documentation in kernel createFilter for explanation
-			std::int32_t j_host_buffer[filter_length_];
+			// see documentation in kernel "createFilter" for explanation
+			auto j_host_buffer = std::vector<std::int32_t>(filter_length_);
 			auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
-			std::int32_t j = -((filter_length_signed - 2) / 2);
-			for(std::size_t k = 0; k <= (filter_length_); ++k, ++j)
+			auto j = -((filter_length_signed - 2) / 2);
+			for(auto k = 0u; k <= (filter_length_); ++k, ++j)
 				j_host_buffer[k] = j;
 
-			std::int32_t* j_dev_buffer_raw;
+			auto j_dev_buffer_raw = static_cast<std::int32_t*>(nullptr);
 			assertCuda(cudaMalloc(&j_dev_buffer_raw, filter_length_ * sizeof(std::int32_t)));
-			std::unique_ptr<std::int32_t[], CUDADeviceDeleter> j_dev_buffer(j_dev_buffer_raw);
-			assertCuda(cudaMemcpy(j_dev_buffer.get(), j_host_buffer, filter_length_ * sizeof(std::int32_t),
+			auto j_dev_buffer = std::unique_ptr<std::int32_t[], CUDADeviceDeleter>{j_dev_buffer_raw};
+			assertCuda(cudaMemcpy(j_dev_buffer.get(), j_host_buffer.data(), filter_length_ * sizeof(std::int32_t),
 									cudaMemcpyHostToDevice));
 
 			launch1D(filter_length_,
 					createFilter,
 					buffer.get(), static_cast<const std::int32_t*>(j_dev_buffer.get()),
 					filter_length_, tau_);
-			rs_[device] = std::move(buffer);
+			rs_[static_cast<std::size_t>(device)] = std::move(buffer);
 		}
 
-		void CUDAFilter::processor(CUDAFilter::input_type&& img, int device)
+		auto CUDAFilter::processor(CUDAFilter::input_type&& img, int device) -> void
 		{
 			assertCuda(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: processing on device #" << device;
 
 			// convert projection to new dimensions
-			float* converted_raw;
-			std::size_t converted_pitch;
+			auto converted_raw = static_cast<float*>(nullptr);
+			auto converted_pitch = std::size_t{};
 			assertCuda(cudaMallocPitch(&converted_raw, &converted_pitch, sizeof(float) * filter_length_, img.height()));
-			std::unique_ptr<float, CUDADeviceDeleter> converted(converted_raw);
+			auto converted =std::unique_ptr<float, CUDADeviceDeleter>{converted_raw};
 			launch2D(filter_length_, img.height(), convertProjection, converted.get(),
 					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted_pitch, filter_length_);
 
 			// allocate memory
-			std::size_t transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
-			cufftComplex* transformed_raw;
-			std::size_t transformed_pitch;
+			auto transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
+			auto transformed_raw = static_cast<cufftComplex*>(nullptr);
+			auto transformed_pitch = std::size_t{};
 			assertCuda(cudaMallocPitch(&transformed_raw, &transformed_pitch,
 					sizeof(cufftComplex) * transformed_filter_length, img.height()));
-			std::unique_ptr<cufftComplex, CUDADeviceDeleter> transformed(transformed_raw);
+			auto transformed = std::unique_ptr<cufftComplex, CUDADeviceDeleter>{transformed_raw};
 
-			cufftComplex* filter_raw;
+			auto filter_raw = static_cast<cufftComplex*>(nullptr);
 			assertCuda(cudaMalloc(&filter_raw,
 					sizeof(cufftComplex) * transformed_filter_length));
-			std::unique_ptr<cufftComplex, CUDADeviceDeleter> filter(filter_raw);
+			auto filter = std::unique_ptr<cufftComplex, CUDADeviceDeleter>{filter_raw};
 
 			// set up cuFFT
-			int n_proj[] = { static_cast<int>(filter_length_) };
-			int proj_dist = static_cast<int>(converted_pitch / sizeof(float));
-			int proj_nembed[] = { proj_dist };
+			auto n_proj = std::vector<int>{ static_cast<int>(filter_length_) };
+			auto proj_dist = static_cast<int>(converted_pitch / sizeof(float));
+			auto proj_nembed = std::vector<int>{ proj_dist };
 
-			int trans_dist = static_cast<int>(transformed_pitch / sizeof(cufftComplex));
-			int trans_nembed[] = { trans_dist };
+			auto trans_dist = static_cast<int>(transformed_pitch / sizeof(cufftComplex));
+			auto trans_nembed = std::vector<int>{ trans_dist };
 
-			cufftHandle projectionPlan;
-			assertCufft(cufftPlanMany(&projectionPlan, 	// plan
-										1, 				// rank (dimension)
-										n_proj,			// input dimension size
-										proj_nembed,	// input storage dimensions
-										1,				// distance between two successive input elements
-										proj_dist,		// distance between two input signals
-										trans_nembed,	// output storage dimensions
-										1,				// distance between two successive output elements
-										trans_dist, 	// distance between two output signals
-										CUFFT_R2C,		// transform data type
-										img.height() 	// batch size
+			auto projectionPlan = cufftHandle{};
+			assertCufft(cufftPlanMany(&projectionPlan, 					// plan
+										1, 								// rank (dimension)
+										n_proj.data(),					// input dimension size
+										proj_nembed.data(),				// input storage dimensions
+										1,								// distance between two successive input elements
+										proj_dist,						// distance between two input signals
+										trans_nembed.data(),			// output storage dimensions
+										1,								// distance between two successive output elements
+										trans_dist, 					// distance between two output signals
+										CUFFT_R2C,						// transform data type
+										static_cast<int>(img.height()) 	// batch size
 										));
 
-			cufftHandle filterPlan;
-			assertCufft(cufftPlan1d(&filterPlan, filter_length_, CUFFT_R2C, 1));
+			auto filterPlan = cufftHandle{};
+			assertCufft(cufftPlan1d(&filterPlan, static_cast<int>(filter_length_), CUFFT_R2C, 1));
 
-			cufftHandle inversePlan;
+			auto inversePlan = cufftHandle{};
 			assertCufft(cufftPlanMany(&inversePlan,
 										1,
-										n_proj,
-										trans_nembed,
+										n_proj.data(),
+										trans_nembed.data(),
 										1,
 										trans_dist,
-										proj_nembed,
+										proj_nembed.data(),
 										1,
 										proj_dist,
 										CUFFT_C2R,
-										img.height()
+										static_cast<int>(img.height())
 										));
 
 			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
-			assertCufft(cufftExecR2C(projectionPlan, static_cast<cufftReal*>(converted.get()), transformed.get()));
-			assertCufft(cufftExecR2C(filterPlan, static_cast<cufftReal*>(rs_[device].get()), filter.get()));
+			assertCufft(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
+			assertCufft(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(device)].get(), filter.get()));
 
 			// create K
 			launch1D(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
@@ -282,7 +283,7 @@ namespace ddafa
 				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed_pitch);
 
 			// run inverse FFT -- note that C2R transformations are implicitly inverse
-			assertCufft(cufftExecC2R(inversePlan, transformed.get(), static_cast<cufftReal*>(converted.get())));
+			assertCufft(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
 
 			// convert back to image dimensions and normalize
 			launch2D(filter_length_, img.height(), convertFiltered, img.data(),
@@ -296,7 +297,7 @@ namespace ddafa
 			results_.push(std::move(img));
 		}
 
-		void CUDAFilter::finish()
+		auto CUDAFilter::finish() -> void
 		{
 				BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Received poisonous pill, called finish()";
 

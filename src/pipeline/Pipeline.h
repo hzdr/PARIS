@@ -9,7 +9,6 @@
 #define PIPELINE_H_
 
 #include <memory>
-#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -24,7 +23,7 @@ namespace ddafa
 		{
 			public:
 				template <class First, class Second>
-				void connect(First first, Second second)
+				auto connect(First first, Second second) -> void
 				{
 					// this pointer will be managed by "first", don't delete
 					auto port = new Port<typename First::element_type::output_type>;
@@ -33,25 +32,25 @@ namespace ddafa
 				}
 
 				template <class PipelineStage, typename... Args>
-				std::shared_ptr<PipelineStage> create(Args&&... args)
+				auto create(Args&&... args) -> std::shared_ptr<PipelineStage>
 				{
 					return std::make_shared<PipelineStage>(std::forward<Args>(args)...);
 				}
 
 				template <class Stage>
-				void run(Stage stage)
+				auto run(Stage stage) -> void
 				{
 					stage_threads_.emplace_back(&Stage::element_type::run, stage);
 				}
 
 				template <class Stage, class... Stages>
-				void run(Stage stage, Stages... stages)
+				auto run(Stage stage, Stages... stages) -> void
 				{
 					run(stage);
 					run(stages...);
 				}
 
-				void wait()
+				auto wait() -> void
 				{
 					for(auto&& t : stage_threads_)
 						t.join();

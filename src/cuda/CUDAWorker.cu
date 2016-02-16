@@ -18,15 +18,11 @@ namespace ddafa
 {
 	namespace impl
 	{
-		CUDAWorker::~CUDAWorker()
+		auto CUDAWorker::start() -> void
 		{
 		}
 
-		void CUDAWorker::start()
-		{
-		}
-
-		CUDAWorker::result_type	CUDAWorker::process(CUDAWorker::task_type&& current_task)
+		auto CUDAWorker::process(CUDAWorker::task_type&& current_task) -> CUDAWorker::result_type
 		{
 			BOOST_LOG_TRIVIAL(warning) << "CUDAWorker: STUB: process() called";
 			return result_type(0, nullptr, nullptr);

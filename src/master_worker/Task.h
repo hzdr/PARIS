@@ -49,7 +49,7 @@ namespace ddafa
 				/*
 				 * Move operator
 				 */
-				Task& operator=(Task&& rhs) noexcept
+				auto operator=(Task&& rhs) noexcept -> Task&
 				{
 					id_ = rhs.id_;
 					data_ptr_ = std::move(rhs.data_ptr_);
@@ -61,12 +61,12 @@ namespace ddafa
 					return *this;
 				}
 
-				void execute()
+				auto execute() -> void
 				{
 					Implementation::execute(data_ptr_.get(), result_ptr_.get());
 				}
 
-				bool valid() const noexcept
+				auto valid() const noexcept -> bool
 				{
 					return valid_;
 				}

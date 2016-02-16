@@ -72,7 +72,7 @@ namespace ddafa
 				/*
 				 * Copy assignment operator
 				 */
-				Image& operator=(const Image& rhs)
+				auto operator=(const Image& rhs) -> Image&
 				{
 					width_ = rhs.width_;
 					height_ = rhs.height_;
@@ -105,7 +105,7 @@ namespace ddafa
 				/*
 				 * Move assignment operator
 				 */
-				Image& operator=(Image&& rhs) noexcept
+				auto operator=(Image&& rhs) noexcept -> Image&
 				{
 					width_ = rhs.width_;
 					height_ = rhs.height_;
@@ -122,7 +122,7 @@ namespace ddafa
 				/*
 				 * returns the image's width
 				 */
-				size_type width() const noexcept
+				auto width() const noexcept -> size_type
 				{
 					return width_;
 				}
@@ -130,7 +130,7 @@ namespace ddafa
 				/*
 				 * returns the image's height
 				 */
-				size_type height() const noexcept
+				auto height() const noexcept -> size_type
 				{
 					return height_;
 				}
@@ -139,7 +139,7 @@ namespace ddafa
 				 * returns a non-owning pointer to the data. Do not delete this pointer as the Image object will take
 				 * care of the memory.
 				 */
-				value_type* data() const noexcept
+				auto data() const noexcept -> value_type*
 				{
 					return data_.get();
 				}
@@ -147,17 +147,17 @@ namespace ddafa
 				/*
 				 * returns the validness of the image
 				 */
-				bool valid() const noexcept
+				auto valid() const noexcept -> bool
 				{
 					return valid_;
 				}
 
-				void pitch(size_type new_pitch) noexcept
+				auto pitch(size_type new_pitch) noexcept -> void
 				{
 					pitch_ = new_pitch;
 				}
 
-				size_type pitch() const noexcept
+				auto pitch() const noexcept -> size_type
 				{
 					return pitch_;
 				}

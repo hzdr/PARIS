@@ -15,8 +15,8 @@ namespace ddafa
 {
 	namespace common
 	{
-		std::vector<std::string> readDirectory(const std::string&);
-		bool createDirectory(const std::string&);
+		auto readDirectory(const std::string&) -> std::vector<std::string>;
+		auto createDirectory(const std::string&) -> bool;
 
 	}
 }

@@ -29,20 +29,18 @@ namespace ddafa
 				using size_type = std::size_t;
 
 			public:
-				std::unique_ptr<value_type, deleter_type> allocate(size_type width, size_type height, size_type* pitch)
+				auto allocate(size_type width, size_type height, size_type* pitch) -> std::unique_ptr<value_type, deleter_type>
 				{
 					return std::unique_ptr<value_type, deleter_type>(Allocator::allocate(width, height, pitch));
 				}
 
-				void copy(const value_type* src, value_type* dest, size_type width, size_type height, size_type)
+				auto copy(const value_type* src, value_type* dest, size_type width, size_type height, size_type) -> void
 				{
 					std::copy(src, src + (width * height), dest);
 				}
 
 			protected:
-				~StdImage()
-				{
-				}
+				~StdImage() = default;
 
 			protected:
 				size_type pitch_;

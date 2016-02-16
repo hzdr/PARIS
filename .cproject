@@ -32,6 +32,35 @@
 								<option id="nvcc.compiler.pic.357124967" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<option id="nvcc.compiler.cpp11option.404920008" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.optionsfile.1680958795" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
+								<option id="nvcc.compiler.compileroptions.22434737" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
+									<listOptionValue builtIn="false" value="-Wall"/>
+									<listOptionValue builtIn="false" value="-Wextra"/>
+									<listOptionValue builtIn="false" value="-Wno-missing-field-initializers"/>
+									<listOptionValue builtIn="false" value="-fsigned-char"/>
+									<listOptionValue builtIn="false" value="-fsigned-bitfields"/>
+									<listOptionValue builtIn="false" value="-ffor-scope"/>
+									<listOptionValue builtIn="false" value="-fabi-version=0"/>
+									<listOptionValue builtIn="false" value="-Wabi"/>
+									<listOptionValue builtIn="false" value="-fuse-cxa-atexit"/>
+									<listOptionValue builtIn="false" value="-Wctor-dtor-privacy"/>
+									<listOptionValue builtIn="false" value="-Wdelete-non-virtual-dtor"/>
+									<listOptionValue builtIn="false" value="-Wnarrowing"/>
+									<listOptionValue builtIn="false" value="-Wnoexcept"/>
+									<listOptionValue builtIn="false" value="-Wnon-virtual-dtor"/>
+									<listOptionValue builtIn="false" value="-Woverloaded-virtual"/>
+									<listOptionValue builtIn="false" value="-Wswitch-enum"/>
+									<listOptionValue builtIn="false" value="-Wuninitialized"/>
+									<listOptionValue builtIn="false" value="-Wfloat-equal"/>
+									<listOptionValue builtIn="false" value="-Wshadow"/>
+									<listOptionValue builtIn="false" value="-Wcast-qual"/>
+									<listOptionValue builtIn="false" value="-Wcast-align"/>
+									<listOptionValue builtIn="false" value="-Wconversion"/>
+									<listOptionValue builtIn="false" value="-Wuseless-cast"/>
+									<listOptionValue builtIn="false" value="-Wsign-conversion"/>
+									<listOptionValue builtIn="false" value="-Wvla"/>
+								</option>
+								<option id="nvcc.compiler.keep.48155230" superClass="nvcc.compiler.keep" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.keepdir.1433885422" superClass="nvcc.compiler.keepdir" value="/home/ufxray/cuda-workspace2/ddafa/inter" valueType="string"/>
 								<inputType id="nvcc.compiler.input.cu.417023369" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.2040295795" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1956074200" superClass="nvcc.compiler.input.c"/>

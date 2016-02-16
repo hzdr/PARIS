@@ -42,20 +42,20 @@ namespace ddafa
 				{
 				}
 
-				void run()
+				auto run() -> void
 				{
-					std::thread push_thread(&Stage::push, this);
-					std::thread take_thread(&Stage::take, this);
+					auto push_thread = std::thread{&Stage::push, this};
+					auto take_thread = std::thread{&Stage::take, this};
 
 					push_thread.join();
 					take_thread.join();
 				}
 
-				void push()
+				auto push() -> void
 				{
 					while(true)
 					{
-						input_type img = this->input_queue_.take();
+						auto img = this->input_queue_.take();
 						if(img.valid())
 							Implementation::process(std::move(img));
 						else
@@ -67,11 +67,11 @@ namespace ddafa
 					}
 				}
 
-				void take()
+				auto take() -> void
 				{
 					while(true)
 					{
-						output_type result = Implementation::wait();
+						auto result = Implementation::wait();
 						if(result.valid())
 							this->output(std::move(result));
 						else
