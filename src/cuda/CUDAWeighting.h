@@ -15,14 +15,13 @@
 #include <thread>
 #include <vector>
 
-#include "../common/Geometry.h"
-#include "../common/Queue.h"
-#include "../image/Image.h"
-#include "../image/StdImage.h"
+#include <ddrf/Queue.h>
+#include <ddrf/Image.h>
+#include <ddrf/default/Image.h>
+#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/HostMemoryManager.h>
 
-#include "CUDAHostAllocator.h"
-#include "CUDAHostDeleter.h"
-#include "CUDAImage.h"
+#include "../common/Geometry.h"
 
 namespace ddafa
 {
@@ -31,8 +30,8 @@ namespace ddafa
 		class CUDAWeighting
 		{
 			public:
-				using input_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
-				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
+				using input_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
+				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
 
 			public:
 				CUDAWeighting(const ddafa::common::Geometry&);
@@ -45,11 +44,10 @@ namespace ddafa
 			private:
 				auto processor(const input_type&, int) -> void;
 				auto finish() -> void;
-				auto copyToDevice(const input_type&) -> output_type;
 
 			private:
 				ddafa::common::Geometry geo_;
-				ddafa::common::Queue<output_type> results_;
+				ddrf::Queue<output_type> results_;
 				float h_min_;
 				float v_min_;
 				float d_dist_;

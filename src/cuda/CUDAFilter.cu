@@ -22,11 +22,13 @@
 #include <cufft.h>
 #include <cufftXt.h>
 
+#include <ddrf/cuda/Check.h>
+#include <ddrf/cuda/Coordinates.h>
+#include <ddrf/cuda/Launch.h>
+#include <ddrf/cuda/Memory.h>
+
 #include "../common/Geometry.h"
 
-#include "CUDAAssert.h"
-#include "CUDACommon.h"
-#include "CUDADeviceDeleter.h"
 #include "CUDAFilter.h"
 
 namespace ddafa
@@ -36,7 +38,7 @@ namespace ddafa
 		__global__ void createFilter(float* __restrict__ r, const std::int32_t* __restrict__ j,
 				std::size_t size, float tau)
 		{
-			auto x = getX();
+			auto x = ddrf::cuda::getX();
 
 			/*
 			 * r(j) with j = [ -(filter_length - 2)/2, ..., 0, ..., filter_length/2 ]
@@ -67,8 +69,8 @@ namespace ddafa
 				std::size_t width, std::size_t height, std::size_t input_pitch, std::size_t output_pitch,
 				std::size_t filter_length)
 		{
-			auto x = getX();
-			auto y = getY();
+			auto x = ddrf::cuda::getX();
+			auto y = ddrf::cuda::getY();
 
 			if((x < filter_length) && (y < height))
 			{
@@ -87,8 +89,8 @@ namespace ddafa
 				std::size_t width, std::size_t height, std::size_t output_pitch,
 				std::size_t input_pitch, std::size_t filter_length)
 		{
-			auto x = getX();
-			auto y = getY();
+			auto x = ddrf::cuda::getX();
+			auto y = ddrf::cuda::getY();
 
 			if((x < width) && (y < height)) {
 				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
@@ -100,7 +102,7 @@ namespace ddafa
 
 		__global__ void createK(cufftComplex* __restrict__ data, std::size_t filter_length, float tau)
 		{
-			auto x = getX();
+			auto x = ddrf::cuda::getX();
 			if(x < filter_length)
 			{
 				auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
@@ -113,8 +115,8 @@ namespace ddafa
 		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
 				std::size_t filter_length, std::size_t data_height, std::size_t pitch)
 		{
-			auto x = getX();
-			auto y = getY();
+			auto x = ddrf::cuda::getX();
+			auto y = ddrf::cuda::getY();
 
 			if((x < filter_length) && (y < data_height))
 			{
@@ -138,7 +140,7 @@ namespace ddafa
 				)}
 		, tau_{geo.det_pixel_size_horiz}
 		{
-			assertCuda(cudaGetDeviceCount(&devices_));
+			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
 
 			rs_.resize(static_cast<unsigned int>(devices_));
 
@@ -179,27 +181,22 @@ namespace ddafa
 
 		auto CUDAFilter::filterProcessor(int device) -> void
 		{
-			assertCuda(cudaSetDevice(device));
+			ddrf::cuda::check(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Creating filter on device #" << device;
 
-			auto buffer_raw = static_cast<float*>(nullptr);
-			assertCuda(cudaMalloc(&buffer_raw, filter_length_ * sizeof(float)));
-			auto buffer = std::unique_ptr<float[], CUDADeviceDeleter>{buffer_raw};
+			auto buffer = ddrf::cuda::make_device_ptr<float>(filter_length_);
 
 			// see documentation in kernel "createFilter" for explanation
-			auto j_host_buffer = std::vector<std::int32_t>(filter_length_);
+			auto j_host_buffer = ddrf::cuda::make_host_ptr<std::int32_t>(filter_length_);
 			auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
 			auto j = -((filter_length_signed - 2) / 2);
 			for(auto k = 0u; k <= (filter_length_); ++k, ++j)
 				j_host_buffer[k] = j;
 
-			auto j_dev_buffer_raw = static_cast<std::int32_t*>(nullptr);
-			assertCuda(cudaMalloc(&j_dev_buffer_raw, filter_length_ * sizeof(std::int32_t)));
-			auto j_dev_buffer = std::unique_ptr<std::int32_t[], CUDADeviceDeleter>{j_dev_buffer_raw};
-			assertCuda(cudaMemcpy(j_dev_buffer.get(), j_host_buffer.data(), filter_length_ * sizeof(std::int32_t),
-									cudaMemcpyHostToDevice));
+			auto j_dev_buffer = ddrf::cuda::make_device_ptr<std::int32_t>(filter_length_);
+			j_dev_buffer = j_host_buffer;
 
-			launch1D(filter_length_,
+			ddrf::cuda::launch(filter_length_,
 					createFilter,
 					buffer.get(), static_cast<const std::int32_t*>(j_dev_buffer.get()),
 					filter_length_, tau_);
@@ -208,40 +205,30 @@ namespace ddafa
 
 		auto CUDAFilter::processor(CUDAFilter::input_type&& img, int device) -> void
 		{
-			assertCuda(cudaSetDevice(device));
+			ddrf::cuda::check(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: processing on device #" << device;
 
 			// convert projection to new dimensions
-			auto converted_raw = static_cast<float*>(nullptr);
-			auto converted_pitch = std::size_t{};
-			assertCuda(cudaMallocPitch(&converted_raw, &converted_pitch, sizeof(float) * filter_length_, img.height()));
-			auto converted =std::unique_ptr<float, CUDADeviceDeleter>{converted_raw};
-			launch2D(filter_length_, img.height(), convertProjection, converted.get(),
-					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted_pitch, filter_length_);
+			auto converted = ddrf::cuda::make_device_ptr<float>(filter_length_, img.height());
+			ddrf::cuda::launch(filter_length_, img.height(), convertProjection, converted.get(),
+					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
 
 			// allocate memory
 			auto transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
-			auto transformed_raw = static_cast<cufftComplex*>(nullptr);
-			auto transformed_pitch = std::size_t{};
-			assertCuda(cudaMallocPitch(&transformed_raw, &transformed_pitch,
-					sizeof(cufftComplex) * transformed_filter_length, img.height()));
-			auto transformed = std::unique_ptr<cufftComplex, CUDADeviceDeleter>{transformed_raw};
+			auto transformed = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length, img.height());
 
-			auto filter_raw = static_cast<cufftComplex*>(nullptr);
-			assertCuda(cudaMalloc(&filter_raw,
-					sizeof(cufftComplex) * transformed_filter_length));
-			auto filter = std::unique_ptr<cufftComplex, CUDADeviceDeleter>{filter_raw};
+			auto filter = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length);
 
 			// set up cuFFT
 			auto n_proj = std::vector<int>{ static_cast<int>(filter_length_) };
-			auto proj_dist = static_cast<int>(converted_pitch / sizeof(float));
+			auto proj_dist = static_cast<int>(converted.pitch() / sizeof(float));
 			auto proj_nembed = std::vector<int>{ proj_dist };
 
-			auto trans_dist = static_cast<int>(transformed_pitch / sizeof(cufftComplex));
+			auto trans_dist = static_cast<int>(transformed.pitch() / sizeof(cufftComplex));
 			auto trans_nembed = std::vector<int>{ trans_dist };
 
 			auto projectionPlan = cufftHandle{};
-			assertCufft(cufftPlanMany(&projectionPlan, 					// plan
+			ddrf::cuda::checkCufft(cufftPlanMany(&projectionPlan, 					// plan
 										1, 								// rank (dimension)
 										n_proj.data(),					// input dimension size
 										proj_nembed.data(),				// input storage dimensions
@@ -255,10 +242,10 @@ namespace ddafa
 										));
 
 			auto filterPlan = cufftHandle{};
-			assertCufft(cufftPlan1d(&filterPlan, static_cast<int>(filter_length_), CUFFT_R2C, 1));
+			ddrf::cuda::checkCufft(cufftPlan1d(&filterPlan, static_cast<int>(filter_length_), CUFFT_R2C, 1));
 
 			auto inversePlan = cufftHandle{};
-			assertCufft(cufftPlanMany(&inversePlan,
+			ddrf::cuda::checkCufft(cufftPlanMany(&inversePlan,
 										1,
 										n_proj.data(),
 										trans_nembed.data(),
@@ -272,27 +259,27 @@ namespace ddafa
 										));
 
 			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
-			assertCufft(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
-			assertCufft(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(device)].get(), filter.get()));
+			ddrf::cuda::checkCufft(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
+			ddrf::cuda::checkCufft(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(device)].get(), filter.get()));
 
 			// create K
-			launch1D(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
+			ddrf::cuda::launch(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
 
 			// multiply the results
-			launch2D(transformed_filter_length, img.height(), applyFilter, transformed.get(),
-				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed_pitch);
+			ddrf::cuda::launch(transformed_filter_length, img.height(), applyFilter, transformed.get(),
+				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed.pitch());
 
 			// run inverse FFT -- note that C2R transformations are implicitly inverse
-			assertCufft(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
+			ddrf::cuda::checkCufft(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
 
 			// convert back to image dimensions and normalize
-			launch2D(filter_length_, img.height(), convertFiltered, img.data(),
-					static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted_pitch, filter_length_);
+			ddrf::cuda::launch(filter_length_, img.height(), convertFiltered, img.data(),
+					static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
 
 			// clean up
-			assertCufft(cufftDestroy(inversePlan));
-			assertCufft(cufftDestroy(filterPlan));
-			assertCufft(cufftDestroy(projectionPlan));
+			ddrf::cuda::checkCufft(cufftDestroy(inversePlan));
+			ddrf::cuda::checkCufft(cufftDestroy(filterPlan));
+			ddrf::cuda::checkCufft(cufftDestroy(projectionPlan));
 
 			results_.push(std::move(img));
 		}

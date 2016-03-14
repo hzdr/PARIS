@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -20,8 +21,10 @@
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
+#include <ddrf/cuda/Check.h>
+
 #include "../common/Geometry.h"
-#include "CUDAAssert.h"
+
 
 namespace ddafa
 {
@@ -32,10 +35,7 @@ namespace ddafa
 		class CUDAFeldkampScheduler
 		{
 			public:
-				~CUDAFeldkampScheduler()
-				{
-
-				}
+				~CUDAFeldkampScheduler() = default;
 
 				static auto instance(const common::Geometry& geo) -> CUDAFeldkampScheduler<T>&
 				{
@@ -67,22 +67,35 @@ namespace ddafa
 
 					// calculate volume size in bytes (GPU RAM) and split it up if it doesn't fit
 					volume_size_ = geo.det_pixels_row * geo.det_pixels_row * geo.det_pixels_column * sizeof(T);
-					auto volume_count = 0u;
+					auto vol_count = 0u;
 					BOOST_LOG_TRIVIAL(debug) << "Volume needs " << volume_size_ << " Bytes.";
-					auto device_count = int{};
-					assertCuda(cudaGetDeviceCount(&device_count));
-					volume_size_ /= static_cast<unsigned int>(device_count);
-					for(auto i = 0; i <= (device_count - 1); ++i)
+					auto dev_count = int{};
+					ddrf::cuda::check(cudaGetDeviceCount(&dev_count));
+					volume_size_ /= static_cast<unsigned int>(dev_count);
+					for(auto i = 0; i <= (dev_count - 1); ++i)
 					{
 						auto vol_size_dev = volume_size_;
 						auto vol_count_dev = 1u;
-						assertCuda(cudaSetDevice(i));
+						ddrf::cuda::check(cudaSetDevice(i));
 						auto properties = cudaDeviceProp{};
-						assertCuda(cudaGetDeviceProperties(&properties, i));
+						ddrf::cuda::check(cudaGetDeviceProperties(&properties, i));
 
-						// divide size by 2 until it fits onto memory
+						// divide size by 2 until it fits in memory
+						auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::uint32_t*, std::size_t)>();
+						calcVolumeSizePerDev = [&calcVolumeSizePerDev](std::size_t volume_size, std::uint32_t* volume_count, std::size_t dev_mem)
+						{
+							if(volume_size >= dev_mem)
+							{
+								volume_size /= 2;
+								*volume_count *= 2;
+								return calcVolumeSizePerDev(volume_size, volume_count, dev_mem);
+							}
+							else
+								return volume_size;
+						};
+
 						vol_size_dev = calcVolumeSizePerDev(vol_size_dev, &vol_count_dev, properties.totalGlobalMem);
-						volume_count += vol_count_dev;
+						vol_count += vol_count_dev;
 						auto chunk_str = std::string(vol_count_dev > 1 ? "chunks" : "chunk");
 						BOOST_LOG_TRIVIAL(debug) << "Need " << vol_count_dev << " " << chunk_str << " with " << vol_size_dev
 							<< " Bytes on device #" << i;
@@ -92,14 +105,14 @@ namespace ddafa
 					// calculate chunk borders
 					auto chunks = std::vector<std::pair<std::uint32_t, std::uint32_t>>{};
 					auto first_row = 0.f;
-					for(auto n = 0u; n < volume_count; ++n)
+					for(auto n = 0u; n < vol_count; ++n)
 					{
-						auto top = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n) / volume_count));
-						auto bottom = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n + 1) / volume_count));
+						auto top = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n) / vol_count));
+						auto bottom = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n + 1) / vol_count));
 
 						auto top_proj = 0.f;
 						auto bottom_proj = 0.f;
-						if(n < (volume_count / 2))
+						if(n < (vol_count / 2))
 						{
 							top_proj = (dist_src_det * top) / (geo.dist_src - (std::sqrt(2.f) / 2) * volume_height_);
 							bottom_proj = (dist_src_det * bottom) / (geo.dist_src + (std::sqrt(2.f) / 2) * volume_height_);
@@ -126,7 +139,7 @@ namespace ddafa
 
 					// distribute chunks among the devices
 					auto chunks_begin = std::begin(chunks);
-					for(auto i = 0; i < device_count; ++i)
+					for(auto i = 0; i < dev_count; ++i)
 					{
 						auto chunk_count = volumes_per_device_.at(i);
 						chunks_.emplace(std::make_pair(i,
@@ -140,24 +153,13 @@ namespace ddafa
 					}
 				}
 
-			private:
-				auto calcVolumeSizePerDev(std::size_t volume_size, std::uint32_t* volume_count, std::size_t dev_mem) -> std::size_t
-				{
-					if(volume_size >= dev_mem)
-					{
-						volume_size /= 2;
-						*volume_count *= 2;
-						return calcVolumeSizePerDev(volume_size, volume_count, dev_mem);
-					}
-					else
-						return volume_size;
-				}
+			protected:
+				std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>> chunks_;
+				std::map<int, std::uint32_t> volumes_per_device_;
 
 			private:
 				float volume_height_;
 				std::size_t volume_size_;
-				std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>> chunks_;
-				std::map<int, std::uint32_t> volumes_per_device_;
 		};
 	}
 }

@@ -13,36 +13,36 @@
 #include <thread>
 #include <vector>
 
-#include "CUDAHostAllocator.h"
-#include "CUDAHostDeleter.h"
-#include "CUDAImage.h"
-#include "../common/Queue.h"
-#include "../image/Image.h"
-#include "../image/StdImage.h"
+#include <ddrf/Image.h>
+#include <ddrf/Queue.h>
+#include <ddrf/cuda/HostMemoryManager.h>
+#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/Memory.h>
+#include <ddrf/default/Image.h>
 
 namespace ddafa
 {
 	namespace impl
 	{
-		class CUDAToStdImage : public CUDAHostAllocator<float>
+		class CUDAToStdImage
 		{
 			public:
-				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
+				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
+				using output_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
 
 				CUDAToStdImage();
 				auto process(input_type&&) -> void;
 				auto wait() -> output_type;
 
 			protected:
-				~CUDAToStdImage() = default;
+				~CUDAToStdImage();
 
 			private:
 				auto processor(input_type&&, int) -> void;
 				auto finish() -> void;
 
 			private:
-				ddafa::common::Queue<output_type> results_;
+				ddrf::Queue<output_type> results_;
 				std::vector<std::thread> processor_threads_;
 				int devices_;
 

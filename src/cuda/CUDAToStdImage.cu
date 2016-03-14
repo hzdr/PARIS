@@ -16,7 +16,9 @@
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
-#include "CUDAAssert.h"
+#include <ddrf/cuda/Check.h>
+#include <ddrf/cuda/Memory.h>
+
 #include "CUDAToStdImage.h"
 
 namespace ddafa
@@ -25,7 +27,13 @@ namespace ddafa
 	{
 		CUDAToStdImage::CUDAToStdImage()
 		{
-			assertCuda(cudaGetDeviceCount(&devices_));
+			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+		}
+
+		CUDAToStdImage::~CUDAToStdImage()
+		{
+			// this is the last stage in the pipeline, time to clean up CUDA
+			cudaDeviceReset();
 		}
 
 		auto CUDAToStdImage::process(CUDAToStdImage::input_type&& img) -> void
@@ -50,21 +58,11 @@ namespace ddafa
 
 		auto CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device) -> void
 		{
-			assertCuda(cudaSetDevice(device));
-			auto hostPitch = std::size_t{};
-
-			auto host_buffer =
-					std::unique_ptr<float, typename output_type::deleter_type>{
-						CUDAHostAllocator<float>::allocate(img.width(), img.height(), &hostPitch)
-			};
-
-			assertCuda(cudaMemcpy2D(host_buffer.get(), hostPitch,
-									img.data(), img.pitch(),
-									img.width() * sizeof(float), img.height(),
-									cudaMemcpyDeviceToHost));
+			ddrf::cuda::check(cudaSetDevice(device));
+			auto host_buffer = ddrf::cuda::make_host_ptr<float>(img.width(), img.height());
+			host_buffer = img.container();
 
 			auto result = output_type(img.width(), img.height(), std::move(host_buffer));
-			result.pitch(hostPitch);
 			results_.push(std::move(result));
 		}
 

@@ -10,18 +10,11 @@
 #ifndef CUDAFELDKAMP_H_
 #define CUDAFELDKAMP_H_
 
-#include <thread>
-#include <vector>
-
-#include "../image/Image.h"
-#include "../image/StdImage.h"
-
-#include "../master_worker/Master.h"
-
-#include "CUDAHostAllocator.h"
-#include "CUDAHostDeleter.h"
-#include "CUDAImage.h"
-#include "CUDAMaster.h"
+#include <ddrf/Image.h>
+#include <ddrf/cuda/HostMemoryManager.h>
+#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/Memory.h>
+#include <ddrf/default/Image.h>
 
 namespace ddafa
 {
@@ -30,9 +23,8 @@ namespace ddafa
 		class CUDAFeldkamp
 		{
 			private:
-				using master_type = ddafa::master_worker::Master<CUDAMaster, int&>;
-				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_type = ddafa::image::Image<float, StdImage<float, CUDAHostAllocator<float>, CUDAHostDeleter>>;
+				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
+				using output_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
 
 			public:
 				CUDAFeldkamp();
@@ -40,11 +32,7 @@ namespace ddafa
 				auto wait() -> output_type;
 
 			protected:
-				~CUDAFeldkamp();
-
-			private:
-				std::vector<master_type> masters_;
-				std::vector<std::thread> master_threads_;
+				~CUDAFeldkamp() = default;
 		};
 	}
 }

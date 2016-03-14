@@ -16,12 +16,12 @@
 #include <thread>
 #include <vector>
 
-#include "../common/Geometry.h"
-#include "../common/Queue.h"
-#include "../image/Image.h"
+#include <ddrf/Image.h>
+#include <ddrf/Queue.h>
+#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/Memory.h>
 
-#include "CUDADeviceDeleter.h"
-#include "CUDAImage.h"
+#include "../common/Geometry.h"
 
 namespace ddafa
 {
@@ -30,8 +30,8 @@ namespace ddafa
 		class CUDAFilter
 		{
 			public:
-				using input_type = ddafa::image::Image<float, CUDAImage<float>>;
-				using output_type = ddafa::image::Image<float, CUDAImage<float>>;
+				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
+				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
 
 			public:
 				CUDAFilter(const ddafa::common::Geometry& geo);
@@ -47,11 +47,11 @@ namespace ddafa
 				auto finish() -> void;
 
 			private:
-				ddafa::common::Queue<output_type> results_;
+				ddrf::Queue<output_type> results_;
 				std::vector<std::thread> processor_threads_;
 				int devices_;
 				std::size_t filter_length_;
-				std::vector<std::unique_ptr<float[], CUDADeviceDeleter>> rs_;
+				std::vector<ddrf::cuda::device_ptr<float, ddrf::cuda::sync_copy_policy>> rs_;
 				float tau_;
 		};
 	}

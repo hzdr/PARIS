@@ -7,13 +7,9 @@
  *      This class is the concrete backprojection implementation for the Stage class. Implementation file.
  */
 
-#include <stdexcept>
-#include <string>
+#include <ddrf/Image.h>
+#include <ddrf/cuda/Check.h>
 
-#include "../image/Image.h"
-#include "../master_worker/Master.h"
-
-#include "CUDAAssert.h"
 #include "CUDAFeldkamp.h"
 
 namespace ddafa
@@ -23,31 +19,15 @@ namespace ddafa
 		CUDAFeldkamp::CUDAFeldkamp()
 		{
 			auto device_count = int{};
-			assertCuda(cudaGetDeviceCount(&device_count));
-
-			for(auto i = 0; i < device_count; ++i)
-				masters_.emplace_back(i);
-
-			for(auto&& master : masters_)
-				master_threads_.emplace_back(&master_type::start, &master);
-		}
-
-		CUDAFeldkamp::~CUDAFeldkamp()
-		{
+			ddrf::cuda::check(cudaGetDeviceCount(&device_count));
 		}
 
 		auto CUDAFeldkamp::process(CUDAFeldkamp::input_type&& img) -> void
 		{
-			// do NOT delete this pointer
-			input_type* img_ptr = &img;
-			for(auto&& master : masters_)
-				master.input(img_ptr);
 		}
 
 		auto CUDAFeldkamp::wait() -> CUDAFeldkamp::output_type
 		{
-			for(auto&& thread : master_threads_)
-				thread.join();
 			return CUDAFeldkamp::output_type();
 		}
 	}

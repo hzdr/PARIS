@@ -16,13 +16,14 @@
 #define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
-#include "CUDAAssert.h"
-#include "CUDACommon.h"
-#include "CUDADeviceDeleter.h"
+#include <ddrf/Image.h>
+#include <ddrf/cuda/Check.h>
+#include <ddrf/cuda/Coordinates.h>
+#include <ddrf/cuda/Launch.h>
+
 #include "CUDAWeighting.h"
 
 #include "../common/Geometry.h"
-#include "../image/Image.h"
 
 namespace ddafa
 {
@@ -33,8 +34,8 @@ namespace ddafa
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
 		{
-			int j = getX(); // column index
-			int i = getY(); // row index
+			int j = ddrf::cuda::getX(); // column index
+			int i = ddrf::cuda::getY(); // row index
 
 			if((j < width) && (i < height))
 			{
@@ -59,7 +60,7 @@ namespace ddafa
 		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2)}
 		, d_dist_{geo.dist_det + geo.dist_src}
 		{
-			assertCuda(cudaGetDeviceCount(&devices_));
+			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
 		}
 
 		auto CUDAWeighting::process(CUDAWeighting::input_type&& img) -> void
@@ -85,16 +86,18 @@ namespace ddafa
 
 		auto CUDAWeighting::processor(const CUDAWeighting::input_type& img, int device) -> void
 		{
-			assertCuda(cudaSetDevice(device));
+			ddrf::cuda::check(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
 
-			auto result = copyToDevice(img);
+			auto result = output_type{};
 			result.setDevice(device);
-			launch2D(result.width(), result.height(),
+			result = img;
+
+			ddrf::cuda::launch(result.width(), result.height(),
 					weight,
 					result.data(), result.width(), result.height(), result.pitch(), h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
-			assertCuda(cudaStreamSynchronize(0));
+			ddrf::cuda::check(cudaStreamSynchronize(0));
 			results_.push(std::move(result));
 		}
 
@@ -106,22 +109,6 @@ namespace ddafa
 				t.join();
 
 			results_.push(output_type());
-		}
-
-		auto CUDAWeighting::copyToDevice(const CUDAWeighting::input_type& img) -> CUDAWeighting::output_type
-		{
-			auto dev_buffer = static_cast<float*>(nullptr);
-			auto pitch = std::size_t{};
-			auto host_pitch = img.width() * sizeof(float);
-			assertCuda(cudaMallocPitch(&dev_buffer, &pitch, img.width() * sizeof(float), img.height()));
-			assertCuda(cudaMemcpy2D(dev_buffer, pitch,
-									img.data(), host_pitch,
-									img.width() * sizeof(float), img.height(),
-									cudaMemcpyHostToDevice));
-			auto ret = output_type(img.width(), img.height(), std::unique_ptr<float, CUDADeviceDeleter>(dev_buffer));
-			ret.pitch(pitch);
-
-			return ret;
 		}
 	}
 }

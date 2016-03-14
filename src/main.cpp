@@ -14,20 +14,20 @@
 
 #include "common/Geometry.h"
 
-#include "image/Image.h"
-#include "image/ImageLoader.h"
-#include "image/ImageSaver.h"
-#include "image/loaders/HIS.h"
-#include "image/savers/TIFF.h"
+#include <ddrf/Image.h>
+#include <ddrf/ImageLoader.h>
+#include <ddrf/ImageSaver.h>
+#include <ddrf/imageLoaders/HIS/HIS.h>
+#include <ddrf/imageSavers/TIFF/TIFF.h>
 
-#include "pipeline/Pipeline.h"
-#include "pipeline/SinkStage.h"
-#include "pipeline/SourceStage.h"
-#include "pipeline/Stage.h"
+#include <ddrf/pipeline/Pipeline.h>
+#include <ddrf/pipeline/SinkStage.h>
+#include <ddrf/pipeline/SourceStage.h>
+#include <ddrf/pipeline/Stage.h>
+
+#include <ddrf/cuda/HostMemoryManager.h>
 
 #include "cuda/CUDAFilter.h"
-#include "cuda/CUDAHostAllocator.h"
-#include "cuda/CUDAHostDeleter.h"
 #include "cuda/CUDAToStdImage.h"
 #include "cuda/CUDAWeighting.h"
 
@@ -45,13 +45,13 @@ void initLog()
 int main(int argc, char** argv)
 {
 	initLog();
-	using tiff_saver = ddafa::image::ImageSaver<ddafa::impl::TIFF<float, ddafa::impl::CUDAHostAllocator<float>, ddafa::impl::CUDAHostDeleter>>;
-	using his_loader = ddafa::image::ImageLoader<ddafa::impl::HIS<float, ddafa::impl::CUDAHostAllocator<float>, ddafa::impl::CUDAHostDeleter>>;
-	using source_stage = ddafa::pipeline::SourceStage<his_loader>;
-	using sink_stage = ddafa::pipeline::SinkStage<tiff_saver>;
-	using weighting_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAWeighting>;
-	using filter_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAFilter>;
-	using converter_stage = ddafa::pipeline::Stage<ddafa::impl::CUDAToStdImage>;
+	using tiff_saver = ddrf::ImageSaver<ddrf::savers::TIFF<float, ddrf::cuda::HostMemoryManager<float>>>;
+	using his_loader = ddrf::ImageLoader<ddrf::loaders::HIS<float, ddrf::cuda::HostMemoryManager<float>>>;
+	using source_stage = ddrf::pipeline::SourceStage<his_loader>;
+	using sink_stage = ddrf::pipeline::SinkStage<tiff_saver>;
+	using weighting_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAWeighting>;
+	using filter_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAFilter>;
+	using converter_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAToStdImage>;
 
 	try
 	{
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 		boost::program_options::notify(geom_map);
 
 		// set up pipeline
-		auto pipeline = ddafa::pipeline::Pipeline{};
+		auto pipeline = ddrf::pipeline::Pipeline{};
 
 		auto source = pipeline.create<source_stage>(projection_path);
 		auto weighting = pipeline.create<weighting_stage>(geo);
