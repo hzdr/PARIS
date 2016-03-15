@@ -1,12 +1,3 @@
-/*
- * CUDAWeighting.cu
- *
- *  Created on: 19.11.2015
- *      Author: Jan Stephan
- *
- *      CUDAWeighting manages the concrete implementation of weighting the projections. Implementation file.
- */
-
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -21,32 +12,32 @@
 #include <ddrf/cuda/Coordinates.h>
 #include <ddrf/cuda/Launch.h>
 
-#include "CUDAWeighting.h"
+#include "Weighting.h"
 
 #include "../common/Geometry.h"
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
 		__global__ void weight(float* img,
 								std::size_t width, std::size_t height, std::size_t pitch,
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
 		{
-			int j = ddrf::cuda::getX(); // column index
-			int i = ddrf::cuda::getY(); // row index
+			auto j = ddrf::cuda::getX(); // column index
+			auto i = ddrf::cuda::getY(); // row index
 
 			if((j < width) && (i < height))
 			{
-				float* row = reinterpret_cast<float*>(reinterpret_cast<char*>(img) + i * pitch);
+				auto* row = reinterpret_cast<float*>(reinterpret_cast<char*>(img) + i * pitch);
 
 				// detector coordinates
-				float h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
-				float v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
+				auto h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
+				auto v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
 
 				// calculate weight
-				float w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
+				auto w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
 				// apply
 				row[j] = row[j] * w_ij;
@@ -54,7 +45,7 @@ namespace ddafa
 			__syncthreads();
 		}
 
-		CUDAWeighting::CUDAWeighting(const ddafa::common::Geometry& geo)
+		Weighting::Weighting(const common::Geometry& geo)
 		: geo_(geo)
 		, h_min_{-(geo.det_offset_horiz * geo.det_pixel_size_horiz) - ((static_cast<float>(geo.det_pixels_row) * geo.det_pixel_size_horiz) / 2)}
 		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2)}
@@ -63,7 +54,7 @@ namespace ddafa
 			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
 		}
 
-		auto CUDAWeighting::process(CUDAWeighting::input_type&& img) -> void
+		auto Weighting::process(input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -75,19 +66,19 @@ namespace ddafa
 			for(auto i = 0; i < devices_; ++i)
 			{
 				// execute kernel
-				processor_threads_.emplace_back(&CUDAWeighting::processor, this, img, i);
+				processor_threads_.emplace_back(&Weighting::processor, this, img, i);
 			}
 		}
 
-		auto CUDAWeighting::wait() -> CUDAWeighting::output_type
+		auto Weighting::wait() -> output_type
 		{
 			return results_.take();
 		}
 
-		auto CUDAWeighting::processor(const CUDAWeighting::input_type& img, int device) -> void
+		auto Weighting::processor(const input_type& img, int device) -> void
 		{
 			ddrf::cuda::check(cudaSetDevice(device));
-			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
+			// BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
 
 			auto result = output_type{};
 			result.setDevice(device);
@@ -97,11 +88,12 @@ namespace ddafa
 					weight,
 					result.data(), result.width(), result.height(), result.pitch(), h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+
 			ddrf::cuda::check(cudaStreamSynchronize(0));
 			results_.push(std::move(result));
 		}
 
-		auto CUDAWeighting::finish() -> void
+		auto Weighting::finish() -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: Received poisonous pill, called finish()";
 

@@ -23,16 +23,16 @@
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1121371478" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
 							<builder buildPath="${workspace_loc:/ddafa}/Debug" id="com.nvidia.cuda.ide.builder.944456379" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 7.5 Builder" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool id="nvcc.compiler.base.321879615" name="NVCC Compiler" superClass="nvcc.compiler.base">
-								<option id="nvcc.compiler.def.symbols.1177807439" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
+								<option id="nvcc.compiler.def.symbols.1177807439" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DDAFA_DEBUG"/>
 								</option>
-								<option id="nvcc.compiler.deviceDebug.574583145" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.level.359762926" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="true" valueType="boolean"/>
-								<option defaultValue="nvcc.compiler.optimization.level.none" id="nvcc.compiler.optimization.level.1697899222" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
-								<option id="nvcc.compiler.pic.357124967" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.cpp11option.404920008" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.optionsfile.1680958795" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
-								<option id="nvcc.compiler.compileroptions.22434737" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
+								<option id="nvcc.compiler.deviceDebug.574583145" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.level.359762926" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option defaultValue="nvcc.compiler.optimization.level.none" id="nvcc.compiler.optimization.level.1697899222" name="Optimization Level" superClass="nvcc.compiler.optimization.level" useByScannerDiscovery="false" valueType="enumerated"/>
+								<option id="nvcc.compiler.pic.357124967" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" useByScannerDiscovery="false"/>
+								<option id="nvcc.compiler.cpp11option.404920008" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.optionsfile.1680958795" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" useByScannerDiscovery="false" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
+								<option id="nvcc.compiler.compileroptions.22434737" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" useByScannerDiscovery="false" valueType="stringList">
 									<listOptionValue builtIn="false" value="-Wall"/>
 									<listOptionValue builtIn="false" value="-Wextra"/>
 									<listOptionValue builtIn="false" value="-Wno-missing-field-initializers"/>
@@ -59,9 +59,9 @@
 									<listOptionValue builtIn="false" value="-Wsign-conversion"/>
 									<listOptionValue builtIn="false" value="-Wvla"/>
 								</option>
-								<option id="nvcc.compiler.keep.48155230" name="Keep intermidiate files (-keep)" superClass="nvcc.compiler.keep" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.keepdir.1433885422" name="Intermidiate files location (-keep-dir)" superClass="nvcc.compiler.keepdir" value="/home/ufxray/cuda-workspace2/ddafa/inter" valueType="string"/>
-								<option id="nvcc.compiler.include.paths.1794010719" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+								<option id="nvcc.compiler.keep.48155230" name="Keep intermidiate files (-keep)" superClass="nvcc.compiler.keep" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.keepdir.1433885422" name="Intermidiate files location (-keep-dir)" superClass="nvcc.compiler.keepdir" useByScannerDiscovery="false" value="/home/ufxray/cuda-workspace2/ddafa/inter" valueType="string"/>
+								<option id="nvcc.compiler.include.paths.1794010719" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/include}&quot;"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.417023369" superClass="nvcc.compiler.input.cu"/>

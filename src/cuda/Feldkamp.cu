@@ -10,25 +10,28 @@
 #include <ddrf/Image.h>
 #include <ddrf/cuda/Check.h>
 
-#include "CUDAFeldkamp.h"
+#include "../common/Geometry.h"
+#include "Feldkamp.h"
+#include "FeldkampScheduler.h"
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
-		CUDAFeldkamp::CUDAFeldkamp()
+		Feldkamp::Feldkamp(const common::Geometry& geo)
+		: scheduler_{FeldkampScheduler<float>::instance(geo)}
 		{
 			auto device_count = int{};
 			ddrf::cuda::check(cudaGetDeviceCount(&device_count));
 		}
 
-		auto CUDAFeldkamp::process(CUDAFeldkamp::input_type&& img) -> void
+		auto Feldkamp::process(input_type&& img) -> void
 		{
 		}
 
-		auto CUDAFeldkamp::wait() -> CUDAFeldkamp::output_type
+		auto Feldkamp::wait() -> output_type
 		{
-			return CUDAFeldkamp::output_type();
+			return output_type{};
 		}
 	}
 }

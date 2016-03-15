@@ -1,12 +1,5 @@
-/*
- * CUDAFeldkampScheduler.h
- *
- *  Created on: 04.02.2016
- *      Author: Jan Stephan
- */
-
-#ifndef CUDAFELDKAMPSCHEDULER_H_
-#define CUDAFELDKAMPSCHEDULER_H_
+#ifndef CUDA_FELDKAMPSCHEDULER_H_
+#define CUDA_FELDKAMPSCHEDULER_H_
 
 #include <cstddef>
 #include <cmath>
@@ -28,19 +21,24 @@
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
 		// FIXME: Make me a "Modern C++ Design"-Singleton
 		template <typename T>
-		class CUDAFeldkampScheduler
+		class FeldkampScheduler
 		{
 			public:
-				~CUDAFeldkampScheduler() = default;
+				~FeldkampScheduler() = default;
 
-				static auto instance(const common::Geometry& geo) -> CUDAFeldkampScheduler<T>&
+				static auto instance(const common::Geometry& geo) -> FeldkampScheduler<T>&
 				{
-					static CUDAFeldkampScheduler<T> instance(std::forward<const common::Geometry>(geo));
+					static FeldkampScheduler<T> instance(std::forward<const common::Geometry>(geo));
 					return instance;
+				}
+
+				auto get_chunks() const noexcept -> std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>>
+				{
+					return chunks_;
 				}
 
 				auto chunkNumber(int device) -> std::uint32_t
@@ -54,8 +52,13 @@ namespace ddafa
 					return chunks_.at(device);
 				}
 
+				auto volumes_per_device() const noexcept -> std::map<int, std::uint32_t>
+				{
+					return volumes_per_device_;
+				}
+
 			protected:
-				CUDAFeldkampScheduler(const common::Geometry& geo)
+				FeldkampScheduler(const common::Geometry& geo)
 				{
 					// calculate volume height in mm
 					auto dist_src_det = geo.dist_src + geo.dist_det;
@@ -153,11 +156,9 @@ namespace ddafa
 					}
 				}
 
-			protected:
+			private:
 				std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>> chunks_;
 				std::map<int, std::uint32_t> volumes_per_device_;
-
-			private:
 				float volume_height_;
 				std::size_t volume_size_;
 		};
@@ -166,4 +167,4 @@ namespace ddafa
 
 
 
-#endif /* CUDAFELDKAMPSCHEDULER_H_ */
+#endif /* CUDA_FELDKAMPSCHEDULER_H_ */

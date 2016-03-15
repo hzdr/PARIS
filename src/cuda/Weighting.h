@@ -1,14 +1,5 @@
-/*
- * CUDAWeighting.h
- *
- *  Created on: 19.11.2015
- *      Author: Jan Stephan
- *
- *      CUDAWeighting manages the concrete implementation of weighting the projections.
- */
-
-#ifndef CUDAWEIGHTING_H_
-#define CUDAWEIGHTING_H_
+#ifndef CUDA_WEIGHTING_H_
+#define CUDA_WEIGHTING_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -25,21 +16,21 @@
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
-		class CUDAWeighting
+		class Weighting
 		{
 			public:
 				using input_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
 				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
 
 			public:
-				CUDAWeighting(const ddafa::common::Geometry&);
+				Weighting(const ddafa::common::Geometry&);
 				auto process(input_type&&) -> void;
 				auto wait() -> output_type;
 
 			protected:
-				~CUDAWeighting() = default;
+				~Weighting() = default;
 
 			private:
 				auto processor(const input_type&, int) -> void;

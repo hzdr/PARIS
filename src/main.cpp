@@ -27,11 +27,11 @@
 
 #include <ddrf/cuda/HostMemoryManager.h>
 
-#include "cuda/CUDAFilter.h"
-#include "cuda/CUDAToStdImage.h"
-#include "cuda/CUDAWeighting.h"
+#include "cuda/Filter.h"
+#include "cuda/ToHostImage.h"
+#include "cuda/Weighting.h"
 
-#include "cuda/CUDAFeldkampScheduler.h"
+#include "cuda/FeldkampScheduler.h"
 
 void initLog()
 {
@@ -49,9 +49,9 @@ int main(int argc, char** argv)
 	using his_loader = ddrf::ImageLoader<ddrf::loaders::HIS<float, ddrf::cuda::HostMemoryManager<float>>>;
 	using source_stage = ddrf::pipeline::SourceStage<his_loader>;
 	using sink_stage = ddrf::pipeline::SinkStage<tiff_saver>;
-	using weighting_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAWeighting>;
-	using filter_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAFilter>;
-	using converter_stage = ddrf::pipeline::Stage<ddafa::impl::CUDAToStdImage>;
+	using weighting_stage = ddrf::pipeline::Stage<ddafa::cuda::Weighting>;
+	using filter_stage = ddrf::pipeline::Stage<ddafa::cuda::Filter>;
+	using converter_stage = ddrf::pipeline::Stage<ddafa::cuda::ToHostImage>;
 
 	try
 	{
@@ -118,7 +118,11 @@ int main(int argc, char** argv)
 		pipeline.connect(filter, converter);
 		pipeline.connect(converter, sink);
 
-		auto scheduler = ddafa::impl::CUDAFeldkampScheduler<float>::instance(geo);
+		pipeline.run(source, weighting, filter, converter, sink);
+
+		pipeline.wait();
+
+		auto scheduler = ddafa::cuda::FeldkampScheduler<float>::instance(geo);
 	}
 	catch(const std::runtime_error& err)
 	{

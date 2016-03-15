@@ -1,12 +1,3 @@
-/*
- * CUDAToStdImage.cu
- *
- *  Created on: 01.12.2015
- *      Author: Jan Stephan
- *
- *      Converts CUDAImage to StdImage. Implementation file.
- */
-
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
@@ -17,26 +8,28 @@
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/Check.h>
+#include <ddrf/cuda/Coordinates.h>
+#include <ddrf/cuda/Launch.h>
 #include <ddrf/cuda/Memory.h>
 
-#include "CUDAToStdImage.h"
+#include "ToHostImage.h"
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
-		CUDAToStdImage::CUDAToStdImage()
+		ToHostImage::ToHostImage()
 		{
 			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
 		}
 
-		CUDAToStdImage::~CUDAToStdImage()
+		ToHostImage::~ToHostImage()
 		{
 			// this is the last stage in the pipeline, time to clean up CUDA
 			cudaDeviceReset();
 		}
 
-		auto CUDAToStdImage::process(CUDAToStdImage::input_type&& img) -> void
+		auto ToHostImage::process(input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -47,18 +40,20 @@ namespace ddafa
 			for(auto i = 0; i < devices_; ++i)
 			{
 				if(img.device() == i)
-					processor_threads_.emplace_back(&CUDAToStdImage::processor, this, std::move(img), i);
+					processor_threads_.emplace_back(&ToHostImage::processor, this, std::move(img), i);
 			}
 		}
 
-		auto CUDAToStdImage::wait() -> CUDAToStdImage::output_type
+		auto ToHostImage::wait() -> output_type
 		{
 			return results_.take();
 		}
 
-		auto CUDAToStdImage::processor(CUDAToStdImage::input_type&& img, int device) -> void
+		auto ToHostImage::processor(input_type&& img, int device) -> void
 		{
+			// BOOST_LOG_TRIVIAL(debug) << "cuda::ToHostImage: processing on device #" << device;
 			ddrf::cuda::check(cudaSetDevice(device));
+
 			auto host_buffer = ddrf::cuda::make_host_ptr<float>(img.width(), img.height());
 			host_buffer = img.container();
 
@@ -66,9 +61,9 @@ namespace ddafa
 			results_.push(std::move(result));
 		}
 
-		auto CUDAToStdImage::finish() -> void
+		auto ToHostImage::finish() -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "CUDAToStdImage: Received poisonous pill, called finish()";
+			BOOST_LOG_TRIVIAL(debug) << "cuda::ToHostImage: Received poisonous pill, called finish()";
 			for(auto&& t : processor_threads_)
 				t.join();
 

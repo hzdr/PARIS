@@ -29,11 +29,11 @@
 
 #include "../common/Geometry.h"
 
-#include "CUDAFilter.h"
+#include "Filter.h"
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
 		__global__ void createFilter(float* __restrict__ r, const std::int32_t* __restrict__ j,
 				std::size_t size, float tau)
@@ -134,7 +134,7 @@ namespace ddafa
 			__syncthreads();
 		}
 
-		CUDAFilter::CUDAFilter(const ddafa::common::Geometry& geo)
+		Filter::Filter(const common::Geometry& geo)
 		: filter_length_{static_cast<decltype(filter_length_)>(
 				2 * std::pow(2, std::ceil(std::log2(float(geo.det_pixels_column))))
 				)}
@@ -147,18 +147,14 @@ namespace ddafa
 			auto filter_creation_threads = std::vector<std::thread>{};
 			for(auto i = 0; i < devices_; ++i)
 			{
-				filter_creation_threads.emplace_back(&CUDAFilter::filterProcessor, this, i);
+				filter_creation_threads.emplace_back(&Filter::filterProcessor, this, i);
 			}
 
 			for(auto&& t : filter_creation_threads)
 				t.join();
 		}
 
-		CUDAFilter::~CUDAFilter()
-		{
-		}
-
-		auto CUDAFilter::process(CUDAFilter::input_type&& img) -> void
+		auto Filter::process(input_type&& img) -> void
 		{
 			if(!img.valid())
 			{
@@ -170,19 +166,19 @@ namespace ddafa
 			for(auto i = 0; i < devices_; ++i)
 			{
 				if(img.device() == i)
-					processor_threads_.emplace_back(&CUDAFilter::processor, this, std::move(img), i);
+					processor_threads_.emplace_back(&Filter::processor, this, std::move(img), i);
 			}
 		}
 
-		auto CUDAFilter::wait() -> CUDAFilter::output_type
+		auto Filter::wait() -> output_type
 		{
 			return results_.take();
 		}
 
-		auto CUDAFilter::filterProcessor(int device) -> void
+		auto Filter::filterProcessor(int device) -> void
 		{
 			ddrf::cuda::check(cudaSetDevice(device));
-			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Creating filter on device #" << device;
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: Creating filter on device #" << device;
 
 			auto buffer = ddrf::cuda::make_device_ptr<float>(filter_length_);
 
@@ -203,10 +199,10 @@ namespace ddafa
 			rs_[static_cast<std::size_t>(device)] = std::move(buffer);
 		}
 
-		auto CUDAFilter::processor(CUDAFilter::input_type&& img, int device) -> void
+		auto Filter::processor(input_type&& img, int device) -> void
 		{
 			ddrf::cuda::check(cudaSetDevice(device));
-			BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: processing on device #" << device;
+			// BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: processing on device #" << device;
 
 			// convert projection to new dimensions
 			auto converted = ddrf::cuda::make_device_ptr<float>(filter_length_, img.height());
@@ -228,7 +224,7 @@ namespace ddafa
 			auto trans_nembed = std::vector<int>{ trans_dist };
 
 			auto projectionPlan = cufftHandle{};
-			ddrf::cuda::checkCufft(cufftPlanMany(&projectionPlan, 					// plan
+			ddrf::cuda::checkCufft(cufftPlanMany(&projectionPlan, 		// plan
 										1, 								// rank (dimension)
 										n_proj.data(),					// input dimension size
 										proj_nembed.data(),				// input storage dimensions
@@ -284,9 +280,9 @@ namespace ddafa
 			results_.push(std::move(img));
 		}
 
-		auto CUDAFilter::finish() -> void
+		auto Filter::finish() -> void
 		{
-				BOOST_LOG_TRIVIAL(debug) << "CUDAFilter: Received poisonous pill, called finish()";
+				BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: Received poisonous pill, called finish()";
 
 				for(auto&& t : processor_threads_)
 					t.join();

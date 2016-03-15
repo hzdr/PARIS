@@ -1,14 +1,5 @@
-/*
- * CUDAFilter.h
- *
- *  Created on: 03.12.2015
- *      Author: Jan Stephan
- *
- *      CUDAFilter takes a weighted projection and applies a filter to it.
- */
-
-#ifndef CUDAFILTER_H_
-#define CUDAFILTER_H_
+#ifndef CUDA_FILTER_H_
+#define CUDA_FILTER_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -25,21 +16,21 @@
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
-		class CUDAFilter
+		class Filter
 		{
 			public:
 				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
 				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
 
 			public:
-				CUDAFilter(const ddafa::common::Geometry& geo);
+				Filter(const ddafa::common::Geometry& geo);
 				auto process(input_type&& img) -> void;
 				auto wait() -> output_type;
 
 			protected:
-				~CUDAFilter();
+				~Filter() = default;
 
 			private:
 				auto filterProcessor(int) -> void;

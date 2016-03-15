@@ -1,16 +1,11 @@
-/*
- * CUDAFeldkamp.h
- *
- *  Created on: 12.11.2015
- *      Author: Jan Stephan
- *
- *      This class is the concrete backprojection implementation for the Stage class.
- */
+#ifndef CUDA_TOHOSTIMAGE_H_
+#define CUDA_TOHOSTIMAGE_H_
 
-#ifndef CUDAFELDKAMP_H_
-#define CUDAFELDKAMP_H_
+#include <thread>
+#include <vector>
 
 #include <ddrf/Image.h>
+#include <ddrf/Queue.h>
 #include <ddrf/cuda/HostMemoryManager.h>
 #include <ddrf/cuda/Image.h>
 #include <ddrf/cuda/Memory.h>
@@ -18,24 +13,33 @@
 
 namespace ddafa
 {
-	namespace impl
+	namespace cuda
 	{
-		class CUDAFeldkamp
+		class ToHostImage
 		{
-			private:
+			public:
 				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
 				using output_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
 
-			public:
-				CUDAFeldkamp();
+				ToHostImage();
 				auto process(input_type&&) -> void;
 				auto wait() -> output_type;
 
 			protected:
-				~CUDAFeldkamp() = default;
+				~ToHostImage();
+
+			private:
+				auto processor(input_type&&, int) -> void;
+				auto finish() -> void;
+
+			private:
+				ddrf::Queue<output_type> results_;
+				std::vector<std::thread> processor_threads_;
+				int devices_;
+
 		};
 	}
 }
 
 
-#endif /* CUDAFELDKAMP_H_ */
+#endif /* CUDA_TOHOSTIMAGE_H_ */
