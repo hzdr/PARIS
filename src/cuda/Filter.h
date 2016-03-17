@@ -34,7 +34,7 @@ namespace ddafa
 
 			private:
 				auto filterProcessor(int) -> void;
-				auto processor(input_type&& img, int device) -> void;
+				auto processor(input_type&& img) -> void;
 				auto finish() -> void;
 
 			private:

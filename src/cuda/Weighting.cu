@@ -63,11 +63,7 @@ namespace ddafa
 				return;
 			}
 
-			for(auto i = 0; i < devices_; ++i)
-			{
-				// execute kernel
-				processor_threads_.emplace_back(&Weighting::processor, this, img, i);
-			}
+			processor_threads_.emplace_back(&Weighting::processor, this, std::move(img));
 		}
 
 		auto Weighting::wait() -> output_type
@@ -75,22 +71,18 @@ namespace ddafa
 			return results_.take();
 		}
 
-		auto Weighting::processor(const input_type& img, int device) -> void
+		auto Weighting::processor(input_type&& img) -> void
 		{
-			ddrf::cuda::check(cudaSetDevice(device));
-			// BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: processing on device #" << device;
+			ddrf::cuda::check(cudaSetDevice(img.device()));
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing on device #" << img.device();
 
-			auto result = output_type{};
-			result.setDevice(device);
-			result = img;
-
-			ddrf::cuda::launch(result.width(), result.height(),
+			ddrf::cuda::launch(img.width(), img.height(),
 					weight,
-					result.data(), result.width(), result.height(), result.pitch(), h_min_, v_min_, d_dist_,
+					img.data(), img.width(), img.height(), img.pitch(), h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 
 			ddrf::cuda::check(cudaStreamSynchronize(0));
-			results_.push(std::move(result));
+			results_.push(std::move(img));
 		}
 
 		auto Weighting::finish() -> void

@@ -27,7 +27,9 @@
 
 #include <ddrf/cuda/HostMemoryManager.h>
 
+#include "cuda/Feldkamp.h"
 #include "cuda/Filter.h"
+#include "cuda/Preloader.h"
 #include "cuda/ToHostImage.h"
 #include "cuda/Weighting.h"
 
@@ -52,6 +54,8 @@ int main(int argc, char** argv)
 	using weighting_stage = ddrf::pipeline::Stage<ddafa::cuda::Weighting>;
 	using filter_stage = ddrf::pipeline::Stage<ddafa::cuda::Filter>;
 	using converter_stage = ddrf::pipeline::Stage<ddafa::cuda::ToHostImage>;
+	using preloader_stage = ddrf::pipeline::Stage<ddafa::cuda::Preloader>;
+	using reconstruction_stage = ddrf::pipeline::Stage<ddafa::cuda::Feldkamp>;
 
 	try
 	{
@@ -108,21 +112,25 @@ int main(int argc, char** argv)
 		auto pipeline = ddrf::pipeline::Pipeline{};
 
 		auto source = pipeline.create<source_stage>(projection_path);
+		auto preloader = pipeline.create<preloader_stage>(geo);
 		auto weighting = pipeline.create<weighting_stage>(geo);
 		auto filter = pipeline.create<filter_stage>(geo);
+		auto reconstruction = pipeline.create<reconstruction_stage>(geo);
 		auto converter = pipeline.create<converter_stage>();
 		auto sink = pipeline.create<sink_stage>(output_path, prefix);
 
-		pipeline.connect(source, weighting);
+		pipeline.connect(source, preloader);
+		pipeline.connect(preloader, weighting);
 		pipeline.connect(weighting, filter);
 		pipeline.connect(filter, converter);
+		// pipeline.connect(preloader, converter);
 		pipeline.connect(converter, sink);
 
-		pipeline.run(source, weighting, filter, converter, sink);
+		pipeline.run(source, preloader, weighting, filter, converter, sink);
+		// pipeline.run(source, preloader, converter, sink);
+		reconstruction->set_input_num(source->num());
 
 		pipeline.wait();
-
-		auto scheduler = ddafa::cuda::FeldkampScheduler<float>::instance(geo);
 	}
 	catch(const std::runtime_error& err)
 	{

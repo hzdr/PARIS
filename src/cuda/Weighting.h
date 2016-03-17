@@ -21,7 +21,7 @@ namespace ddafa
 		class Weighting
 		{
 			public:
-				using input_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
+				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
 				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
 
 			public:
@@ -33,7 +33,7 @@ namespace ddafa
 				~Weighting() = default;
 
 			private:
-				auto processor(const input_type&, int) -> void;
+				auto processor(input_type&&) -> void;
 				auto finish() -> void;
 
 			private:

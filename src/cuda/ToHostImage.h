@@ -29,7 +29,7 @@ namespace ddafa
 				~ToHostImage();
 
 			private:
-				auto processor(input_type&&, int) -> void;
+				auto processor(input_type&&) -> void;
 				auto finish() -> void;
 
 			private:

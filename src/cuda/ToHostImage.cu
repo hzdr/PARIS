@@ -40,7 +40,7 @@ namespace ddafa
 			for(auto i = 0; i < devices_; ++i)
 			{
 				if(img.device() == i)
-					processor_threads_.emplace_back(&ToHostImage::processor, this, std::move(img), i);
+					processor_threads_.emplace_back(&ToHostImage::processor, this, std::move(img));
 			}
 		}
 
@@ -49,10 +49,10 @@ namespace ddafa
 			return results_.take();
 		}
 
-		auto ToHostImage::processor(input_type&& img, int device) -> void
+		auto ToHostImage::processor(input_type&& img) -> void
 		{
-			// BOOST_LOG_TRIVIAL(debug) << "cuda::ToHostImage: processing on device #" << device;
-			ddrf::cuda::check(cudaSetDevice(device));
+			BOOST_LOG_TRIVIAL(debug) << "cuda::ToHostImage: downloading from device #" << img.device();
+			ddrf::cuda::check(cudaSetDevice(img.device()));
 
 			auto host_buffer = ddrf::cuda::make_host_ptr<float>(img.width(), img.height());
 			host_buffer = img.container();
