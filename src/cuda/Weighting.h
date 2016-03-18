@@ -3,6 +3,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <deque>
+#include <future>
+#include <map>
 #include <thread>
 #include <vector>
 
@@ -33,7 +36,7 @@ namespace ddafa
 				~Weighting() = default;
 
 			private:
-				auto processor(input_type&&) -> void;
+				auto processor(input_type&&, std::promise<bool>) -> void;
 				auto finish() -> void;
 
 			private:
@@ -44,6 +47,7 @@ namespace ddafa
 				float d_dist_;
 				int devices_;
 				std::vector<std::thread> processor_threads_;
+				std::map<int, std::deque<std::future<bool>>> processor_futures_;
 		};
 	}
 }

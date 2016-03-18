@@ -11,8 +11,12 @@
 #define CUDAFELDKAMP_H_
 
 #include <atomic>
+#include <deque>
+#include <future>
 #include <map>
+#include <thread>
 #include <type_traits>
+#include <vector>
 
 #include <ddrf/Image.h>
 #include <ddrf/cuda/HostMemoryManager.h>
@@ -43,17 +47,19 @@ namespace ddafa
 				auto set_input_num(std::uint32_t) noexcept -> void;
 
 			private:
-				auto create_volume() -> void;
+				auto create_volumes(int) -> void;
 
 			protected:
 				~Feldkamp() = default;
 
 			private:
+				int devices_;
 				FeldkampScheduler<float> scheduler_;
 				common::Geometry geo_;
 				std::uint32_t input_num_;
 				std::atomic_bool input_num_set_;
-				std::map<int, volume_type> volume_map_;
+				std::map<int, std::vector<volume_type>> volume_map_;
+				std::map<int, std::deque<std::future<bool>>> reconstruction_futures_;
 		};
 	}
 }

@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstdint>
+#include <future>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -52,6 +53,12 @@ namespace ddafa
 		, d_dist_{geo.dist_det + geo.dist_src}
 		{
 			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			for(auto i = 0; i < devices_; ++i)
+			{
+				auto pr = std::promise<bool>{};
+				processor_futures_[i].emplace_back(pr.get_future());
+				pr.set_value(true);
+			}
 		}
 
 		auto Weighting::process(input_type&& img) -> void
@@ -63,7 +70,9 @@ namespace ddafa
 				return;
 			}
 
-			processor_threads_.emplace_back(&Weighting::processor, this, std::move(img));
+			auto pr = std::promise<bool>{};
+			processor_futures_[img.device()].emplace_back(pr.get_future());
+			processor_threads_.emplace_back(&Weighting::processor, this, std::move(img), std::move(pr));
 		}
 
 		auto Weighting::wait() -> output_type
@@ -71,9 +80,15 @@ namespace ddafa
 			return results_.take();
 		}
 
-		auto Weighting::processor(input_type&& img) -> void
+		auto Weighting::processor(input_type&& img, std::promise<bool> pr) -> void
 		{
-			ddrf::cuda::check(cudaSetDevice(img.device()));
+			auto device = img.device();
+			auto future = std::move(processor_futures_[device].front());
+			processor_futures_[device].pop_front();
+			auto start = future.get();
+			start = !start;
+
+			ddrf::cuda::check(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing on device #" << img.device();
 
 			ddrf::cuda::launch(img.width(), img.height(),
@@ -83,6 +98,7 @@ namespace ddafa
 
 			ddrf::cuda::check(cudaStreamSynchronize(0));
 			results_.push(std::move(img));
+			pr.set_value(true);
 		}
 
 		auto Weighting::finish() -> void
@@ -91,6 +107,15 @@ namespace ddafa
 
 			for(auto&& t : processor_threads_)
 				t.join();
+
+			for(auto& kv : processor_futures_)
+			{
+				for(auto& f : kv.second)
+				{
+					auto val = f.get();
+					val = !val;
+				}
+			}
 
 			results_.push(output_type());
 		}

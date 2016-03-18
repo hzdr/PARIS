@@ -10,6 +10,8 @@
 #include <array>
 #include <cstddef>
 #include <cmath>
+#include <thread>
+#include <vector>
 
 #include <ddrf/Image.h>
 #include <ddrf/cuda/Check.h>
@@ -72,8 +74,15 @@ namespace ddafa
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}
 		, geo_(geo), input_num_{0u}, input_num_set_{false}
 		{
-			auto device_count = int{};
-			ddrf::cuda::check(cudaGetDeviceCount(&device_count));
+			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			std::vector<std::thread> creation_threads;
+			for(auto i = 0; i < devices_; ++i)
+			{
+				creation_threads.emplace_back(&Feldkamp::create_volumes, this, i);
+			}
+
+			for(auto&& t : creation_threads)
+				t.join();
 		}
 
 		auto Feldkamp::process(input_type&& img) -> void
@@ -89,6 +98,26 @@ namespace ddafa
 		{
 			input_num_ = num;
 			input_num_set_ = true;
+		}
+
+		auto Feldkamp::create_volumes(int device) -> void
+		{
+			ddrf::cuda::check(cudaSetDevice(device));
+			auto volume_num = scheduler_.chunkNumber(device);
+			auto dimensions = scheduler_.chunkDimensions(device);
+			for(auto i = 0u; i < volume_num; ++i)
+			{
+				auto first_row = dimensions[i].first;
+				auto last_row = dimensions[i].second;
+				auto rows = last_row - first_row + 1u;
+
+				auto ptr = ddrf::cuda::make_device_ptr<float>(geo_.det_pixels_row, geo_.det_pixels_row, rows);
+				ddrf::cuda::launch(ptr.width(), ptr.height(), ptr.depth(),
+									init_volume,
+									ptr.get(), ptr.width(), ptr.height(), ptr.depth(), ptr.pitch());
+
+				volume_map_[device].emplace_back(std::move(ptr));
+			}
 		}
 	}
 }

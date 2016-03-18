@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cstddef>
+#include <future>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -23,33 +24,47 @@ namespace ddafa
 		Preloader::Preloader(const common::Geometry& geo)
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}
 		{
+			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			auto pr = std::promise<bool>{};
+			processor_futures_.emplace_back(pr.get_future());
+			pr.set_value(true);
 		}
 
-		auto Preloader::process(input_type&& input) -> void
+		auto Preloader::process(input_type&& img) -> void
 		{
-			if(!input.valid())
+			if(!img.valid())
 			{
-				split();
-				distribute();
 				finish();
 				return;
 			}
 
-			input_buf_.emplace_back(std::move(input));
+			auto pr = std::promise<bool>{};
+			processor_futures_.emplace_back(pr.get_future());
+			processor_threads_.emplace_back(&Preloader::processor, this, std::move(img), std::move(pr));
 		}
 
-		auto Preloader::split() -> void
+		auto Preloader::processor(input_type&& img, std::promise<bool> pr) -> void
+		{
+			auto future = std::move(processor_futures_.front());
+			processor_futures_.pop_front();
+			auto start = future.get();
+			start = !start;
+
+			distribute(split(std::move(img)));
+
+			pr.set_value(true);
+		}
+
+		auto Preloader::split(input_type&& img) -> std::map<int, std::map<std::size_t, input_type>>
 		{
 			// create subprojections and upload them to their corresponding devices
-			auto dev_count = int{};
-			ddrf::cuda::check(cudaGetDeviceCount(&dev_count));
-
 			auto chunks = scheduler_.get_chunks();
 
-			for(auto d = 0; d < dev_count; ++d)
+			auto device_chunk_map = std::map<int, std::map<std::size_t, input_type>>{};
+			for(auto d = 0; d < devices_; ++d)
 			{
 				auto chunks_on_dev = chunks[d];
-				auto chunk_map = std::map<std::size_t, std::vector<input_type>>{};
+				auto chunk_map = std::map<std::size_t, input_type>{};
 				for(auto i = 0u; i < chunks_on_dev.size(); ++i)
 				{
 					auto firstRow = chunks_on_dev[i].first;
@@ -63,35 +78,37 @@ namespace ddafa
 						auto width = src.width();
 						auto dest = ddrf::cuda::make_host_ptr<float>(width, height);
 
-						cudaMemcpy2D(dest.get(), dest.pitch(), src.data() + first * width, src.pitch(), width * sizeof(float), height, cudaMemcpyHostToHost);
+						// explicit call to cudaMemcpy2D as we are only copying parts of the input data
+						cudaMemcpy2D(dest.get(), dest.pitch(),
+									src.data() + first * width, src.pitch(),
+									width * sizeof(float), height, cudaMemcpyHostToHost);
 
 						auto ret = input_type{width, height, std::move(dest)};
 						return ret;
 					};
 
-					for(auto& img : input_buf_)
-						chunk_vec.emplace_back(extract(img, firstRow, rows));
-
-					chunk_map[i] = std::move(chunk_vec);
+					chunk_map[i] = extract(img, firstRow, rows);
 				}
-				device_chunk_map_[d] = std::move(chunk_map);
+				device_chunk_map[d] = std::move(chunk_map);
 			}
+
+			return device_chunk_map;
 		}
 
-		auto Preloader::distribute() -> void
+		auto Preloader::distribute(std::map<int, std::map<std::size_t, input_type>> map) -> void
 		{
-			auto dev_count = int{};
-			ddrf::cuda::check(cudaGetDeviceCount(&dev_count));
+			auto distribution_threads = std::vector<std::thread>{};
+			for(auto d = 0; d < devices_; ++d)
+				distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(map[d]));
 
-			for(auto d = 0; d < dev_count; ++d)
-				distribution_threads_.emplace_back(&Preloader::uploadAndSend, this, d);
+			for(auto&& t : distribution_threads)
+				t.join();
 		}
 
-		auto Preloader::uploadAndSend(int device) -> void
+		auto Preloader::uploadAndSend(int device, std::map<std::size_t, input_type> map) -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading to device #" << device;
 			ddrf::cuda::check(cudaSetDevice(device));
-			auto chunk_map = device_chunk_map_[device];
 
 			auto upload = [this, device](const input_type& img)
 			{
@@ -109,13 +126,9 @@ namespace ddafa
 				return ret;
 			};
 
-			for(auto& kv : chunk_map)
+			for(auto& ii : map)
 			{
-				for(auto& img : kv.second)
-				{
-					auto dev_img = upload(img);
-					results_.push(std::move(dev_img));
-				}
+				results_.push(upload(ii.second));
 			}
 		}
 
@@ -123,11 +136,16 @@ namespace ddafa
 		{
 			BOOST_LOG_TRIVIAL(debug) << "CUDAPreloader: Received poisonous pill, called finish()";
 
-			for(auto&& t : distribution_threads_)
+			for(auto&& t : processor_threads_)
 				t.join();
 
+			for(auto& f: processor_futures_)
+			{
+				auto val = f.get();
+				val = !val;
+			}
+
 			results_.push(output_type{});
-			input_buf_.clear();
 		}
 
 		auto Preloader::wait() -> output_type

@@ -147,6 +147,9 @@ namespace ddafa
 			auto filter_creation_threads = std::vector<std::thread>{};
 			for(auto i = 0; i < devices_; ++i)
 			{
+				auto pr = std::promise<bool>{};
+				processor_futures_[i].emplace_back(pr.get_future());
+				pr.set_value(true);
 				filter_creation_threads.emplace_back(&Filter::filterProcessor, this, i);
 			}
 
@@ -163,7 +166,9 @@ namespace ddafa
 				return;
 			}
 
-			processor_threads_.emplace_back(&Filter::processor, this, std::move(img));
+			auto pr = std::promise<bool>{};
+			processor_futures_[img.device()].emplace_back(pr.get_future());
+			processor_threads_.emplace_back(&Filter::processor, this, std::move(img), std::move(pr));
 		}
 
 		auto Filter::wait() -> output_type
@@ -195,8 +200,15 @@ namespace ddafa
 			rs_[static_cast<std::size_t>(device)] = std::move(buffer);
 		}
 
-		auto Filter::processor(input_type&& img) -> void
+		auto Filter::processor(input_type&& img, std::promise<bool> pr) -> void
 		{
+			// get a future
+			auto device = img.device();
+			auto future = std::move(processor_futures_[device].front());
+			processor_futures_[device].pop_front();
+			auto start = future.get(); // block until previous thread is done
+			start = !start; // prevent warnings
+
 			ddrf::cuda::check(cudaSetDevice(img.device()));
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: processing on device #" << img.device();
 
@@ -204,7 +216,6 @@ namespace ddafa
 			auto converted = ddrf::cuda::make_device_ptr<float>(filter_length_, img.height());
 			ddrf::cuda::launch(filter_length_, img.height(), convertProjection, converted.get(),
 					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: converting projection on device #" << img.device();
 
 			// allocate memory
 			auto transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
@@ -254,11 +265,9 @@ namespace ddafa
 			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
 			ddrf::cuda::checkCufft(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
 			ddrf::cuda::checkCufft(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(img.device())].get(), filter.get()));
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: forward FFT on device #" << img.device();
 
 			// create K
 			ddrf::cuda::launch(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: creating K on device #" << img.device();
 
 			// multiply the results
 			ddrf::cuda::launch(transformed_filter_length, img.height(), applyFilter, transformed.get(),
@@ -266,20 +275,19 @@ namespace ddafa
 
 			// run inverse FFT -- note that C2R transformations are implicitly inverse
 			ddrf::cuda::checkCufft(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: inverse FFT on device #" << img.device();
 
 			// convert back to image dimensions and normalize
 			ddrf::cuda::launch(filter_length_, img.height(), convertFiltered, img.data(),
 					static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: converting back on device #" << img.device();
 
 			// clean up
 			ddrf::cuda::checkCufft(cufftDestroy(inversePlan));
 			ddrf::cuda::checkCufft(cufftDestroy(filterPlan));
 			ddrf::cuda::checkCufft(cufftDestroy(projectionPlan));
 
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: pushing result on device #" << img.device();
 			results_.push(std::move(img));
+
+			pr.set_value(true);
 		}
 
 		auto Filter::finish() -> void
@@ -288,6 +296,16 @@ namespace ddafa
 
 				for(auto&& t : processor_threads_)
 					t.join();
+
+				for(auto& kv : processor_futures_)
+				{
+					for(auto& f : kv.second)
+					{
+						auto val = f.get();
+						val = !val;
+					}
+
+				}
 
 				results_.push(output_type());
 		}

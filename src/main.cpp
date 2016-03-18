@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 		auto preloader = pipeline.create<preloader_stage>(geo);
 		auto weighting = pipeline.create<weighting_stage>(geo);
 		auto filter = pipeline.create<filter_stage>(geo);
-		auto reconstruction = pipeline.create<reconstruction_stage>(geo);
+		// auto reconstruction = pipeline.create<reconstruction_stage>(geo);
 		auto converter = pipeline.create<converter_stage>();
 		auto sink = pipeline.create<sink_stage>(output_path, prefix);
 
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
 
 		pipeline.run(source, preloader, weighting, filter, converter, sink);
 		// pipeline.run(source, preloader, converter, sink);
-		reconstruction->set_input_num(source->num());
+		// reconstruction->set_input_num(source->num());
 
 		pipeline.wait();
 	}
