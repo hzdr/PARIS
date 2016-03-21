@@ -20,7 +20,7 @@ namespace ddafa
 	{
 		ToHostImage::ToHostImage()
 		{
-			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			CHECK(cudaGetDeviceCount(&devices_));
 		}
 
 		ToHostImage::~ToHostImage()
@@ -52,7 +52,7 @@ namespace ddafa
 		auto ToHostImage::processor(input_type&& img) -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "cuda::ToHostImage: downloading from device #" << img.device();
-			ddrf::cuda::check(cudaSetDevice(img.device()));
+			CHECK(cudaSetDevice(img.device()));
 
 			auto host_buffer = ddrf::cuda::make_host_ptr<float>(img.width(), img.height());
 			host_buffer = img.container();

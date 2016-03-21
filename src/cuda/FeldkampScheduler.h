@@ -73,15 +73,15 @@ namespace ddafa
 					auto vol_count = 0u;
 					BOOST_LOG_TRIVIAL(debug) << "Volume needs " << volume_size_ << " Bytes.";
 					auto dev_count = int{};
-					ddrf::cuda::check(cudaGetDeviceCount(&dev_count));
+					CHECK(cudaGetDeviceCount(&dev_count));
 					volume_size_ /= static_cast<unsigned int>(dev_count);
 					for(auto i = 0; i <= (dev_count - 1); ++i)
 					{
 						auto vol_size_dev = volume_size_;
 						auto vol_count_dev = 1u;
-						ddrf::cuda::check(cudaSetDevice(i));
+						CHECK(cudaSetDevice(i));
 						auto properties = cudaDeviceProp{};
-						ddrf::cuda::check(cudaGetDeviceProperties(&properties, i));
+						CHECK(cudaGetDeviceProperties(&properties, i));
 
 						// divide size by 2 until it fits in memory
 						auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::uint32_t*, std::size_t)>();

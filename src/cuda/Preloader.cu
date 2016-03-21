@@ -24,7 +24,7 @@ namespace ddafa
 		Preloader::Preloader(const common::Geometry& geo)
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}
 		{
-			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			CHECK(cudaGetDeviceCount(&devices_));
 			auto pr = std::promise<bool>{};
 			processor_futures_.emplace_back(pr.get_future());
 			pr.set_value(true);
@@ -108,7 +108,7 @@ namespace ddafa
 		auto Preloader::uploadAndSend(int device, std::map<std::size_t, input_type> map) -> void
 		{
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading to device #" << device;
-			ddrf::cuda::check(cudaSetDevice(device));
+			CHECK(cudaSetDevice(device));
 
 			auto upload = [this, device](const input_type& img)
 			{

@@ -88,9 +88,8 @@ namespace ddafa
 		Feldkamp::Feldkamp(const common::Geometry& geo)
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}, done_{false}
 		, geo_(geo), input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
-		, output_{geo_.det_pixels_row, geo_.det_pixels_row, geo_.det_pixels_column}
 		{
-			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			CHECK(cudaGetDeviceCount(&devices_));
 			std::vector<std::thread> creation_threads;
 			for(auto i = 0; i < devices_; ++i)
 			{
@@ -122,7 +121,7 @@ namespace ddafa
 			while(!done_)
 				std::this_thread::yield();
 
-			return std::move(output_);
+			return results_.take();
 		}
 
 		auto Feldkamp::processor(input_type&& img, std::promise<bool> pr) -> void
@@ -133,7 +132,7 @@ namespace ddafa
 			auto start = future.get();
 			start = !start;
 
-			ddrf::cuda::check(cudaSetDevice(device));
+			CHECK(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing on device #" << device;
 
 			while(!input_num_set_)
@@ -162,7 +161,8 @@ namespace ddafa
 
 		auto Feldkamp::create_volumes(int device) -> void
 		{
-			ddrf::cuda::check(cudaSetDevice(device));
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating volumes on device #" << device;
+			CHECK(cudaSetDevice(device));
 			auto volume_num = scheduler_.chunkNumber(device);
 			auto dimensions = scheduler_.chunkDimensions(device);
 			for(auto i = 0u; i < volume_num; ++i)
@@ -197,30 +197,33 @@ namespace ddafa
 			}
 
 			merge_volumes();
+			results_.push(output_type());
 			done_ = true;
 		}
 
 		auto Feldkamp::merge_volumes() -> void
 		{
+			auto output = output_type{geo_.det_pixels_row, geo_.det_pixels_row, geo_.det_pixels_column};
 			for(auto i = 0; i < devices_; ++i)
 			{
-				ddrf::cuda::check(cudaSetDevice(i));
+				CHECK(cudaSetDevice(i));
 				auto dimensions = scheduler_.chunkDimensions(i);
 				for(auto& v : volume_map_[i])
 				{
-					auto first_row = dimensions[i].first;
-					auto output_start = output_.data() + first_row * output_.width() * output_.height();
+					auto first_row = dimensions[static_cast<std::size_t>(i)].first;
+					auto output_start = output.data() + first_row * output.width() * output.height();
 
 					auto parms = cudaMemcpy3DParms{0};
-					auto uchar_width = output_.width() * sizeof(float)/sizeof(unsigned char);
-					auto height = output_.height();
+					auto uchar_width = output.width() * sizeof(float)/sizeof(unsigned char);
+					auto height = output.height();
 					parms.srcPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(v.data()), v.pitch(), uchar_width, height);
-					parms.dstPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(output_start), output_.pitch(), uchar_width, height);
-					parms.extent = make_cudaExtent(uchar_width, height, output_.depth());
+					parms.dstPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(output_start), output.pitch(), uchar_width, height);
+					parms.extent = make_cudaExtent(uchar_width, height, output.depth());
 					parms.kind = cudaMemcpyDeviceToHost;
-					ddrf::cuda::check(cudaMemcpy3D(&parms));
+					CHECK(cudaMemcpy3D(&parms));
 				}
 			}
+			results_.push(std::move(output));
 		}
 	}
 }

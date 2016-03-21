@@ -10,6 +10,7 @@
 #include <vector>
 
 #include <ddrf/Image.h>
+#include <ddrf/Queue.h>
 #include <ddrf/Volume.h>
 #include <ddrf/cuda/DeviceMemoryManager.h>
 #include <ddrf/cuda/HostMemoryManager.h>
@@ -46,6 +47,7 @@ namespace ddafa
 				~Feldkamp() = default;
 
 			private:
+				ddrf::Queue<output_type> results_;
 				int devices_;
 				bool done_;
 
@@ -59,7 +61,6 @@ namespace ddafa
 				float current_angle_;
 
 				std::map<int, std::vector<volume_type>> volume_map_;
-				output_type output_;
 
 				std::vector<std::thread> processor_threads_;
 				std::map<int, std::deque<std::future<bool>>> processor_futures_;

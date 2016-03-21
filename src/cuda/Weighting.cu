@@ -52,7 +52,7 @@ namespace ddafa
 		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2)}
 		, d_dist_{geo.dist_det + geo.dist_src}
 		{
-			ddrf::cuda::check(cudaGetDeviceCount(&devices_));
+			CHECK(cudaGetDeviceCount(&devices_));
 			for(auto i = 0; i < devices_; ++i)
 			{
 				auto pr = std::promise<bool>{};
@@ -88,7 +88,7 @@ namespace ddafa
 			auto start = future.get();
 			start = !start;
 
-			ddrf::cuda::check(cudaSetDevice(device));
+			CHECK(cudaSetDevice(device));
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing on device #" << img.device();
 
 			ddrf::cuda::launch(img.width(), img.height(),
@@ -96,7 +96,7 @@ namespace ddafa
 					img.data(), img.width(), img.height(), img.pitch(), h_min_, v_min_, d_dist_,
 					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 
-			ddrf::cuda::check(cudaStreamSynchronize(0));
+			CHECK(cudaStreamSynchronize(0));
 			results_.push(std::move(img));
 			pr.set_value(true);
 		}
