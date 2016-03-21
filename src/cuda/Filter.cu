@@ -191,7 +191,7 @@ namespace ddafa
 				j_host_buffer[k] = j;
 
 			auto j_dev_buffer = ddrf::cuda::make_device_ptr<std::int32_t>(filter_length_);
-			j_dev_buffer = j_host_buffer;
+			ddrf::cuda::copy_sync(j_dev_buffer, j_host_buffer);
 
 			ddrf::cuda::launch(filter_length_,
 					createFilter,

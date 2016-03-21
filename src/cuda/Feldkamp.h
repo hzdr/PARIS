@@ -44,7 +44,7 @@ namespace ddafa
 				auto merge_volumes() -> void;
 
 			protected:
-				~Feldkamp() = default;
+				~Feldkamp();
 
 			private:
 				ddrf::Queue<output_type> results_;

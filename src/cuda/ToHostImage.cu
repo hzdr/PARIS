@@ -55,7 +55,7 @@ namespace ddafa
 			CHECK(cudaSetDevice(img.device()));
 
 			auto host_buffer = ddrf::cuda::make_host_ptr<float>(img.width(), img.height());
-			host_buffer = img.container();
+			ddrf::cuda::copy_sync(host_buffer, img.container());
 
 			auto result = output_type(img.width(), img.height(), std::move(host_buffer));
 			results_.push(std::move(result));

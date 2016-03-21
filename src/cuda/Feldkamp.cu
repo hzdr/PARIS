@@ -103,6 +103,12 @@ namespace ddafa
 				t.join();
 		}
 
+		Feldkamp::~Feldkamp()
+		{
+			// this is the last stage in the pipeline, time to clean up CUDA
+			cudaDeviceReset();
+		}
+
 		auto Feldkamp::process(input_type&& img) -> void
 		{
 			if(!img.valid())
