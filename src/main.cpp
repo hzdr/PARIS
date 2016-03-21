@@ -30,7 +30,6 @@
 #include "cuda/Feldkamp.h"
 #include "cuda/Filter.h"
 #include "cuda/Preloader.h"
-#include "cuda/ToHostImage.h"
 #include "cuda/Weighting.h"
 
 #include "cuda/FeldkampScheduler.h"
@@ -47,13 +46,12 @@ void initLog()
 int main(int argc, char** argv)
 {
 	initLog();
-	using tiff_saver = ddrf::ImageSaver<ddrf::savers::TIFF<float, ddrf::cuda::HostMemoryManager<float>>>;
-	using his_loader = ddrf::ImageLoader<ddrf::loaders::HIS<float, ddrf::cuda::HostMemoryManager<float>>>;
+	using tiff_saver = ddrf::ImageSaver<ddrf::savers::TIFF<ddrf::cuda::HostMemoryManager<float>>>;
+	using his_loader = ddrf::ImageLoader<ddrf::loaders::HIS<ddrf::cuda::HostMemoryManager<float>>>;
 	using source_stage = ddrf::pipeline::SourceStage<his_loader>;
 	using sink_stage = ddrf::pipeline::SinkStage<tiff_saver>;
 	using weighting_stage = ddrf::pipeline::Stage<ddafa::cuda::Weighting>;
 	using filter_stage = ddrf::pipeline::Stage<ddafa::cuda::Filter>;
-	using converter_stage = ddrf::pipeline::Stage<ddafa::cuda::ToHostImage>;
 	using preloader_stage = ddrf::pipeline::Stage<ddafa::cuda::Preloader>;
 	using reconstruction_stage = ddrf::pipeline::Stage<ddafa::cuda::Feldkamp>;
 
@@ -115,20 +113,17 @@ int main(int argc, char** argv)
 		auto preloader = pipeline.create<preloader_stage>(geo);
 		auto weighting = pipeline.create<weighting_stage>(geo);
 		auto filter = pipeline.create<filter_stage>(geo);
-		// auto reconstruction = pipeline.create<reconstruction_stage>(geo);
-		auto converter = pipeline.create<converter_stage>();
+		auto reconstruction = pipeline.create<reconstruction_stage>(geo);
 		auto sink = pipeline.create<sink_stage>(output_path, prefix);
 
 		pipeline.connect(source, preloader);
 		pipeline.connect(preloader, weighting);
 		pipeline.connect(weighting, filter);
-		pipeline.connect(filter, converter);
-		// pipeline.connect(preloader, converter);
-		pipeline.connect(converter, sink);
+		pipeline.connect(filter, reconstruction);
+		pipeline.connect(reconstruction, sink);
 
-		pipeline.run(source, preloader, weighting, filter, converter, sink);
-		// pipeline.run(source, preloader, converter, sink);
-		// reconstruction->set_input_num(source->num());
+		pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+		reconstruction->set_input_num(source->num());
 
 		pipeline.wait();
 	}

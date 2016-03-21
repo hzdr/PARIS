@@ -11,9 +11,9 @@
 
 #include <ddrf/Queue.h>
 #include <ddrf/Image.h>
-#include <ddrf/default/Image.h>
-#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/DeviceMemoryManager.h>
 #include <ddrf/cuda/HostMemoryManager.h>
+#include <ddrf/default/MemoryManager.h>
 
 #include "../common/Geometry.h"
 
@@ -24,8 +24,8 @@ namespace ddafa
 		class Weighting
 		{
 			public:
-				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
-				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
+				using input_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
+				using output_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
 
 			public:
 				Weighting(const ddafa::common::Geometry&);

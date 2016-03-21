@@ -6,10 +6,9 @@
 
 #include <ddrf/Image.h>
 #include <ddrf/Queue.h>
+#include <ddrf/cuda/DeviceMemoryManager.h>
 #include <ddrf/cuda/HostMemoryManager.h>
-#include <ddrf/cuda/Image.h>
 #include <ddrf/cuda/Memory.h>
-#include <ddrf/default/Image.h>
 
 namespace ddafa
 {
@@ -18,8 +17,8 @@ namespace ddafa
 		class ToHostImage
 		{
 			public:
-				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
-				using output_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
+				using input_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
+				using output_type = ddrf::Image<ddrf::cuda::HostMemoryManager<float>>;
 
 				ToHostImage();
 				auto process(input_type&&) -> void;

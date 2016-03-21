@@ -1,14 +1,5 @@
-/*
- * CUDAFeldkamp.h
- *
- *  Created on: 12.11.2015
- *      Author: Jan Stephan
- *
- *      This class is the concrete backprojection implementation for the Stage class.
- */
-
-#ifndef CUDAFELDKAMP_H_
-#define CUDAFELDKAMP_H_
+#ifndef CUDA_FELDKAMP_H_
+#define CUDA_FELDKAMP_H_
 
 #include <atomic>
 #include <deque>
@@ -19,11 +10,10 @@
 #include <vector>
 
 #include <ddrf/Image.h>
+#include <ddrf/Volume.h>
+#include <ddrf/cuda/DeviceMemoryManager.h>
 #include <ddrf/cuda/HostMemoryManager.h>
-#include <ddrf/cuda/Image.h>
 #include <ddrf/cuda/Memory.h>
-#include <ddrf/default/Image.h>
-#include <ddrf/observer/Observer.h>
 
 #include "../common/Geometry.h"
 
@@ -36,9 +26,9 @@ namespace ddafa
 		class Feldkamp
 		{
 			public:
-				using input_type = ddrf::Image<ddrf::cuda::Image<float>>;
-				using output_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
-				using volume_type = ddrf::cuda::pitched_device_ptr<float, ddrf::cuda::sync_copy_policy, std::true_type>;
+				using input_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
+				using output_type = ddrf::Volume<ddrf::cuda::HostMemoryManager<float>>;
+				using volume_type = ddrf::Volume<ddrf::cuda::DeviceMemoryManager<float>>;
 
 			public:
 				Feldkamp(const common::Geometry&);
@@ -48,21 +38,34 @@ namespace ddafa
 
 			private:
 				auto create_volumes(int) -> void;
+				auto processor(input_type&&, std::promise<bool>) -> void;
+				auto finish() -> void;
+				auto merge_volumes() -> void;
 
 			protected:
 				~Feldkamp() = default;
 
 			private:
 				int devices_;
+				bool done_;
+
 				FeldkampScheduler<float> scheduler_;
 				common::Geometry geo_;
+
 				std::uint32_t input_num_;
 				std::atomic_bool input_num_set_;
+
+				std::uint32_t current_img_;
+				float current_angle_;
+
 				std::map<int, std::vector<volume_type>> volume_map_;
-				std::map<int, std::deque<std::future<bool>>> reconstruction_futures_;
+				output_type output_;
+
+				std::vector<std::thread> processor_threads_;
+				std::map<int, std::deque<std::future<bool>>> processor_futures_;
 		};
 	}
 }
 
 
-#endif /* CUDAFELDKAMP_H_ */
+#endif /* CUDA_FELDKAMP_H_ */

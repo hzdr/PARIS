@@ -10,9 +10,9 @@
 
 #include <ddrf/Image.h>
 #include <ddrf/Queue.h>
-#include <ddrf/cuda/Image.h>
+#include <ddrf/cuda/DeviceMemoryManager.h>
 #include <ddrf/cuda/HostMemoryManager.h>
-#include <ddrf/default/Image.h>
+#include <ddrf/default/MemoryManager.h>
 
 #include "../common/Geometry.h"
 
@@ -25,8 +25,8 @@ namespace ddafa
 		class Preloader
 		{
 			public:
-				using input_type = ddrf::Image<ddrf::def::Image<float, ddrf::cuda::HostMemoryManager<float>>>;
-				using output_type = ddrf::Image<ddrf::cuda::Image<float>>;
+				using input_type = ddrf::Image<ddrf::cuda::HostMemoryManager<float>>;
+				using output_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
 
 			public:
 				Preloader(const common::Geometry& geo);
