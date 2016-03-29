@@ -1,11 +1,9 @@
 #include <cstddef>
 #include <cstdint>
-#include <future>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
-#define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/Image.h>
@@ -54,25 +52,25 @@ namespace ddafa
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
 			for(auto i = 0; i < devices_; ++i)
-			{
-				auto pr = std::promise<bool>{};
-				processor_futures_[i].emplace_back(pr.get_future());
-				pr.set_value(true);
-			}
+				processor_threads_[i] = std::thread{&Weighting::processor, this, i};
 		}
 
 		auto Weighting::process(input_type&& img) -> void
 		{
-			if(!img.valid())
+			if(img.valid())
+				map_imgs_[img.device()].push(std::move(img));
+			else
 			{
-				// received poisonous pill, time to die
-				finish();
-				return;
-			}
+				BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: Received poisonous pill, finishing...";
+				for(auto i = 0; i < devices_; ++i)
+					map_imgs_[i].push(input_type());
 
-			auto pr = std::promise<bool>{};
-			processor_futures_[img.device()].emplace_back(pr.get_future());
-			processor_threads_.emplace_back(&Weighting::processor, this, std::move(img), std::move(pr));
+				for(auto i = 0; i < devices_; ++i)
+					processor_threads_[i].join();
+
+				results_.push(output_type());
+				BOOST_LOG_TRIVIAL(info) << "cuda::Weighting: Done.";
+			}
 		}
 
 		auto Weighting::wait() -> output_type
@@ -80,44 +78,25 @@ namespace ddafa
 			return results_.take();
 		}
 
-		auto Weighting::processor(input_type&& img, std::promise<bool> pr) -> void
+		auto Weighting::processor(int device) -> void
 		{
-			auto device = img.device();
-			auto future = std::move(processor_futures_[device].front());
-			processor_futures_[device].pop_front();
-			auto start = future.get();
-			start = !start;
-
 			CHECK(cudaSetDevice(device));
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing on device #" << img.device();
-
-			ddrf::cuda::launch(img.width(), img.height(),
-					weight,
-					img.data(), img.width(), img.height(), img.pitch(), h_min_, v_min_, d_dist_,
-					geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
-
-			CHECK(cudaStreamSynchronize(0));
-			results_.push(std::move(img));
-			pr.set_value(true);
-		}
-
-		auto Weighting::finish() -> void
-		{
-			BOOST_LOG_TRIVIAL(debug) << "CUDAWeighting: Received poisonous pill, called finish()";
-
-			for(auto&& t : processor_threads_)
-				t.join();
-
-			for(auto& kv : processor_futures_)
+			while(true)
 			{
-				for(auto& f : kv.second)
-				{
-					auto val = f.get();
-					val = !val;
-				}
-			}
+				auto img = map_imgs_[device].take();
+				if(!img.valid())
+					break;
 
-			results_.push(output_type());
+				BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing image #" << img.index() << " on device #" << device;
+
+				ddrf::cuda::launch(img.width(), img.height(),
+						weight,
+						img.data(), img.width(), img.height(), img.pitch(), h_min_, v_min_, d_dist_,
+						geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+
+				CHECK(cudaStreamSynchronize(0));
+				results_.push(std::move(img));
+			}
 		}
 	}
 }

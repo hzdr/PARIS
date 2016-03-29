@@ -1,12 +1,7 @@
-#include <algorithm>
 #include <cstddef>
-#include <future>
 #include <iterator>
-#include <map>
-#include <memory>
 #include <utility>
 
-#define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/Check.h>
@@ -23,55 +18,49 @@ namespace ddafa
 	{
 		Preloader::Preloader(const common::Geometry& geo)
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}
+		, processor_thread_{&Preloader::processor, this}
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
-			auto pr = std::promise<bool>{};
-			processor_futures_.emplace_back(pr.get_future());
-			pr.set_value(true);
+		}
+
+		Preloader::~Preloader()
+		{
+			processor_thread_.join();
 		}
 
 		auto Preloader::process(input_type&& img) -> void
 		{
-			if(!img.valid())
+			imgs_.push(std::move(img));
+		}
+
+		auto Preloader::processor() -> void
+		{
+			while(true)
 			{
-				finish();
-				return;
+				auto img = imgs_.take();
+				if(!img.valid())
+				{
+					finish();
+					break;
+				}
+				split(std::move(img));
+				distribute_first();
 			}
-
-			auto pr = std::promise<bool>{};
-			processor_futures_.emplace_back(pr.get_future());
-			processor_threads_.emplace_back(&Preloader::processor, this, std::move(img), std::move(pr));
 		}
 
-		auto Preloader::processor(input_type&& img, std::promise<bool> pr) -> void
+		auto Preloader::split(input_type img) -> void
 		{
-			auto future = std::move(processor_futures_.front());
-			processor_futures_.pop_front();
-			auto start = future.get();
-			start = !start;
-
-			distribute(split(std::move(img)));
-
-			pr.set_value(true);
-		}
-
-		auto Preloader::split(input_type&& img) -> std::map<int, std::map<std::size_t, input_type>>
-		{
-			// create subprojections and upload them to their corresponding devices
+			// create subprojections
 			auto chunks = scheduler_.get_chunks();
 
-			auto device_chunk_map = std::map<int, std::map<std::size_t, input_type>>{};
 			for(auto d = 0; d < devices_; ++d)
 			{
 				auto chunks_on_dev = chunks[d];
-				auto chunk_map = std::map<std::size_t, input_type>{};
 				for(auto i = 0u; i < chunks_on_dev.size(); ++i)
 				{
 					auto firstRow = chunks_on_dev[i].first;
 					auto lastRow = chunks_on_dev[i].second;
 					auto rows = lastRow - firstRow + 1;
-
-					auto chunk_vec = std::vector<input_type>{};
 
 					auto extract = [this](const input_type& src, std::uint32_t first, std::uint32_t height)
 					{
@@ -79,73 +68,70 @@ namespace ddafa
 						auto dest = ddrf::cuda::make_host_ptr<float>(width, height);
 
 						// explicit call to cudaMemcpy2D as we are only copying parts of the input data
-						cudaMemcpy2D(dest.get(), dest.pitch(),
+						CHECK(cudaMemcpy2D(dest.get(), dest.pitch(),
 									src.data() + first * width, src.pitch(),
-									width * sizeof(float), height, cudaMemcpyHostToHost);
+									width * sizeof(float), height, cudaMemcpyHostToHost));
 
-						auto ret = input_type{width, height, std::move(dest)};
+						auto ret = input_type{width, height, src.index(), std::move(dest)};
 						return ret;
 					};
 
-					chunk_map[i] = extract(img, firstRow, rows);
+					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
 				}
-				device_chunk_map[d] = std::move(chunk_map);
 			}
-
-			return device_chunk_map;
 		}
 
-		auto Preloader::distribute(std::map<int, std::map<std::size_t, input_type>> map) -> void
+		auto Preloader::distribute_first() -> void
 		{
 			auto distribution_threads = std::vector<std::thread>{};
 			for(auto d = 0; d < devices_; ++d)
-				distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(map[d]));
+			{
+				/* This looks ugly, but is quite simple: For each available CUDA device,
+				 * take the first associated input image out of the queue and pass it to
+				 * the upload thread. Then, pop the (now empty) first entry in the queue.
+				 */
+				auto& queue = std::begin(remaining_[d])->second;
+				if(queue.empty())
+					continue;
+				distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(queue.front()));
+				queue.pop_front();
+			}
+
 
 			for(auto&& t : distribution_threads)
 				t.join();
 		}
 
-		auto Preloader::uploadAndSend(int device, std::map<std::size_t, input_type> map) -> void
+		auto Preloader::uploadAndSend(int device, input_type img) -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading to device #" << device;
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading image #" << img.index() << " to device #" << device;
 			CHECK(cudaSetDevice(device));
 
-			auto upload = [this, device](const input_type& img)
+			auto upload = [this, device](const input_type& input)
 			{
 				auto ret = output_type{};
 
-				auto width = img.width();
-				auto height = img.height();
+				auto width = input.width();
+				auto height = input.height();
 
 				auto data = ddrf::cuda::make_device_ptr<float>(width, height);
-				ddrf::cuda::copy_async(data, img.container());
+				ddrf::cuda::copy_sync(data, input.container());
 
-				ret = output_type{width, height, std::move(data)};
+				ret = output_type{width, height, input.index(), std::move(data)};
 				ret.setDevice(device);
 
 				return ret;
 			};
 
-			for(auto& ii : map)
-			{
-				results_.push(upload(ii.second));
-			}
+			results_.push(upload(img));
 		}
 
 		auto Preloader::finish() -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "CUDAPreloader: Received poisonous pill, called finish()";
-
-			for(auto&& t : processor_threads_)
-				t.join();
-
-			for(auto& f: processor_futures_)
-			{
-				auto val = f.get();
-				val = !val;
-			}
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Received poisonous pill, finishing...";
 
 			results_.push(output_type{});
+			BOOST_LOG_TRIVIAL(info) << "cuda::Preloader: Done.";
 		}
 
 		auto Preloader::wait() -> output_type

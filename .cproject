@@ -25,6 +25,7 @@
 							<tool id="nvcc.compiler.base.321879615" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.def.symbols.1177807439" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DDAFA_DEBUG"/>
+									<listOptionValue builtIn="false" value="BOOST_ALL_DYN_LINK"/>
 								</option>
 								<option id="nvcc.compiler.deviceDebug.574583145" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.option.level.359762926" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" useByScannerDiscovery="false" value="true" valueType="boolean"/>
@@ -33,6 +34,7 @@
 								<option id="nvcc.compiler.cpp11option.404920008" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.optionsfile.1680958795" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" useByScannerDiscovery="false" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
 								<option id="nvcc.compiler.compileroptions.22434737" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" useByScannerDiscovery="false" valueType="stringList">
+									<listOptionValue builtIn="false" value="-g"/>
 									<listOptionValue builtIn="false" value="-Wall"/>
 									<listOptionValue builtIn="false" value="-Wextra"/>
 									<listOptionValue builtIn="false" value="-Wno-missing-field-initializers"/>
@@ -64,6 +66,11 @@
 								<option id="nvcc.compiler.include.paths.1794010719" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/include}&quot;"/>
 								</option>
+								<option id="nvcc.compiler.verbose.1906610161" name="Verbose (-v)" superClass="nvcc.compiler.verbose" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.ptxasoptions.853210191" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
+									<listOptionValue builtIn="false" value="-v"/>
+								</option>
+								<option id="nvcc.compiler.maxregcount.1994483671" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="63" valueType="string"/>
 								<inputType id="nvcc.compiler.input.cu.417023369" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.2040295795" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1956074200" superClass="nvcc.compiler.input.c"/>
@@ -83,6 +90,9 @@
 								<option id="nvcc.linker.option.paths.479412220" name="Library search path (-L)" superClass="nvcc.linker.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/Debug}&quot;"/>
 								</option>
+								<option id="nvcc.linker.option.other.1554337911" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
+									<listOptionValue builtIn="false" value="--export-dynamic"/>
+								</option>
 								<inputType id="nvcc.linker.input.495995248" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -101,9 +111,10 @@
 			</storageModule>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration">
 				<executable devicelink="true">
-					<ptx major="2" minor="0"/>
+					<ptx major="3" minor="5"/>
+					<sass major="3" minor="5"/>
 				</executable>
-				<editor-arch major="2" minor="0"/>
+				<editor-arch major="3" minor="5"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>
@@ -135,11 +146,14 @@
 								<option id="nvcc.compiler.pic.72297298" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
 								<option id="nvcc.compiler.def.symbols.2127884151" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="BOOST_ALL_DYN_LINK"/>
-									<listOptionValue builtIn="false" value="DDAFA_DEBUG"/>
 								</option>
 								<option id="nvcc.compiler.cpp11option.1408570101" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.include.paths.1133348101" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/include}&quot;"/>
+								</option>
+								<option id="nvcc.compiler.maxregcount.1492292388" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="63" valueType="string"/>
+								<option id="nvcc.compiler.compileroptions.217939908" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
+									<listOptionValue builtIn="false" value="-g"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.586720573" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1119589895" superClass="nvcc.compiler.input.cpp"/>
@@ -147,13 +161,21 @@
 							</tool>
 							<tool errorParsers="nvcc.errorParser;org.eclipse.cdt.core.GLDErrorParser" id="nvcc.linker.base.1817600321" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.1660317699" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
+									<listOptionValue builtIn="false" value="ddrf"/>
 									<listOptionValue builtIn="false" value="tiff"/>
 									<listOptionValue builtIn="false" value="cufft"/>
 									<listOptionValue builtIn="false" value="boost_system"/>
+									<listOptionValue builtIn="false" value="boost_log"/>
 									<listOptionValue builtIn="false" value="boost_program_options"/>
-									<listOptionValue builtIn="false" value="boost_filesystem"/>
+									<listOptionValue builtIn="false" value="pthread"/>
 								</option>
 								<option id="nvcc.linker.option.cudart.1667356551" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
+								<option id="nvcc.linker.option.paths.705103114" name="Library search path (-L)" superClass="nvcc.linker.option.paths" valueType="libPaths">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/Release}&quot;"/>
+								</option>
+								<option id="nvcc.linker.option.other.1630663964" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
+									<listOptionValue builtIn="false" value="--export-dynamic"/>
+								</option>
 								<inputType id="nvcc.linker.input.1749268450" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
@@ -173,9 +195,10 @@
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration">
 				<executable devicelink="true">
-					<ptx major="2" minor="0"/>
+					<ptx major="3" minor="5"/>
+					<sass major="3" minor="5"/>
 				</executable>
-				<editor-arch major="2" minor="0"/>
+				<editor-arch major="3" minor="5"/>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>

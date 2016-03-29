@@ -10,17 +10,13 @@
 #include <cmath>
 #include <cstddef>
 #include <ctgmath>
-#include <stdexcept>
-#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
 
-#define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
 #include <cufft.h>
-#include <cufftXt.h>
 
 #include <ddrf/cuda/Check.h>
 #include <ddrf/cuda/Coordinates.h>
@@ -147,10 +143,8 @@ namespace ddafa
 			auto filter_creation_threads = std::vector<std::thread>{};
 			for(auto i = 0; i < devices_; ++i)
 			{
-				auto pr = std::promise<bool>{};
-				processor_futures_[i].emplace_back(pr.get_future());
-				pr.set_value(true);
 				filter_creation_threads.emplace_back(&Filter::filterProcessor, this, i);
+				processor_threads_[i] = std::thread{&Filter::processor, this, i};
 			}
 
 			for(auto&& t : filter_creation_threads)
@@ -159,16 +153,20 @@ namespace ddafa
 
 		auto Filter::process(input_type&& img) -> void
 		{
-			if(!img.valid())
+			if(img.valid())
+				map_imgs_[img.device()].push(std::move(img));
+			else
 			{
-				// received poisonous pill, time to die
-				finish();
-				return;
-			}
+				BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: Received poisonous pill, finishing...";
+				for(auto i = 0; i < devices_; ++i)
+					map_imgs_[i].push(input_type());
 
-			auto pr = std::promise<bool>{};
-			processor_futures_[img.device()].emplace_back(pr.get_future());
-			processor_threads_.emplace_back(&Filter::processor, this, std::move(img), std::move(pr));
+				for(auto i = 0; i < devices_; ++i)
+					processor_threads_[i].join();
+
+				results_.push(output_type());
+				BOOST_LOG_TRIVIAL(info) << "cuda::Filter: Done.";
+			}
 		}
 
 		auto Filter::wait() -> output_type
@@ -200,114 +198,92 @@ namespace ddafa
 			rs_[static_cast<std::size_t>(device)] = std::move(buffer);
 		}
 
-		auto Filter::processor(input_type&& img, std::promise<bool> pr) -> void
+		auto Filter::processor(int device) -> void
 		{
-			// get a future
-			auto device = img.device();
-			auto future = std::move(processor_futures_[device].front());
-			processor_futures_[device].pop_front();
-			auto start = future.get(); // block until previous thread is done
-			start = !start; // prevent warnings
+			CHECK(cudaSetDevice(device));
+			while(true)
+			{
+				auto img = map_imgs_[device].take();
+				if(!img.valid())
+					break;
 
-			CHECK(cudaSetDevice(img.device()));
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: processing on device #" << img.device();
+				BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: processing image #" << img.index() << " on device #" << device;
 
-			// convert projection to new dimensions
-			auto converted = ddrf::cuda::make_device_ptr<float>(filter_length_, img.height());
-			ddrf::cuda::launch(filter_length_, img.height(), convertProjection, converted.get(),
-					static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
+				// convert projection to new dimensions
+				auto converted = ddrf::cuda::make_device_ptr<float>(filter_length_, img.height());
+				ddrf::cuda::launch(filter_length_, img.height(), convertProjection, converted.get(),
+						static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
 
-			// allocate memory
-			auto transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
-			auto transformed = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length, img.height());
+				// allocate memory
+				auto transformed_filter_length = filter_length_ / 2 + 1; // filter_length_ is always a power of 2
+				auto transformed = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length, img.height());
 
-			auto filter = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length);
+				auto filter = ddrf::cuda::make_device_ptr<cufftComplex>(transformed_filter_length);
 
-			// set up cuFFT
-			auto n_proj = std::vector<int>{ static_cast<int>(filter_length_) };
-			auto proj_dist = static_cast<int>(converted.pitch() / sizeof(float));
-			auto proj_nembed = std::vector<int>{ proj_dist };
+				// set up cuFFT
+				auto n_proj = std::vector<int>{ static_cast<int>(filter_length_) };
+				auto proj_dist = static_cast<int>(converted.pitch() / sizeof(float));
+				auto proj_nembed = std::vector<int>{ proj_dist };
 
-			auto trans_dist = static_cast<int>(transformed.pitch() / sizeof(cufftComplex));
-			auto trans_nembed = std::vector<int>{ trans_dist };
+				auto trans_dist = static_cast<int>(transformed.pitch() / sizeof(cufftComplex));
+				auto trans_nembed = std::vector<int>{ trans_dist };
 
-			auto projectionPlan = cufftHandle{};
-			CHECK_CUFFT(cufftPlanMany(&projectionPlan, 		// plan
-										1, 								// rank (dimension)
-										n_proj.data(),					// input dimension size
-										proj_nembed.data(),				// input storage dimensions
-										1,								// distance between two successive input elements
-										proj_dist,						// distance between two input signals
-										trans_nembed.data(),			// output storage dimensions
-										1,								// distance between two successive output elements
-										trans_dist, 					// distance between two output signals
-										CUFFT_R2C,						// transform data type
-										static_cast<int>(img.height()) 	// batch size
-										));
+				auto projectionPlan = cufftHandle{};
+				CHECK_CUFFT(cufftPlanMany(&projectionPlan, 					// plan
+											1, 								// rank (dimension)
+											n_proj.data(),					// input dimension size
+											proj_nembed.data(),				// input storage dimensions
+											1,								// distance between two successive input elements
+											proj_dist,						// distance between two input signals
+											trans_nembed.data(),			// output storage dimensions
+											1,								// distance between two successive output elements
+											trans_dist, 					// distance between two output signals
+											CUFFT_R2C,						// transform data type
+											static_cast<int>(img.height()) 	// batch size
+											));
 
-			auto filterPlan = cufftHandle{};
-			CHECK_CUFFT(cufftPlan1d(&filterPlan, static_cast<int>(filter_length_), CUFFT_R2C, 1));
+				auto filterPlan = cufftHandle{};
+				CHECK_CUFFT(cufftPlan1d(&filterPlan, static_cast<int>(filter_length_), CUFFT_R2C, 1));
 
-			auto inversePlan = cufftHandle{};
-			CHECK_CUFFT(cufftPlanMany(&inversePlan,
-										1,
-										n_proj.data(),
-										trans_nembed.data(),
-										1,
-										trans_dist,
-										proj_nembed.data(),
-										1,
-										proj_dist,
-										CUFFT_C2R,
-										static_cast<int>(img.height())
-										));
+				auto inversePlan = cufftHandle{};
+				CHECK_CUFFT(cufftPlanMany(&inversePlan,
+											1,
+											n_proj.data(),
+											trans_nembed.data(),
+											1,
+											trans_dist,
+											proj_nembed.data(),
+											1,
+											proj_dist,
+											CUFFT_C2R,
+											static_cast<int>(img.height())
+											));
 
-			// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
-			CHECK_CUFFT(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
-			CHECK_CUFFT(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(img.device())].get(), filter.get()));
+				// run the FFT for projection and filter -- note that R2C transformations are implicitly forward
+				CHECK_CUFFT(cufftExecR2C(projectionPlan, converted.get(), transformed.get()));
+				CHECK_CUFFT(cufftExecR2C(filterPlan, rs_[static_cast<std::size_t>(img.device())].get(), filter.get()));
 
-			// create K
-			ddrf::cuda::launch(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
+				// create K
+				ddrf::cuda::launch(transformed_filter_length, createK, filter.get(), transformed_filter_length, tau_);
 
-			// multiply the results
-			ddrf::cuda::launch(transformed_filter_length, img.height(), applyFilter, transformed.get(),
-				static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed.pitch());
+				// multiply the results
+				ddrf::cuda::launch(transformed_filter_length, img.height(), applyFilter, transformed.get(),
+					static_cast<const cufftComplex*>(filter.get()), transformed_filter_length, img.height(), transformed.pitch());
 
-			// run inverse FFT -- note that C2R transformations are implicitly inverse
-			CHECK_CUFFT(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
+				// run inverse FFT -- note that C2R transformations are implicitly inverse
+				CHECK_CUFFT(cufftExecC2R(inversePlan, transformed.get(), converted.get()));
 
-			// convert back to image dimensions and normalize
-			ddrf::cuda::launch(filter_length_, img.height(), convertFiltered, img.data(),
-					static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
+				// convert back to image dimensions and normalize
+				ddrf::cuda::launch(filter_length_, img.height(), convertFiltered, img.data(),
+						static_cast<const float*>(converted.get()),	img.width(), img.height(), img.pitch(), converted.pitch(), filter_length_);
 
-			// clean up
-			CHECK_CUFFT(cufftDestroy(inversePlan));
-			CHECK_CUFFT(cufftDestroy(filterPlan));
-			CHECK_CUFFT(cufftDestroy(projectionPlan));
+				// clean up
+				CHECK_CUFFT(cufftDestroy(inversePlan));
+				CHECK_CUFFT(cufftDestroy(filterPlan));
+				CHECK_CUFFT(cufftDestroy(projectionPlan));
 
-			results_.push(std::move(img));
-
-			pr.set_value(true);
-		}
-
-		auto Filter::finish() -> void
-		{
-				BOOST_LOG_TRIVIAL(debug) << "cuda::Filter: Received poisonous pill, called finish()";
-
-				for(auto&& t : processor_threads_)
-					t.join();
-
-				for(auto& kv : processor_futures_)
-				{
-					for(auto& f : kv.second)
-					{
-						auto val = f.get();
-						val = !val;
-					}
-
-				}
-
-				results_.push(output_type());
+				results_.push(std::move(img));
+			}
 		}
 	}
 }

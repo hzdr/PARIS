@@ -2,9 +2,9 @@
 #define CUDA_FELDKAMP_H_
 
 #include <atomic>
-#include <deque>
-#include <future>
 #include <map>
+#include <string>
+#include <mutex>
 #include <thread>
 #include <type_traits>
 #include <vector>
@@ -32,21 +32,22 @@ namespace ddafa
 				using volume_type = ddrf::Volume<ddrf::cuda::DeviceMemoryManager<float>>;
 
 			public:
-				Feldkamp(const common::Geometry&);
+				Feldkamp(const common::Geometry& geo, const std::string& angles);
 				auto process(input_type&&) -> void;
 				auto wait() -> output_type;
 				auto set_input_num(std::uint32_t) noexcept -> void;
 
 			private:
+				auto parse_angles(const std::string&) -> void;
 				auto create_volumes(int) -> void;
-				auto processor(input_type&&, std::promise<bool>) -> void;
-				auto finish() -> void;
+				auto processor(int) -> void;
 				auto merge_volumes() -> void;
 
 			protected:
 				~Feldkamp();
 
 			private:
+				std::map<int, ddrf::Queue<input_type>> map_imgs_;
 				ddrf::Queue<output_type> results_;
 				int devices_;
 				bool done_;
@@ -54,16 +55,23 @@ namespace ddafa
 				FeldkampScheduler<float> scheduler_;
 				common::Geometry geo_;
 
+				float dist_sd_;
+				FeldkampScheduler<float>::VolumeGeometry vol_geo_;
+
 				std::uint32_t input_num_;
 				std::atomic_bool input_num_set_;
+
+				std::atomic_bool angle_tabs_created_;
+				std::once_flag angle_flag_;
+				std::vector<float> sin_tab_;
+				std::vector<float> cos_tab_;
 
 				std::uint32_t current_img_;
 				float current_angle_;
 
 				std::map<int, std::vector<volume_type>> volume_map_;
 
-				std::vector<std::thread> processor_threads_;
-				std::map<int, std::deque<std::future<bool>>> processor_futures_;
+				std::map<int, std::thread> processor_threads_;
 		};
 	}
 }

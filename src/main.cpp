@@ -1,12 +1,15 @@
+#include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
+#include <execinfo.h>
+
 #include <cuda_runtime.h>
 
-#define BOOST_ALL_DYN_LINK
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
@@ -43,8 +46,21 @@ void initLog()
 #endif
 }
 
+void signal_handler(int sig)
+{
+	void* array[10];
+	auto size = backtrace(array, 10);
+
+	BOOST_LOG_TRIVIAL(error) << "Signal " << sig;
+	backtrace_symbols_fd(array, size, STDERR_FILENO);
+	std::exit(EXIT_FAILURE);
+}
+
 int main(int argc, char** argv)
 {
+	std::signal(SIGSEGV, signal_handler);
+	std::signal(SIGABRT, signal_handler);
+
 	initLog();
 	using tiff_saver = ddrf::ImageSaver<ddrf::savers::TIFF<ddrf::cuda::HostMemoryManager<float>>>;
 	using his_loader = ddrf::ImageLoader<ddrf::loaders::HIS<ddrf::cuda::HostMemoryManager<float>>>;
@@ -58,6 +74,7 @@ int main(int argc, char** argv)
 	try
 	{
 		auto projection_path = std::string{""};
+		auto angle_path = std::string{""};
 		auto geometry_path = std::string{""};
 		auto output_path = std::string{""};
 		auto prefix = std::string{""};
@@ -69,6 +86,7 @@ int main(int argc, char** argv)
 				("help, h", "Help screen")
 				("geometry-format, f", "Display geometry file format")
 				("input, i", boost::program_options::value<std::string>(&projection_path)->required(), "Path to projections")
+				("angles, a", boost::program_options::value<std::string>(&angle_path)->default_value(""), "Path to projection angles (optional)")
 				("geometry, g", boost::program_options::value<std::string>(&geometry_path)->required(), "Path to geometry file")
 				("output, o", boost::program_options::value<std::string>(&output_path)->required(), "Output path for the reconstructed volume")
 				("name, n", boost::program_options::value<std::string>(&prefix)->default_value("vol"), "Name of the reconstructed volume (optional)");
@@ -113,7 +131,7 @@ int main(int argc, char** argv)
 		auto preloader = pipeline.create<preloader_stage>(geo);
 		auto weighting = pipeline.create<weighting_stage>(geo);
 		auto filter = pipeline.create<filter_stage>(geo);
-		auto reconstruction = pipeline.create<reconstruction_stage>(geo);
+		auto reconstruction = pipeline.create<reconstruction_stage>(geo, angle_path);
 		auto sink = pipeline.create<sink_stage>(output_path, prefix);
 
 		pipeline.connect(source, preloader);

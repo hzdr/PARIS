@@ -3,11 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
-#include <future>
 #include <map>
 #include <thread>
-#include <vector>
 
 #include <ddrf/Queue.h>
 #include <ddrf/Image.h>
@@ -36,18 +33,18 @@ namespace ddafa
 				~Weighting() = default;
 
 			private:
-				auto processor(input_type&&, std::promise<bool>) -> void;
-				auto finish() -> void;
+				auto processor(int) -> void;
 
 			private:
 				ddafa::common::Geometry geo_;
+				std::map<int, ddrf::Queue<input_type>> map_imgs_;
 				ddrf::Queue<output_type> results_;
 				float h_min_;
 				float v_min_;
 				float d_dist_;
 				int devices_;
-				std::vector<std::thread> processor_threads_;
-				std::map<int, std::deque<std::future<bool>>> processor_futures_;
+
+				std::map<int, std::thread> processor_threads_;
 		};
 	}
 }

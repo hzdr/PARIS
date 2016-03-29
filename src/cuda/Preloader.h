@@ -3,10 +3,8 @@
 
 #include <cstddef>
 #include <deque>
-#include <future>
 #include <map>
 #include <thread>
-#include <vector>
 
 #include <ddrf/Image.h>
 #include <ddrf/Queue.h>
@@ -34,22 +32,26 @@ namespace ddafa
 				auto wait() -> output_type;
 
 			protected:
-				~Preloader() = default;
+				~Preloader();
 
 			private:
-				auto processor(input_type&&, std::promise<bool>) -> void;
-				auto split(input_type&&) -> std::map<int, std::map<std::size_t, input_type>>;
-				auto distribute(std::map<int, std::map<std::size_t, input_type>>) -> void;
+				auto processor() -> void;
+				auto split(input_type) -> void;
+				auto distribute_first() -> void;
 				auto finish() -> void;
 
-				auto uploadAndSend(int device, std::map<std::size_t, input_type>) -> void;
+				auto uploadAndSend(int, input_type) -> void;
 
 			private:
+				ddrf::Queue<input_type> imgs_;
 				ddrf::Queue<output_type> results_;
 				int devices_;
-				std::vector<std::thread> processor_threads_;
-				std::deque<std::future<bool>> processor_futures_;
+
+				std::thread processor_thread_;
+
 				FeldkampScheduler<float> scheduler_;
+
+				std::map<int, std::map<std::size_t, std::deque<input_type>>> remaining_;
 		};
 	}
 }

@@ -11,7 +11,6 @@
 #include <utility>
 #include <vector>
 
-#define BOOST_ALL_DYN_LINK
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/Check.h>
@@ -28,6 +27,18 @@ namespace ddafa
 		class FeldkampScheduler
 		{
 			public:
+				struct VolumeGeometry
+				{
+					std::size_t dim_x;
+					std::size_t dim_y;
+					std::size_t dim_z;
+
+					float voxel_size_x;
+					float voxel_size_y;
+					float voxel_size_z;
+				};
+
+
 				~FeldkampScheduler() = default;
 
 				static auto instance(const common::Geometry& geo) -> FeldkampScheduler<T>&
@@ -57,19 +68,21 @@ namespace ddafa
 					return volumes_per_device_;
 				}
 
+				auto volume_geometry() const noexcept -> VolumeGeometry
+				{
+					return vol_geo_;
+				}
+
 			protected:
 				FeldkampScheduler(const common::Geometry& geo)
+				: vol_geo_{0}
 				{
-					// calculate volume height in mm
-					auto dist_src_det = geo.dist_src + geo.dist_det;
-					auto det_height = geo.det_pixel_size_vert * geo.det_pixels_column;
-					BOOST_LOG_TRIVIAL(debug) << "Detector is " << det_height << " mm high.";
-					volume_height_ = (geo.dist_src * det_height) /
-										(dist_src_det + (std::sqrt(2.f) / 2) * det_height);
-					BOOST_LOG_TRIVIAL(debug) << "Volume is " << volume_height_ << " mm high.";
+					calculate_volume_geo(geo);
+					calculate_volume_height_mm();
+					auto dist_sd = geo.dist_det + geo.dist_src;
 
 					// calculate volume size in bytes (GPU RAM) and split it up if it doesn't fit
-					volume_size_ = geo.det_pixels_row * geo.det_pixels_row * geo.det_pixels_column * sizeof(T);
+					volume_size_ = vol_geo_.dim_x * vol_geo_.dim_y * vol_geo_.dim_z * sizeof(T);
 					auto vol_count = 0u;
 					BOOST_LOG_TRIVIAL(debug) << "Volume needs " << volume_size_ << " Bytes.";
 					auto dev_count = int{};
@@ -113,18 +126,21 @@ namespace ddafa
 						auto top = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n) / vol_count));
 						auto bottom = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n + 1) / vol_count));
 
-						auto top_proj = 0.f;
+						auto top_proj = top * (dist_sd / geo.dist_src) + geo.det_offset_vert;
+						auto bottom_proj = bottom * (dist_sd / geo.dist_src) + geo.det_offset_vert;
+
+						/*auto top_proj = 0.f;
 						auto bottom_proj = 0.f;
 						if(n < (vol_count / 2))
 						{
-							top_proj = (dist_src_det * top) / (geo.dist_src - (std::sqrt(2.f) / 2) * volume_height_);
-							bottom_proj = (dist_src_det * bottom) / (geo.dist_src + (std::sqrt(2.f) / 2) * volume_height_);
+							top_proj = (dist_sd * top) / (geo.dist_src - (std::sqrt(2.f) / 2) * volume_height_) + geo.det_offset_vert;
+							bottom_proj = (dist_sd * bottom) / (geo.dist_src + (std::sqrt(2.f) / 2) * volume_height_) + geo.det_offset_vert;
 						}
 						else
 						{
-							top_proj = (dist_src_det * top) / (geo.dist_src + (std::sqrt(2.f) / 2) * volume_height_);
-							bottom_proj = (dist_src_det * bottom) / (geo.dist_src - (std::sqrt(2.f) / 2) * volume_height_);
-						}
+							top_proj = (dist_sd * top) / (geo.dist_src + (std::sqrt(2.f) / 2) * volume_height_) + geo.det_offset_vert;
+							bottom_proj = (dist_sd * bottom) / (geo.dist_src - (std::sqrt(2.f) / 2) * volume_height_) + geo.det_offset_vert;
+						}*/
 						// FIXME: This is quite error-prone with regard to non-standard projection sizes (e.g. 401 in y direction)
 						auto top_row = std::ceil(top_proj / geo.det_pixel_size_vert);
 						auto bottom_row = std::ceil(bottom_proj / geo.det_pixel_size_vert);
@@ -157,10 +173,43 @@ namespace ddafa
 				}
 
 			private:
+				auto calculate_volume_geo(const common::Geometry& geo) noexcept -> void
+				{
+					// calculate volume dimensions -- x and y
+					auto dist_sd = std::abs(geo.dist_det) + std::abs(geo.dist_src);
+					auto N_h = geo.det_pixels_row;
+					auto d_h = geo.det_pixel_size_horiz;
+					auto delta_h = geo.det_offset_horiz;
+					auto alpha = std::atan((((N_h * d_h) / 2.f) + std::abs(delta_h)) / dist_sd);
+					auto r = std::abs(geo.dist_src) * std::sin(alpha);
+					vol_geo_.voxel_size_x = r / ((((N_h * d_h) / 2.f) + std::abs(delta_h)) / d_h);
+					vol_geo_.voxel_size_y = vol_geo_.voxel_size_x;
+					vol_geo_.dim_x = static_cast<std::size_t>((2.f * r) / vol_geo_.voxel_size_x);
+					vol_geo_.dim_y = vol_geo_.dim_x;
+
+					// calculate volume dimensions -- z
+					vol_geo_.voxel_size_z = vol_geo_.voxel_size_x;
+					auto N_v = geo.det_pixels_column;
+					auto d_v = geo.det_pixel_size_vert;
+					auto delta_v = geo.det_offset_vert;
+					vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd) * (2.f / vol_geo_.voxel_size_z));
+
+					BOOST_LOG_TRIVIAL(debug) << "Volume dimensions: " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << vol_geo_.dim_z;
+					BOOST_LOG_TRIVIAL(debug) << "Voxel size: " << vol_geo_.voxel_size_x << "x" << vol_geo_.voxel_size_y << "x" << vol_geo_.voxel_size_z;
+				}
+
+				auto calculate_volume_height_mm() -> void
+				{
+					volume_height_ = vol_geo_.dim_z * vol_geo_.voxel_size_z;
+					BOOST_LOG_TRIVIAL(debug) << "Volume is " << volume_height_ << " mm high.";
+				}
+
+			private:
 				std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>> chunks_;
 				std::map<int, std::uint32_t> volumes_per_device_;
 				float volume_height_;
 				std::size_t volume_size_;
+				VolumeGeometry vol_geo_;
 		};
 	}
 }

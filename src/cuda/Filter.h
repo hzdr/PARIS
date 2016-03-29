@@ -3,10 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
-#include <future>
 #include <map>
-#include <memory>
 #include <thread>
 #include <vector>
 
@@ -37,13 +34,14 @@ namespace ddafa
 
 			private:
 				auto filterProcessor(int) -> void;
-				auto processor(input_type&& img, std::promise<bool> pr) -> void;
-				auto finish() -> void;
+				auto processor(int) -> void;
 
 			private:
+				std::map<int, ddrf::Queue<input_type>> map_imgs_;
 				ddrf::Queue<output_type> results_;
-				std::vector<std::thread> processor_threads_;
-				std::map<int, std::deque<std::future<bool>>> processor_futures_;
+
+				std::map<int, std::thread> processor_threads_;
+
 				int devices_;
 				std::size_t filter_length_;
 				std::vector<ddrf::cuda::device_ptr<float, ddrf::cuda::sync_copy_policy>> rs_;
