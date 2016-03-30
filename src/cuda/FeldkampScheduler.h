@@ -126,8 +126,8 @@ namespace ddafa
 						auto top = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n) / vol_count));
 						auto bottom = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n + 1) / vol_count));
 
-						auto top_proj = top * (dist_sd / geo.dist_src) + geo.det_offset_vert;
-						auto bottom_proj = bottom * (dist_sd / geo.dist_src) + geo.det_offset_vert;
+						auto top_proj = top * (dist_sd / geo.dist_src) + (geo.det_offset_vert * geo.det_pixel_size_vert);
+						auto bottom_proj = bottom * (dist_sd / geo.dist_src) + (geo.det_offset_vert * geo.det_pixel_size_vert);
 
 						/*auto top_proj = 0.f;
 						auto bottom_proj = 0.f;
@@ -179,7 +179,7 @@ namespace ddafa
 					auto dist_sd = std::abs(geo.dist_det) + std::abs(geo.dist_src);
 					auto N_h = geo.det_pixels_row;
 					auto d_h = geo.det_pixel_size_horiz;
-					auto delta_h = geo.det_offset_horiz;
+					auto delta_h = geo.det_offset_horiz * d_h; // the offset is measured in pixels!
 					auto alpha = std::atan((((N_h * d_h) / 2.f) + std::abs(delta_h)) / dist_sd);
 					auto r = std::abs(geo.dist_src) * std::sin(alpha);
 					vol_geo_.voxel_size_x = r / ((((N_h * d_h) / 2.f) + std::abs(delta_h)) / d_h);
@@ -191,7 +191,7 @@ namespace ddafa
 					vol_geo_.voxel_size_z = vol_geo_.voxel_size_x;
 					auto N_v = geo.det_pixels_column;
 					auto d_v = geo.det_pixel_size_vert;
-					auto delta_v = geo.det_offset_vert;
+					auto delta_v = geo.det_offset_vert * d_v;
 					vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd) * (2.f / vol_geo_.voxel_size_z));
 
 					BOOST_LOG_TRIVIAL(debug) << "Volume dimensions: " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << vol_geo_.dim_z;

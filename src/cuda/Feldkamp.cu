@@ -98,9 +98,9 @@ namespace ddafa
 			auto v_real = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);
 
 			auto h_j0 = floorf(h_real);
-			auto h_j1 = ceilf(h_real);
+			auto h_j1 = h_j0 + 1.f;
 			auto v_i0 = floorf(v_real);
-			auto v_i1 = ceilf(v_real);
+			auto v_i1 = v_i0 + 1.f;
 
 			auto w_h0 = (h_real - h_j0) / (h_j1 - h_j0);
 			auto w_v0 = (v_real - v_i0) / (v_i1 - v_i0);
@@ -188,15 +188,6 @@ namespace ddafa
 				// backproject
 				auto u = dist_src / (s - dist_src);
 				row[k] += 0.5f * det * powf(u, 2.f);
-
-				/*if(k == 531 && l == 531 && m == 106)
-				{
-					printf("det: %f\n", det);
-					printf("u: %f\n", u);
-					printf("(531, 531, 106): %f\n", row[k]);
-				}
-
-				__syncthreads();*/
 			}
 		}
 
@@ -314,9 +305,7 @@ namespace ddafa
 							BOOST_LOG_TRIVIAL(debug) << "Creating angle tab entry for angle " << angle;
 							auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
 							sin_tab_[i] = std::sin(angle_rad);
-							BOOST_LOG_TRIVIAL(debug) << "Sin: " << sin_tab_[i];
 							cos_tab_[i] = std::cos(angle_rad);
-							BOOST_LOG_TRIVIAL(debug) << "Cos: " << cos_tab_[i];
 						}
 						angle_tabs_created_ = true;
 					});
@@ -325,12 +314,15 @@ namespace ddafa
 				auto& volumes = volume_map_[device];
 				for(auto& v : volumes) // FIXME: Fix this after testing
 				{
+					// the geometry offsets are measured in pixels
+					auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
+					auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
 					ddrf::cuda::launch(v.width(), v.height(), v.depth(),
 										backproject,
 										v.data(), v.width(), v.height(), v.depth(), v.pitch(),
 										vol_geo_.voxel_size_x, vol_geo_.voxel_size_y, vol_geo_.voxel_size_z,
 										static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
-										geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert, geo_.det_offset_horiz, geo_.det_offset_vert,
+										geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert, offset_horiz, offset_vert,
 										sin_tab_[img.index()], cos_tab_[img.index()], geo_.dist_src, dist_sd_);
 				}
 			}

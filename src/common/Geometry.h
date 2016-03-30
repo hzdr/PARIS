@@ -23,8 +23,8 @@ namespace ddafa
 			std::uint32_t det_pixels_column;		// number of pixels per column (number of pixels in y direction)
 			float det_pixel_size_horiz;				// size of pixel (distance between pixel centers) in horizontal direction
 			float det_pixel_size_vert;				// size of pixel (distance between pixel centers) in vertical direction
-			float det_offset_horiz;					// offset in horizontal direction
-			float det_offset_vert;					// offset in vertical direction
+			float det_offset_horiz;					// offset in horizontal direction (measured in pixels)
+			float det_offset_vert;					// offset in vertical direction (measured in pixels)
 
 			// Support
 			float dist_src;							// distance between object and source
