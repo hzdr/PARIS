@@ -35,8 +35,6 @@
 #include "cuda/Preloader.h"
 #include "cuda/Weighting.h"
 
-#include "cuda/FeldkampScheduler.h"
-
 void initLog()
 {
 #ifdef DDAFA_DEBUG

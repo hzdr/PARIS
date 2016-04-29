@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cmath>
@@ -24,41 +25,6 @@ namespace ddafa
 {
 	namespace cuda
 	{
-		__global__ void init_volume(float* vol, std::size_t width, std::size_t height, std::size_t depth, std::size_t pitch)
-		{
-			auto x = ddrf::cuda::getX();
-			auto y = ddrf::cuda::getY();
-			auto z = ddrf::cuda::getZ();
-
-			if((x < width) && (y < height) && (z < depth))
-			{
-				auto slice_pitch = pitch * height;
-				auto slice = reinterpret_cast<char*>(vol) + z * slice_pitch;
-				auto row = reinterpret_cast<float*>(slice + y * pitch);
-
-				row[x] = 0.f;
-			}
-		}
-
-		__global__ void check_volume(const float* vol, std::size_t width, std::size_t height, std::size_t depth, std::size_t pitch)
-		{
-			auto x = ddrf::cuda::getX();
-			auto y = ddrf::cuda::getY();
-			auto z = ddrf::cuda::getZ();
-
-			if((x < width) && (y < height) && (z < depth))
-			{
-				auto slice_pitch = pitch * height;
-				auto slice = reinterpret_cast<const char*>(vol) + z * slice_pitch;
-				auto row = reinterpret_cast<const float*>(slice + y * pitch);
-
-				if(x == 531 && y == 531 && z == 106)
-				{
-					printf("(531, 531, 106): %f\n", row[x]);
-				}
-			}
-		}
-
 		inline __device__ auto vol_centered_coordinate(unsigned int coord, std::size_t dim, float size) -> float
 		{
 			auto size2 = size / 2.f;
@@ -68,7 +34,8 @@ namespace ddafa
 		inline __device__ auto proj_centered_coordinate(unsigned int coord, std::size_t dim, float size, float offset) -> float
 		{
 			auto size2 = size / 2.f;
-			return size2 + coord * size + (-(dim * size2) - offset);
+			auto min = -(dim * size2) - offset;
+			return size2 + coord * size + min;
 		}
 
 		// round and cast as needed
@@ -151,7 +118,7 @@ namespace ddafa
 		}
 
 		__global__ void backproject(float* __restrict__ vol, std::size_t vol_w, std::size_t vol_h, std::size_t vol_d, std::size_t vol_pitch,
-									float voxel_size_x, float voxel_size_y, float voxel_size_z,
+									std::size_t vol_offset, float voxel_size_x, float voxel_size_y, float voxel_size_z,
 									const float* __restrict__ proj, std::size_t proj_w, std::size_t proj_h, std::size_t proj_pitch,
 									float pixel_size_x, float pixel_size_y, float pixel_offset_x, float pixel_offset_y,
 									float angle_sin, float angle_cos, float dist_src, float dist_sd)
@@ -166,10 +133,13 @@ namespace ddafa
 				auto slice = reinterpret_cast<char*>(vol) + m * slice_pitch;
 				auto row = reinterpret_cast<float*>(slice + l * vol_pitch);
 
+				// add offset for the current subvolume
+				auto m_off = m + vol_offset;
+
 				// get centered coordinates -- volume center is at (0, 0, 0)
 				auto x_k = vol_centered_coordinate(k, vol_w, voxel_size_x);
 				auto y_l = vol_centered_coordinate(l, vol_h, voxel_size_y);
-				auto z_m = vol_centered_coordinate(m, vol_d, voxel_size_z);
+				auto z_m = vol_centered_coordinate(m_off, vol_d, voxel_size_z);
 
 				// rotate coordinates
 				auto s = x_k * angle_cos + y_l * angle_sin;
@@ -183,7 +153,6 @@ namespace ddafa
 
 				// get projection value by interpolation
 				auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
-				// auto det = 0.f;
 
 				// backproject
 				auto u = dist_src / (s - dist_src);
@@ -191,10 +160,9 @@ namespace ddafa
 			}
 		}
 
-
 		Feldkamp::Feldkamp(const common::Geometry& geo, const std::string& angles)
 		: scheduler_{FeldkampScheduler<float>::instance(geo)}, done_{false}
-		, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}, vol_geo_(scheduler_.volume_geometry())
+		, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}, vol_geo_(scheduler_.get_volume_geometry())
 		, input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
 		{
 			if(!angles.empty())
@@ -297,33 +265,43 @@ namespace ddafa
 						sin_tab_.resize(input_num_);
 						cos_tab_.resize(input_num_);
 
+						std::iota(std::begin(sin_tab_), std::end(sin_tab_), 0.f);
+						std::iota(std::begin(cos_tab_), std::end(cos_tab_), 0.f);
+
 						auto angle_step = geo_.rot_angle;
 
-						auto angle = 0.f;
-						for(auto i = 0u; i < input_num_; ++i, angle += angle_step)
-						{
-							BOOST_LOG_TRIVIAL(debug) << "Creating angle tab entry for angle " << angle;
+						std::for_each(std::begin(sin_tab_), std::end(sin_tab_), [&](const float& i){
+							auto angle = i * angle_step;
 							auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
-							sin_tab_[i] = std::sin(angle_rad);
-							cos_tab_[i] = std::cos(angle_rad);
-						}
+							return std::sin(angle_rad);
+						});
+
+						std::for_each(std::begin(cos_tab_), std::end(cos_tab_), [&](const float& i){
+							auto angle = i * angle_step;
+							auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
+							return std::cos(angle_rad);
+						});
+
 						angle_tabs_created_ = true;
 					});
 				}
 
 				auto& volumes = volume_map_[device];
+				auto vol_count = 0u;
 				for(auto& v : volumes) // FIXME: Fix this after testing
 				{
 					// the geometry offsets are measured in pixels
+					auto vol_offset = scheduler_.get_volume_offset(device, vol_count);
 					auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
 					auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
 					ddrf::cuda::launch(v.width(), v.height(), v.depth(),
 										backproject,
-										v.data(), v.width(), v.height(), v.depth(), v.pitch(),
+										v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset,
 										vol_geo_.voxel_size_x, vol_geo_.voxel_size_y, vol_geo_.voxel_size_z,
 										static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
 										geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert, offset_horiz, offset_vert,
 										sin_tab_[img.index()], cos_tab_[img.index()], geo_.dist_src, dist_sd_);
+					++vol_count;
 				}
 			}
 
@@ -342,15 +320,16 @@ namespace ddafa
 
 			auto vol_dev_size = vol_geo_.dim_z / static_cast<std::size_t>(devices_);
 
-			auto vol_on_device = scheduler_.volumes_per_device()[device];
+			auto vol_on_device = scheduler_.get_volume_num(device);
 			for(auto i = 0u; i < vol_on_device; ++i)
 			{
 				auto subvol_dev_size = vol_dev_size / vol_on_device;
 				auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, subvol_dev_size);
 				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << subvol_dev_size << " volume on device #" << device;
-				ddrf::cuda::launch(ptr.width(), ptr.height(), ptr.depth(),
+				/*ddrf::cuda::launch(ptr.width(), ptr.height(), ptr.depth(),
 									init_volume,
-									ptr.get(), ptr.width(), ptr.height(), ptr.depth(), ptr.pitch());
+									ptr.get(), ptr.width(), ptr.height(), ptr.depth(), ptr.pitch());*/
+				ddrf::cuda::memset(ptr, 0);
 
 				volume_map_[device].emplace_back(ptr.width(), ptr.height(), ptr.depth(), std::move(ptr));
 			}
@@ -358,7 +337,7 @@ namespace ddafa
 
 		auto Feldkamp::merge_volumes() -> void
 		{
-			// FIXME: The following code (and the scheduler itself) is absolutely hideous. Replace ASAP.
+			// FIXME: The following code is absolutely hideous. Replace ASAP.
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Merging volumes";
 			auto output = output_type{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z};
 			for(auto i = 0; i < devices_; ++i)
@@ -366,14 +345,14 @@ namespace ddafa
 				CHECK(cudaSetDevice(i));
 				auto vol_dev_size = output.depth() / static_cast<std::size_t>(devices_);
 				auto offset = static_cast<std::size_t>(i) * vol_dev_size;
-				auto vol_on_device = scheduler_.volumes_per_device()[i];
+				auto vol_on_device = scheduler_.get_volume_num(i);
 				auto subvol_counter = 0u;
 				for(auto& v : volume_map_[i])
 				{
 					auto subvol_dev_size = vol_dev_size / vol_on_device;
 					auto first_row = offset + subvol_counter * subvol_dev_size;
 					auto output_start = output.data() + first_row * output.width() * output.height();
-					BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Copying to row " << first_row;
+					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Copying subvolume #" << subvol_counter << " from device #" << i << " to row " << first_row;
 
 					auto parms = cudaMemcpy3DParms{0};
 					auto uchar_width = output.width() * sizeof(float)/sizeof(unsigned char);
@@ -383,6 +362,8 @@ namespace ddafa
 					parms.extent = make_cudaExtent(uchar_width, height, v.depth());
 					parms.kind = cudaMemcpyDeviceToHost;
 					CHECK(cudaMemcpy3D(&parms));
+
+					++subvol_counter;
 				}
 			}
 			results_.push(std::move(output));

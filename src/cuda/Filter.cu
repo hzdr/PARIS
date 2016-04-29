@@ -7,6 +7,7 @@
  *      CUDAFilter takes a weighted projection and applies a filter to it. Implementation file.
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <ctgmath>
@@ -185,8 +186,7 @@ namespace ddafa
 			auto j_host_buffer = ddrf::cuda::make_host_ptr<std::int32_t>(filter_length_);
 			auto filter_length_signed = static_cast<std::int32_t>(filter_length_);
 			auto j = -((filter_length_signed - 2) / 2);
-			for(auto k = 0u; k <= (filter_length_); ++k, ++j)
-				j_host_buffer[k] = j;
+			std::iota(j_host_buffer.get(), j_host_buffer.get() + filter_length_, j);
 
 			auto j_dev_buffer = ddrf::cuda::make_device_ptr<std::int32_t>(filter_length_);
 			ddrf::cuda::copy_sync(j_dev_buffer, j_host_buffer);

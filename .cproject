@@ -155,6 +155,7 @@
 								<option id="nvcc.compiler.compileroptions.217939908" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
 									<listOptionValue builtIn="false" value="-g"/>
 								</option>
+								<option id="nvcc.compiler.optionsfile.791739079" superClass="nvcc.compiler.optionsfile" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
 								<inputType id="nvcc.compiler.input.cu.586720573" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1119589895" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.815561883" superClass="nvcc.compiler.input.c"/>

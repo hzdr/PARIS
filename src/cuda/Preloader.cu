@@ -50,16 +50,14 @@ namespace ddafa
 
 		auto Preloader::split(input_type img) -> void
 		{
-			// create subprojections
-			auto chunks = scheduler_.get_chunks();
-
 			for(auto d = 0; d < devices_; ++d)
 			{
-				auto chunks_on_dev = chunks[d];
-				for(auto i = 0u; i < chunks_on_dev.size(); ++i)
+				auto subproj_num = scheduler_.get_subproj_num(d);
+				for(auto i = 0u; i < subproj_num; ++i)
 				{
-					auto firstRow = chunks_on_dev[i].first;
-					auto lastRow = chunks_on_dev[i].second;
+					auto subproj_dims = scheduler_.get_subproj_dims(d, i);
+					auto firstRow = subproj_dims.first;
+					auto lastRow = subproj_dims.second;
 					auto rows = lastRow - firstRow + 1;
 
 					auto extract = [this](const input_type& src, std::uint32_t first, std::uint32_t height)
@@ -77,6 +75,7 @@ namespace ddafa
 					};
 
 					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
+					// remaining_[d][i].emplace_back(extract(img, 0, img.height())); // TRY THIS
 				}
 			}
 		}
