@@ -118,7 +118,6 @@ namespace ddafa
 
 					calculate_volume_geo(geo);
 					calculate_volume_height_mm();
-					calculate_volume_height_mm_zhz(geo);
 					calculate_volume_bytes();
 					calculate_volumes_per_device();
 					calculate_subvolume_offsets();
@@ -156,13 +155,6 @@ namespace ddafa
 				{
 					volume_height_ = vol_geo_.dim_z * vol_geo_.voxel_size_z;
 					BOOST_LOG_TRIVIAL(debug) << "Volume is " << volume_height_ << " mm high.";
-				}
-
-				auto calculate_volume_height_mm_zhz(const common::Geometry& geo) -> void
-				{
-					auto det_height = geo.det_pixel_size_vert * geo.det_pixels_column;
-					auto volume_height = (std::abs(geo.dist_src) * det_height) / (dist_sd_ + (std::sqrt(2.f)/2) * det_height);
-					BOOST_LOG_TRIVIAL(debug) << "Volume height (ZHZ): " << volume_height;
 				}
 
 				auto calculate_volume_bytes() -> void
@@ -223,83 +215,57 @@ namespace ddafa
 
 				auto calculate_subprojection_borders(const common::Geometry& geo) -> void
 				{
-					auto vert_offset_mm = geo.det_offset_vert * geo.det_pixel_size_vert;
-					auto first_row = 0.f;
+					auto delta_v = geo.det_offset_vert * geo.det_pixel_size_vert;
+					auto d_v = geo.det_pixel_size_vert;
+					auto N_v = geo.det_pixels_column;
+					auto N = volume_count_;
+					auto d_src = geo.dist_src;
+					auto r_max = (vol_geo_.dim_x * vol_geo_.voxel_size_x) / 2.f;
+
 					for(auto n = 0u; n < volume_count_; ++n)
 					{
-						auto top = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n) / volume_count_));
-						auto bottom = volume_height_ * ((1.f / 2.f) - (static_cast<float>(n + 1) / volume_count_));
-						BOOST_LOG_TRIVIAL(debug) << "top: " << top;
-						BOOST_LOG_TRIVIAL(debug) << "bottom: " << bottom;
+						auto top = -(volume_height_ / 2.f) + (static_cast<float>(n) / N) * volume_height_;
+						auto bottom = -(volume_height_ / 2.f) + (static_cast<float>(n + 1) / N) * volume_height_;
 
-						// auto top_proj_virt = top * (dist_sd_ / geo.dist_src) + (geo.det_offset_vert * geo.det_pixel_size_vert);
-						// auto bottom_proj_virt = bottom * (dist_sd_ / geo.dist_src) + (geo.det_offset_vert * geo.det_pixel_size_vert);
-						/*auto rsqrt2 = 1 / std::sqrt(2.f);
-						auto dx = vol_geo_.dim_x * vol_geo_.voxel_size_x;
-						auto top_proj_virt = top * (dist_sd_ / (geo.dist_src - (dx * rsqrt2))) + vert_offset_mm;
-						auto bottom_proj_virt = bottom * (dist_sd_ / (geo.dist_src - (dx * rsqrt2))) + vert_offset_mm;*/
-						auto top_proj_virt = top * (dist_sd_ / (geo.dist_src - (std::sqrt(2.f)/2.f) * volume_height_ ));
-						auto bottom_proj_virt = bottom * (dist_sd_ / (geo.dist_src + (std::sqrt(2.f)/2.f) * volume_height_));
+						auto top_proj_virt = top * (dist_sd_) / (std::abs(d_src) + (top < 0.f ? -r_max : r_max));
+						auto bottom_proj_virt = bottom * (dist_sd_) / (std::abs(d_src) + (bottom < 0.f ? r_max : -r_max));
 
-						BOOST_LOG_TRIVIAL(debug) << "top_proj_virt: " << top_proj_virt;
-						BOOST_LOG_TRIVIAL(debug) << "bottom_proj_virt: " << bottom_proj_virt;
-
-						/*auto size2 = geo.det_pixel_size_vert / 2.f;
-						auto top_proj_real = size2 + (geo.det_pixels_column * size2);
-						auto bottom_proj_real = size2 - (geo.det_pixels_column - 1) * geo.det_pixel_size_vert + (geo.det_pixels_column * size2);*/
-
-						auto mm_row = [](std::uint32_t coord, std::size_t dim, float size, float offset) {
-							auto size2 = size / 2.f;
-							auto min = -(dim * size2) - offset;
-							return size2 + coord * size + min;
-						};
-
-						auto pixel_row = [](float coord, std::size_t dim, float size, float offset) {
-							auto size2 = size / 2.f;
-							auto min = -(dim * size2) - offset;
-							return (coord - size2 - min) / size;
-						};
-
-						auto top_proj_real = mm_row(0u, geo.det_pixels_column, geo.det_pixel_size_vert, vert_offset_mm);
-						auto bottom_proj_real = mm_row(geo.det_pixels_column - 1, geo.det_pixels_column, geo.det_pixel_size_vert, vert_offset_mm);
-
-						BOOST_LOG_TRIVIAL(debug) << "top_proj_real: " << top_proj_real;
-						BOOST_LOG_TRIVIAL(debug) << "bottom_proj_real: " << bottom_proj_real;
+						auto top_proj_real = 0.f - ((N_v * d_v) / 2.f) - delta_v + (d_v / 2.f);
+						auto bottom_proj_real = top_proj_real + N_v * d_v - d_v;
 
 						auto top_proj = float{};
-						if(top_proj_virt > top_proj_real)
-							top_proj = top_proj_real;
-						else if(top_proj_virt < bottom_proj_real)
+						if(top_proj_virt > bottom_proj_real)
 							top_proj = bottom_proj_real;
+						else if(top_proj_virt < top_proj_real)
+							top_proj = top_proj_real;
 						else
 							top_proj = top_proj_virt;
 
 						auto bottom_proj = float{};
-						if(bottom_proj_virt < bottom_proj_real)
-							bottom_proj = bottom_proj_real;
-						else if(bottom_proj_virt > top_proj_real)
+						if(bottom_proj_virt < top_proj_real)
 							bottom_proj = top_proj_real;
+						else if(bottom_proj_virt > bottom_proj_real)
+							bottom_proj = bottom_proj_real;
 						else
 							bottom_proj = bottom_proj_virt;
 
-						// FIXME: This is quite error-prone with regard to non-standard projection sizes (e.g. 401 in y direction)
-						/*auto top_row = std::ceil(top_proj / geo.det_pixel_size_vert);
-						auto bottom_row = std::ceil(bottom_proj / geo.det_pixel_size_vert);
-						if(n == 0)
-							first_row = top_row;
+						auto start_row = std::floor((((top_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
+						auto bottom_row = std::ceil((((bottom_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
 
-						// normalize so row 0 is actually at row 0 and not in the middle
-						auto start_row = std::abs(top_row - first_row);
-						auto row_num = std::abs(bottom_row - top_row);
-						if(row_num == 0)
-							row_num = 1;*/
-						auto start_row = pixel_row(top_proj, geo.det_pixels_column, geo.det_pixel_size_vert, vert_offset_mm);
-						auto bottom_row = pixel_row(bottom_proj, geo.det_pixels_column, geo.det_pixel_size_vert, vert_offset_mm);
-						// subproj_dims_.emplace_back(std::make_pair(start_row, start_row + row_num - 1));
-						subproj_dims_.emplace_back(std::make_pair(start_row, bottom_row));
+						auto to_pixel_row = [&](float row)
+						{
+							return ((row + (N_v + d_v) / 2.f + delta_v) / d_v) - (1.f / 2.f);
+						};
 
-						BOOST_LOG_TRIVIAL(debug) << "Subprojection #" << n << " reaches from " << start_row << " to " << bottom_row
-								<< ", number of rows: " << bottom_row - start_row;
+						subproj_dims_.emplace_back(std::make_pair(to_pixel_row(start_row), to_pixel_row(bottom_row)));
+
+						BOOST_LOG_TRIVIAL(debug) << "For volume #" << n << ": ";
+						BOOST_LOG_TRIVIAL(debug) << "(top, bottom) = (" << top << ", " << bottom << ")";
+						BOOST_LOG_TRIVIAL(debug) << "(top_proj_virt, bottom_proj_virt) = (" << top_proj_virt << ", " << bottom_proj_virt << ")";
+						BOOST_LOG_TRIVIAL(debug) << "(top_proj_real, bottom_proj_real) = (" << top_proj_real << ", " << bottom_proj_real << ")";
+						BOOST_LOG_TRIVIAL(debug) << "(top_proj, bottom_proj) = (" << top_proj << ", " << bottom_proj << ")";
+						BOOST_LOG_TRIVIAL(debug) << "(start_row, bottom_row) = (" << start_row << ", " << bottom_row << ")";
+						BOOST_LOG_TRIVIAL(debug) << "(start_pixel_row, bottom_pixel_row) = (" << subproj_dims_[n].first << ", " << subproj_dims_[n].second << ")";
 					}
 				}
 
