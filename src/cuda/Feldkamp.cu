@@ -35,7 +35,7 @@ namespace ddafa
 		{
 			auto size2 = size / 2.f;
 			auto min = -(dim * size2) - offset;
-			return size2 + coord * size + min;
+			return size2 + ((static_cast<float>(coord) + 1.f / 2.f)) * size + min;
 		}
 
 		// round and cast as needed
@@ -43,7 +43,7 @@ namespace ddafa
 		{
 			auto size2 = size / 2.f;
 			auto min = -(dim * size2) - offset;
-			return (coord - size2 - min) / size;
+			return (coord - size2 - min) / size - (1.f / 2.f);
 
 		}
 
@@ -58,22 +58,23 @@ namespace ddafa
 		-> float
 		{
 			auto proj_height_off = proj_height + proj_offset;
+			// auto proj_height_off = proj_height;
 
 			auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
 			auto v_real = proj_real_coordinate(v, proj_height_off, pixel_size_y, offset_y);
 
 			auto h_j0 = floorf(h_real);
 			auto h_j1 = h_j0 + 1.f;
-			auto v_i0 = floorf(v_real);
+			auto v_i0 = fmaxf(floorf(v_real), static_cast<float>(proj_offset)); // prevent unsigned integer overflows later
 			auto v_i1 = v_i0 + 1.f;
 
-			auto w_h0 = (h_real - h_j0) / (h_j1 - h_j0);
-			auto w_v0 = (v_real - v_i0) / (v_i1 - v_i0);
+			auto w_h0 = h_real - h_j0;
+			auto w_v0 = v_real - v_i0;
 
 			auto h_j0_ui = as_unsigned(h_j0);
 			auto h_j1_ui = as_unsigned(h_j1);
-			auto v_i0_ui = as_unsigned(v_i0);
-			auto v_i1_ui = as_unsigned(v_i1);
+			auto v_i0_ui = as_unsigned(v_i0) - proj_offset;
+			auto v_i1_ui = as_unsigned(v_i1) - proj_offset;
 
 			auto upper_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i0_ui * proj_pitch);
 			auto lower_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i1_ui * proj_pitch);
