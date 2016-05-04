@@ -252,12 +252,12 @@ namespace ddafa
 						auto start_row = std::floor((((top_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
 						auto bottom_row = std::ceil((((bottom_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
 
-						auto to_pixel_row = [&](float row)
-						{
-							return ((row + (N_v + d_v) / 2.f + delta_v) / d_v) - (1.f / 2.f);
-						};
+						if(start_row < 0.f)
+							start_row = 0.f;
+						if(bottom_row >= N_v)
+							bottom_row = static_cast<float>(N_v) - 1.f;
 
-						subproj_dims_.emplace_back(std::make_pair(to_pixel_row(start_row), to_pixel_row(bottom_row)));
+						subproj_dims_.emplace_back(std::make_pair(static_cast<std::uint32_t>(start_row), static_cast<std::uint32_t>(bottom_row)));
 
 						BOOST_LOG_TRIVIAL(debug) << "For volume #" << n << ": ";
 						BOOST_LOG_TRIVIAL(debug) << "(top, bottom) = (" << top << ", " << bottom << ")";
@@ -265,7 +265,6 @@ namespace ddafa
 						BOOST_LOG_TRIVIAL(debug) << "(top_proj_real, bottom_proj_real) = (" << top_proj_real << ", " << bottom_proj_real << ")";
 						BOOST_LOG_TRIVIAL(debug) << "(top_proj, bottom_proj) = (" << top_proj << ", " << bottom_proj << ")";
 						BOOST_LOG_TRIVIAL(debug) << "(start_row, bottom_row) = (" << start_row << ", " << bottom_row << ")";
-						BOOST_LOG_TRIVIAL(debug) << "(start_pixel_row, bottom_pixel_row) = (" << subproj_dims_[n].first << ", " << subproj_dims_[n].second << ")";
 					}
 				}
 

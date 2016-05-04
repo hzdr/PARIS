@@ -35,7 +35,7 @@
 #include "cuda/Preloader.h"
 #include "cuda/Weighting.h"
 
-void initLog()
+auto initLog() -> void
 {
 #ifdef DDAFA_DEBUG
 	boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
@@ -44,7 +44,7 @@ void initLog()
 #endif
 }
 
-void signal_handler(int sig)
+[[noreturn]] auto signal_handler(int sig) -> void
 {
 	void* array[10];
 	auto size = backtrace(array, 10);
@@ -54,7 +54,7 @@ void signal_handler(int sig)
 	std::exit(EXIT_FAILURE);
 }
 
-int main(int argc, char** argv)
+auto main(int argc, char** argv) -> int
 {
 	std::signal(SIGSEGV, signal_handler);
 	std::signal(SIGABRT, signal_handler);

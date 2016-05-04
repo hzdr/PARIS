@@ -75,7 +75,7 @@ namespace ddafa
 					};
 
 					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
-					// remaining_[d][i].emplace_back(extract(img, 0, img.height())); // TRY THIS
+					//remaining_[d][i].emplace_back(extract(img, 0, img.height())); // TRY THIS
 				}
 			}
 		}
