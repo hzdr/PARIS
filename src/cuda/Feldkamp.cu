@@ -53,19 +53,23 @@ namespace ddafa
 			return static_cast<unsigned int>(x);
 		}
 
-		__device__ auto interpolate(float h, float v, const float* proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
-									std::size_t proj_offset, float pixel_size_x, float pixel_size_y, float offset_x, float offset_y)
+		__device__ auto interpolate(float h, volatile float v, const float* proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
+									std::size_t proj_offset, std::size_t proj_height_full, float pixel_size_x, float pixel_size_y,
+									float offset_x, float offset_y,
+									volatile unsigned int k, volatile unsigned int l, volatile unsigned int m, volatile std::size_t m_off,
+									volatile float x_k, volatile float y_l, volatile float z_m,
+									volatile float s, volatile float t, volatile float z, volatile float factor)
 		-> float
 		{
-			auto proj_height_off = proj_height + proj_offset;
-			// auto proj_height_off = proj_height;
+			volatile auto proj_height_off = proj_height + proj_offset;
 
 			auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
-			auto v_real = proj_real_coordinate(v, proj_height_off, pixel_size_y, offset_y);
+			auto v_real = proj_real_coordinate(v, proj_height_full, pixel_size_y, offset_y);
 
 			auto h_j0 = floorf(h_real);
 			auto h_j1 = h_j0 + 1.f;
-			auto v_i0 = fmaxf(floorf(v_real), static_cast<float>(proj_offset)); // prevent unsigned integer overflows later
+			auto v_i0 = fmaxf(floorf(v_real), static_cast<float>(proj_offset)); // prevent unsigned integer overflows
+			// auto v_i0 = floorf(v_real);
 			auto v_i1 = v_i0 + 1.f;
 
 			auto w_h0 = h_real - h_j0;
@@ -85,8 +89,8 @@ namespace ddafa
 			// bounds checking -- there has to be a more efficient way
 			auto h_j0_valid = (h_j0 >= 0.f) && (h_j0 < static_cast<float>(proj_width));
 			auto h_j1_valid = (h_j1 >= 0.f) && (h_j1 < static_cast<float>(proj_width));
-			auto v_i0_valid = (v_i0 >= 0.f) && (v_i0 < static_cast<float>(proj_height_off));
-			auto v_i1_valid = (v_i1 >= 0.f) && (v_i1 < static_cast<float>(proj_height_off));
+			auto v_i0_valid = (v_i0 >= 0.f) && (v_i0 < static_cast<float>(proj_height_full));
+			auto v_i1_valid = (v_i1 >= 0.f) && (v_i1 < static_cast<float>(proj_height_full));
 
 			auto tl = 0.f;
 			auto bl = 0.f;
@@ -120,10 +124,10 @@ namespace ddafa
 		}
 
 		__global__ void backproject(float* __restrict__ vol, std::size_t vol_w, std::size_t vol_h, std::size_t vol_d, std::size_t vol_pitch,
-									std::size_t vol_offset, float voxel_size_x, float voxel_size_y, float voxel_size_z,
+									std::size_t vol_offset, std::size_t vol_d_full, float voxel_size_x, float voxel_size_y, float voxel_size_z,
 									const float* __restrict__ proj, std::size_t proj_w, std::size_t proj_h, std::size_t proj_pitch,
-									std::size_t proj_offset, float pixel_size_x, float pixel_size_y, float pixel_offset_x, float pixel_offset_y,
-									float angle_sin, float angle_cos, float dist_src, float dist_sd)
+									std::size_t proj_offset, std::size_t proj_h_full, float pixel_size_x, float pixel_size_y,
+									float pixel_offset_x, float pixel_offset_y, float angle_sin, float angle_cos, float dist_src, float dist_sd)
 		{
 			auto k = ddrf::cuda::getX();
 			auto l = ddrf::cuda::getY();
@@ -137,12 +141,11 @@ namespace ddafa
 
 				// add offset for the current subvolume
 				auto m_off = m + vol_offset;
-				auto vol_d_off = vol_d + vol_offset;
 
 				// get centered coordinates -- volume center is at (0, 0, 0) and the top slice is at -(vol_d_off / 2)
 				auto x_k = vol_centered_coordinate(k, vol_w, voxel_size_x);
 				auto y_l = vol_centered_coordinate(l, vol_h, voxel_size_y);
-				auto z_m = vol_centered_coordinate(m_off, vol_d_off, voxel_size_z);
+				auto z_m = vol_centered_coordinate(m_off, vol_d_full, voxel_size_z);
 
 				// rotate coordinates
 				auto s = x_k * angle_cos + y_l * angle_sin;
@@ -150,12 +153,13 @@ namespace ddafa
 				auto z = z_m;
 
 				// project rotated coordinates
-				auto factor = dist_sd / (s - dist_src);
+				auto factor = dist_sd / (s + dist_src);
 				auto h = t * factor;
 				auto v = z * factor;
 
 				// get projection value by interpolation
-				auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, proj_offset, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
+				auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, proj_offset, proj_h_full, pixel_size_x, pixel_size_y,
+										pixel_offset_x, pixel_offset_y, k, l, m, m_off, x_k, y_l, z_m, s, t, z, factor);
 
 				// backproject
 				auto u = dist_src / (s - dist_src);
@@ -199,12 +203,12 @@ namespace ddafa
 				return;
 			}
 
-			auto angle_string = std::string{""};
+			auto angle_string = std::string{};
 			std::getline(file, angle_string);
 
 			auto loc = std::locale{};
 			if(angle_string.find(',') != std::string::npos)
-				loc = std::locale("de_DE.UTF-8");
+				loc = std::locale{"de_DE.UTF-8"};
 
 			file.seekg(0, std::ios_base::beg);
 			file.imbue(loc);
@@ -305,12 +309,13 @@ namespace ddafa
 
 					ddrf::cuda::launch(v.width(), v.height(), v.depth(),
 										backproject,
-										v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset,
+										v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset, vol_geo_.dim_z,
 										vol_geo_.voxel_size_x, vol_geo_.voxel_size_y, vol_geo_.voxel_size_z,
 										static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
-										proj_offset, geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
-										offset_horiz, offset_vert, sin_tab_[img.index()], cos_tab_[img.index()],
-										geo_.dist_src, dist_sd_);
+										proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
+										geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
+										offset_horiz, offset_vert, sin_tab_.at(img.index()), cos_tab_.at(img.index()),
+										std::abs(geo_.dist_src), dist_sd_);
 					++vol_count;
 				}
 			}
