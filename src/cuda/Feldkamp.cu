@@ -55,21 +55,15 @@ namespace ddafa
 
 		__device__ auto interpolate(float h, volatile float v, const float* proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
 									std::size_t proj_offset, std::size_t proj_height_full, float pixel_size_x, float pixel_size_y,
-									float offset_x, float offset_y,
-									volatile unsigned int k, volatile unsigned int l, volatile unsigned int m, volatile std::size_t m_off,
-									volatile float x_k, volatile float y_l, volatile float z_m,
-									volatile float s, volatile float t, volatile float z, volatile float factor)
+									float offset_x, float offset_y)
 		-> float
 		{
-			volatile auto proj_height_off = proj_height + proj_offset;
-
 			auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
 			auto v_real = proj_real_coordinate(v, proj_height_full, pixel_size_y, offset_y);
 
 			auto h_j0 = floorf(h_real);
 			auto h_j1 = h_j0 + 1.f;
 			auto v_i0 = fmaxf(floorf(v_real), static_cast<float>(proj_offset)); // prevent unsigned integer overflows
-			// auto v_i0 = floorf(v_real);
 			auto v_i1 = v_i0 + 1.f;
 
 			auto w_h0 = h_real - h_j0;
@@ -159,10 +153,10 @@ namespace ddafa
 
 				// get projection value by interpolation
 				auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, proj_offset, proj_h_full, pixel_size_x, pixel_size_y,
-										pixel_offset_x, pixel_offset_y, k, l, m, m_off, x_k, y_l, z_m, s, t, z, factor);
+										pixel_offset_x, pixel_offset_y);
 
 				// backproject
-				auto u = dist_src / (s - dist_src);
+				auto u = -(dist_src / (s + dist_src));
 				row[k] += 0.5f * det * powf(u, 2.f);
 			}
 		}
