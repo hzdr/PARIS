@@ -2,6 +2,7 @@
 #define CUDA_FELDKAMP_H_
 
 #include <atomic>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <mutex>
@@ -39,15 +40,16 @@ namespace ddafa
 
 			private:
 				auto parse_angles(const std::string&) -> void;
-				auto create_volumes(int) -> void;
+				auto create_volume(int) -> void;
 				auto processor(int) -> void;
-				auto merge_volumes() -> void;
+				auto download_and_reset_volume(int, std::uint32_t) -> void;
 
 			protected:
 				~Feldkamp();
 
 			private:
 				std::map<int, ddrf::Queue<input_type>> map_imgs_;
+				output_type output_;
 				ddrf::Queue<output_type> results_;
 				int devices_;
 				bool done_;
@@ -69,7 +71,7 @@ namespace ddafa
 				std::uint32_t current_img_;
 				float current_angle_;
 
-				std::map<int, std::vector<volume_type>> volume_map_;
+				std::map<int, volume_type> volume_map_;
 
 				std::map<int, std::thread> processor_threads_;
 		};

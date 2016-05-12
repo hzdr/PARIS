@@ -38,6 +38,8 @@ namespace ddafa
 				auto processor() -> void;
 				auto split(input_type) -> void;
 				auto distribute_first() -> void;
+				auto distribute_rest() -> void;
+				auto distribute_map(std::map<std::size_t, std::deque<input_type>>&, int) -> void;
 				auto finish() -> void;
 
 				auto uploadAndSend(int, input_type) -> void;
