@@ -49,7 +49,7 @@ namespace ddafa
 
 				std::thread processor_thread_;
 
-				FeldkampScheduler<float> scheduler_;
+				FeldkampScheduler scheduler_;
 
 				std::map<int, std::map<std::size_t, std::deque<input_type>>> remaining_;
 		};

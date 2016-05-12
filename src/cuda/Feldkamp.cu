@@ -162,7 +162,7 @@ namespace ddafa
 		}
 
 		Feldkamp::Feldkamp(const common::Geometry& geo, const std::string& angles)
-		: scheduler_{FeldkampScheduler<float>::instance(geo)}, done_{false}
+		: scheduler_{FeldkampScheduler::instance(geo, cuda::volume_type::single_float)}, done_{false}
 		, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}, vol_geo_(scheduler_.get_volume_geometry())
 		, input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
 		{
