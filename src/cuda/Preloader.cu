@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <future>
 #include <iterator>
 #include <utility>
 
@@ -40,6 +41,7 @@ namespace ddafa
 				auto img = imgs_.take();
 				if(!img.valid())
 				{
+					distribute_rest();
 					finish();
 					break;
 				}
@@ -75,7 +77,6 @@ namespace ddafa
 					};
 
 					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
-					// remaining_[d][i].emplace_back(extract(img, 0, img.height())); // TRY THIS
 				}
 			}
 		}
@@ -99,6 +100,29 @@ namespace ddafa
 
 			for(auto&& t : distribution_threads)
 				t.join();
+		}
+
+		auto Preloader::distribute_rest() -> void
+		{
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading remaining subprojections.";
+
+			auto futures = std::vector<std::future<void>>{};
+
+			for(auto d = 0; d < devices_; ++d)
+			{
+				auto map = remaining_.at(d);
+				futures.emplace_back(std::async(std::launch::async, [&map, d, this]()
+						{
+							for(auto& p : map)
+							{
+								for(auto& img : p.second)
+									uploadAndSend(d, std::move(img));
+							}
+						}));
+			}
+
+			for(auto& f : futures)
+				f.wait();
 		}
 
 		auto Preloader::uploadAndSend(int device, input_type img) -> void
