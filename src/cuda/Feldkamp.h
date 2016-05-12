@@ -52,11 +52,11 @@ namespace ddafa
 				int devices_;
 				bool done_;
 
-				FeldkampScheduler<float> scheduler_;
+				FeldkampScheduler scheduler_;
 				common::Geometry geo_;
 
 				float dist_sd_;
-				FeldkampScheduler<float>::VolumeGeometry vol_geo_;
+				FeldkampScheduler::VolumeGeometry vol_geo_;
 
 				std::uint32_t input_num_;
 				std::atomic_bool input_num_set_;
