@@ -17,7 +17,7 @@ namespace ddafa
 	namespace cuda
 	{
 		Preloader::Preloader(const common::Geometry& geo)
-		: scheduler_{FeldkampScheduler::instance(geo, volume_type::single_float)}
+		: scheduler_{FeldkampScheduler<float>::instance(geo)}
 		, processor_thread_{&Preloader::processor, this}
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
