@@ -43,7 +43,7 @@ namespace ddafa
 		{
 			auto size2 = size / 2.f;
 			auto min = -(dim * size2) - offset;
-			return (coord - size2 - min) / size - (1.f / 2.f);
+			return (coord - min) / size - (1.f / 2.f);
 
 		}
 
