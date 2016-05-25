@@ -66,7 +66,7 @@ namespace ddafa
 			auto v_i1 = v_i0 + 1.f;
 
 			auto w_h0 = h_real - h_j0;
-			auto w_v0 = v_real - v_i0;
+			auto w_v0 = v_real - v_i0 - static_cast<float>(proj_offset);
 
 			auto w_h1 = 1.f - w_h0;
 			auto w_v1 = 1.f - w_v0;

@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iomanip>
 #include <iterator>
 #include <stdexcept>
 #include <string>
@@ -120,14 +121,16 @@ namespace ddafa
 			auto delta_v = geo.det_offset_vert * d_v;
 			vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
 
-			BOOST_LOG_TRIVIAL(debug) << "Volume dimensions: " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << vol_geo_.dim_z;
-			BOOST_LOG_TRIVIAL(debug) << "Voxel size: " << vol_geo_.voxel_size_x << "x" << vol_geo_.voxel_size_y << "x" << vol_geo_.voxel_size_z;
+			BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.dim_x << " x " << vol_geo_.dim_y << " x " << vol_geo_.dim_z << " vx";
+			BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.voxel_size_x << " x " << vol_geo_.voxel_size_y << " x " << vol_geo_.voxel_size_z << " mm³";
+			BOOST_LOG_TRIVIAL(info) << "Volume center at (0mm, 0mm, 0mm)";
+			BOOST_LOG_TRIVIAL(info) << "Projection center at (0mm, 0mm)";
 		}
 
 		auto FeldkampScheduler::calculate_volume_height_mm() -> void
 		{
 			volume_height_ = vol_geo_.dim_z * vol_geo_.voxel_size_z;
-			BOOST_LOG_TRIVIAL(debug) << "Volume is " << volume_height_ << " mm high.";
+			BOOST_LOG_TRIVIAL(info) << "Volume is " << std::setprecision(4) << volume_height_ << " mm high.";
 		}
 
 		auto FeldkampScheduler::calculate_volume_bytes(volume_type vol_type) -> void
@@ -182,7 +185,7 @@ namespace ddafa
 			}
 
 			volume_bytes_ = vol_geo_.dim_x * vol_geo_.dim_y * vol_geo_.dim_z * size;
-			BOOST_LOG_TRIVIAL(debug) << "Volume needs " << volume_bytes_ << " Bytes.";
+			BOOST_LOG_TRIVIAL(info) << "Volume requires " << volume_bytes_ << " bytes.";
 		}
 
 		auto FeldkampScheduler::calculate_volumes_per_device() -> void
@@ -214,8 +217,8 @@ namespace ddafa
 				vol_size_dev = calcVolumeSizePerDev(vol_size_dev, &vol_count_dev, properties.totalGlobalMem);
 				volume_count_ += vol_count_dev;
 				auto chunk_str = std::string{vol_count_dev > 1 ? "chunks" : "chunk"};
-				BOOST_LOG_TRIVIAL(debug) << "Need " << vol_count_dev << " " << chunk_str << " with " << vol_size_dev
-					<< " Bytes on device #" << i;
+				BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << vol_size_dev
+					<< " bytes on device #" << i;
 				volumes_per_device_.emplace(std::make_pair(i, vol_count_dev));
 			}
 		}
@@ -281,12 +284,12 @@ namespace ddafa
 
 				subproj_dims_.emplace_back(std::make_pair(static_cast<std::uint32_t>(start_row), static_cast<std::uint32_t>(bottom_row)));
 
-				BOOST_LOG_TRIVIAL(debug) << "For volume #" << n << ": ";
-				BOOST_LOG_TRIVIAL(debug) << "(top, bottom) = (" << top << ", " << bottom << ")";
-				BOOST_LOG_TRIVIAL(debug) << "(top_proj_virt, bottom_proj_virt) = (" << top_proj_virt << ", " << bottom_proj_virt << ")";
-				BOOST_LOG_TRIVIAL(debug) << "(top_proj_real, bottom_proj_real) = (" << top_proj_real << ", " << bottom_proj_real << ")";
-				BOOST_LOG_TRIVIAL(debug) << "(top_proj, bottom_proj) = (" << top_proj << ", " << bottom_proj << ")";
-				BOOST_LOG_TRIVIAL(debug) << "(start_row, bottom_row) = (" << start_row << ", " << bottom_row << ")";
+				BOOST_LOG_TRIVIAL(info) << "For volume #" << n << ": ";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most slice, bottom-most slice) = (" << top << "mm, " << bottom << "mm)";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most virtual projection row, bottom-most virtual projection row) = (" << top_proj_virt << "mm, " << bottom_proj_virt << "mm)";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most actual projection row, bottom-most actual projection row) = (" << top_proj_real << ", " << bottom_proj_real << ")";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most subprojection row, bottom-most subprojection row) = (" << top_proj << "mm, " << bottom_proj << "mm)";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most subprojection row, bottom-most subprojection row) = (" << start_row << "px, " << bottom_row << "px)";
 			}
 		}
 
@@ -300,10 +303,10 @@ namespace ddafa
 					std::vector<std::pair<std::uint32_t, std::uint32_t>>(subprojs_begin, subprojs_begin + subprojs_count)));
 				subprojs_begin += subprojs_count;
 
-				BOOST_LOG_TRIVIAL(debug) << "Device #" << i << " will process the following subprojection(s):";
+				BOOST_LOG_TRIVIAL(info) << "Device #" << i << " will process the following subprojection(s):";
 				auto vec = subprojs_.at(i);
 				for(auto& p : vec)
-					BOOST_LOG_TRIVIAL(debug) << "(" << p.first << "," << p.second << ")";
+					BOOST_LOG_TRIVIAL(info) << "\t" << "(" << p.first << "px, " << p.second << "px)";
 			}
 		}
 
