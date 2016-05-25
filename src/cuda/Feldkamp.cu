@@ -43,8 +43,7 @@ namespace ddafa
 		{
 			auto size2 = size / 2.f;
 			auto min = -(dim * size2) - offset;
-			return (coord - size2 - min) / size - (1.f / 2.f);
-
+			return (coord - min) / size - (1.f / 2.f);
 		}
 
 		template <class T>
@@ -63,50 +62,40 @@ namespace ddafa
 
 			auto h_j0 = floorf(h_real);
 			auto h_j1 = h_j0 + 1.f;
-			auto v_i0 = fmaxf(floorf(v_real), static_cast<float>(proj_offset)); // prevent unsigned integer overflows
+			auto v_i0 = floorf(v_real) - static_cast<float>(proj_offset);
 			auto v_i1 = v_i0 + 1.f;
 
 			auto w_h0 = h_real - h_j0;
 			auto w_v0 = v_real - v_i0;
 
+			auto w_h1 = 1.f - w_h0;
+			auto w_v1 = 1.f - w_v0;
+
 			auto h_j0_ui = as_unsigned(h_j0);
 			auto h_j1_ui = as_unsigned(h_j1);
-			auto v_i0_ui = as_unsigned(v_i0) - proj_offset;
-			auto v_i1_ui = as_unsigned(v_i1) - proj_offset;
+			auto v_i0_ui = as_unsigned(v_i0);
+			auto v_i1_ui = as_unsigned(v_i1);
+
+			// ui coordinates might be invalid due to negative v_i0, thus
+			// bounds checking
+			auto h_j0_valid = (h_j0 >= 0.f);
+			auto h_j1_valid = (h_j1 < static_cast<float>(proj_width));
+			auto v_i0_valid = (v_i0 >= 0.f);
+			auto v_i1_valid = (v_i1 < static_cast<float>(proj_height));
 
 			auto upper_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i0_ui * proj_pitch);
 			auto lower_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i1_ui * proj_pitch);
 
-			auto w_h1 = 1.f - w_h0;
-			auto w_v1 = 1.f - w_v0;
-
-			// bounds checking -- there has to be a more efficient way
-			auto h_j0_valid = (h_j0 >= 0.f) && (h_j0 < static_cast<float>(proj_width));
-			auto h_j1_valid = (h_j1 >= 0.f) && (h_j1 < static_cast<float>(proj_width));
-			auto v_i0_valid = (v_i0 >= 0.f) && (v_i0 < static_cast<float>(proj_height_full));
-			auto v_i1_valid = (v_i1 >= 0.f) && (v_i1 < static_cast<float>(proj_height_full));
-
 			auto tl = 0.f;
 			auto bl = 0.f;
-			if(h_j0_valid)
-			{
-				if(v_i0_valid)
-					tl = upper_row[h_j0_ui];
-
-				if(v_i1_valid)
-					bl = lower_row[h_j0_ui];
-			}
-
 			auto tr = 0.f;
 			auto br = 0.f;
-			if(h_j1_valid)
+			if(h_j0_valid && h_j1_valid && v_i0_valid && v_i1_valid)
 			{
-				if(v_i0_valid)
-					tr = upper_row[h_j1_ui];
-
-				if(v_i1_valid)
-					br = lower_row[h_j1_ui];
-
+				tl = upper_row[h_j0_ui];
+				bl = lower_row[h_j0_ui];
+				tr = upper_row[h_j1_ui];
+				br = lower_row[h_j1_ui];
 			}
 
 			auto val = 	w_h1	* w_v1	* tl +
