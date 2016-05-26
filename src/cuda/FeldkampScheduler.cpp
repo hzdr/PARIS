@@ -287,7 +287,7 @@ namespace ddafa
 				BOOST_LOG_TRIVIAL(info) << "For volume #" << n << ": ";
 				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most slice, bottom-most slice) = (" << top << "mm, " << bottom << "mm)";
 				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most virtual projection row, bottom-most virtual projection row) = (" << top_proj_virt << "mm, " << bottom_proj_virt << "mm)";
-				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most actual projection row, bottom-most actual projection row) = (" << top_proj_real << ", " << bottom_proj_real << ")";
+				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most actual projection row, bottom-most actual projection row) = (" << top_proj_real << "mm, " << bottom_proj_real << "mm)";
 				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most subprojection row, bottom-most subprojection row) = (" << top_proj << "mm, " << bottom_proj << "mm)";
 				BOOST_LOG_TRIVIAL(info) << "\t" << "(top-most subprojection row, bottom-most subprojection row) = (" << start_row << "px, " << bottom_row << "px)";
 			}

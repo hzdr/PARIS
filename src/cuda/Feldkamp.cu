@@ -254,7 +254,7 @@ namespace ddafa
 				}
 
 				++proj_count;
-				if(proj_count >= input_num_)
+				if(input_num_set_ && (proj_count >= input_num_))
 				{
 					// we are processing the next subvolume -> download the old subvolume to the host and reset the GPU volume to 0
 					download_and_reset_volume(device, vol_count);
@@ -264,42 +264,6 @@ namespace ddafa
 
 				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing image #" << img.index() << " on device #" << device;
 
-				while(!input_num_set_)
-					std::this_thread::yield();
-
-				// the angles are constant for each projection so we only need to calculate them once
-				if(!angle_tabs_created_)
-				{
-					std::call_once(angle_flag_, [&](){
-						sin_tab_.resize(input_num_);
-						cos_tab_.resize(input_num_);
-
-						// fill the sin and cos tables with values from 0 to input_num_ - 1
-						std::iota(std::begin(sin_tab_), std::end(sin_tab_), 0.f);
-						std::iota(std::begin(cos_tab_), std::end(cos_tab_), 0.f);
-
-						auto angle_step = geo_.rot_angle;
-
-						std::transform(std::begin(sin_tab_), std::end(sin_tab_), std::begin(sin_tab_),
-							[&](const float& i)
-							{
-								auto angle = i * angle_step;
-								auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
-								return std::sin(angle_rad);
-							});
-
-						std::transform(std::begin(cos_tab_), std::end(cos_tab_), std::begin(cos_tab_),
-							[&](const float& i)
-							{
-								auto angle = i * angle_step;
-								auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
-								return std::cos(angle_rad);
-							});
-
-						angle_tabs_created_ = true;
-					});
-				}
-
 				auto& v = volume_map_[device];
 
 				// the geometry offsets are measured in pixels
@@ -308,6 +272,21 @@ namespace ddafa
 				auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
 				auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
 
+				auto sin = 0.f;
+				auto cos = 0.f;
+				if(!angle_tabs_created_)
+				{
+					auto angle = img.index() * geo_.rot_angle;
+					auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
+					sin = std::sin(angle_rad);
+					cos = std::cos(angle_rad);
+				}
+				else
+				{
+					sin = sin_tab_.at(img.index());
+					cos = cos_tab_.at(img.index());
+				}
+
 				ddrf::cuda::launch(v.width(), v.height(), v.depth(),
 									backproject,
 									v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset, vol_geo_.dim_z,
@@ -315,8 +294,7 @@ namespace ddafa
 									static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
 									proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
 									geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
-									offset_horiz, offset_vert, sin_tab_.at(img.index()), cos_tab_.at(img.index()),
-									std::abs(geo_.dist_src), dist_sd_);
+									offset_horiz, offset_vert, sin, cos, std::abs(geo_.dist_src), dist_sd_);
 
 			}
 
