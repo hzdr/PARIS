@@ -54,7 +54,6 @@ namespace ddafa
 				int devices_;
 				bool done_;
 
-				FeldkampScheduler scheduler_;
 				common::Geometry geo_;
 
 				float dist_sd_;

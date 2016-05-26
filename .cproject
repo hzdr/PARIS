@@ -92,6 +92,7 @@
 								</option>
 								<option id="nvcc.linker.option.other.1554337911" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
 									<listOptionValue builtIn="false" value="--export-dynamic"/>
+									<listOptionValue builtIn="false" value="--rpath=."/>
 								</option>
 								<inputType id="nvcc.linker.input.495995248" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>

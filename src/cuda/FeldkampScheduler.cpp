@@ -1,9 +1,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <iomanip>
 #include <iterator>
+#include <mutex>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -26,7 +28,7 @@ namespace ddafa
 
 			calculate_volume_geo(geo);
 			calculate_volume_height_mm();
-			calculate_volume_bytes(vol_type);
+			calculate_volume_bytes(vol_type, geo);
 			calculate_volumes_per_device();
 			calculate_subvolume_offsets();
 			calculate_subprojection_borders(geo);
@@ -101,15 +103,48 @@ namespace ddafa
 			return vol_geo_;
 		}
 
+		auto FeldkampScheduler::acquire_projection(int device) noexcept -> void
+		{
+			try
+			{
+				auto lock = std::unique_lock<std::mutex>{pc_mutices_.at(device)};
+				while(proj_counters_.at(device) >= 90)
+					pc_cvs_.at(device).wait(lock);
+
+				++(proj_counters_.at(device));
+			}
+			catch(const std::out_of_range&)
+			{
+				BOOST_LOG_TRIVIAL(error) << "cuda::FeldkampScheduler: Invalid device specified";
+				std::terminate();
+			}
+		}
+
+		auto FeldkampScheduler::release_projection(int device) noexcept -> void
+		{
+			try
+			{
+				auto lock = std::unique_lock<std::mutex>{pc_mutices_.at(device)};
+				if(proj_counters_.at(device) > 0)
+					--(proj_counters_.at(device));
+				pc_cvs_.at(device).notify_one();
+			}
+			catch(const std::out_of_range&)
+			{
+				BOOST_LOG_TRIVIAL(error) << "cuda::FeldkampScheduler: Invalid device specified";
+				std::terminate();
+			}
+		}
+
 		auto FeldkampScheduler::calculate_volume_geo(const common::Geometry& geo) -> void
 		{
 			// calculate volume dimensions -- x and y
 			auto N_h = geo.det_pixels_row;
 			auto d_h = geo.det_pixel_size_horiz;
 			auto delta_h = geo.det_offset_horiz * d_h; // the offset is measured in pixels!
-			auto alpha = std::atan((((N_h * d_h) / 2.f) + std::abs(delta_h)) / dist_sd_);
+			auto alpha = std::atan((((static_cast<float>(N_h) * d_h) / 2.f) + std::abs(delta_h)) / dist_sd_);
 			auto r = std::abs(geo.dist_src) * std::sin(alpha);
-			vol_geo_.voxel_size_x = r / ((((N_h * d_h) / 2.f) + std::abs(delta_h)) / d_h);
+			vol_geo_.voxel_size_x = r / ((((static_cast<float>(N_h) * d_h) / 2.f) + std::abs(delta_h)) / d_h);
 			vol_geo_.voxel_size_y = vol_geo_.voxel_size_x;
 			vol_geo_.dim_x = static_cast<std::size_t>((2.f * r) / vol_geo_.voxel_size_x);
 			vol_geo_.dim_y = vol_geo_.dim_x;
@@ -119,7 +154,7 @@ namespace ddafa
 			auto N_v = geo.det_pixels_column;
 			auto d_v = geo.det_pixel_size_vert;
 			auto delta_v = geo.det_offset_vert * d_v;
-			vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
+			vol_geo_.dim_z = static_cast<std::size_t>(((static_cast<float>(N_v) * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
 
 			BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.dim_x << " x " << vol_geo_.dim_y << " x " << vol_geo_.dim_z << " vx";
 			BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.voxel_size_x << " x " << vol_geo_.voxel_size_y << " x " << vol_geo_.voxel_size_z << " mm³";
@@ -129,11 +164,11 @@ namespace ddafa
 
 		auto FeldkampScheduler::calculate_volume_height_mm() -> void
 		{
-			volume_height_ = vol_geo_.dim_z * vol_geo_.voxel_size_z;
+			volume_height_ = static_cast<float>(vol_geo_.dim_z) * vol_geo_.voxel_size_z;
 			BOOST_LOG_TRIVIAL(info) << "Volume is " << std::setprecision(4) << volume_height_ << " mm high.";
 		}
 
-		auto FeldkampScheduler::calculate_volume_bytes(volume_type vol_type) -> void
+		auto FeldkampScheduler::calculate_volume_bytes(volume_type vol_type, const common::Geometry& geo) -> void
 		{
 			auto size = std::size_t{};
 			switch(vol_type)
@@ -186,38 +221,45 @@ namespace ddafa
 
 			volume_bytes_ = vol_geo_.dim_x * vol_geo_.dim_y * vol_geo_.dim_z * size;
 			BOOST_LOG_TRIVIAL(info) << "Volume requires " << volume_bytes_ << " bytes.";
+
+			projection_bytes_ = geo.det_pixels_row * geo.det_pixels_column * size;
+			BOOST_LOG_TRIVIAL(info) << "One projection requires " << projection_bytes_ << " bytes";
 		}
 
 		auto FeldkampScheduler::calculate_volumes_per_device() -> void
 		{
 			// split volume up if it doesn't fit into device memory
 			volume_bytes_ /= static_cast<unsigned int>(devices_);
+			projection_bytes_ /= static_cast<unsigned int>(devices_);
 			for(auto i = 0; i < devices_; ++i)
 			{
-				auto vol_size_dev = volume_bytes_;
+				auto required_mem = volume_bytes_ + 90 * projection_bytes_;
 				auto vol_count_dev = 1u;
 				CHECK(cudaSetDevice(i));
 				auto properties = cudaDeviceProp{};
 				CHECK(cudaGetDeviceProperties(&properties, i));
 
-				// divide size by 2 until it fits in memory
-				auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::uint32_t*, std::size_t)>();
-				calcVolumeSizePerDev = [&calcVolumeSizePerDev](std::size_t volume_size, std::uint32_t* volume_count, std::size_t dev_mem)
+				// divide volume size by 2 until it and (roughly) 90 projections fit into memory
+				auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::size_t, std::size_t, std::uint32_t*, std::size_t)>();
+				calcVolumeSizePerDev = [&calcVolumeSizePerDev](std::size_t mem_required, std::size_t volume_size, std::size_t proj_size,
+																std::uint32_t* volume_count, std::size_t dev_mem)
 				{
-					if(volume_size >= dev_mem)
+					if(mem_required >= dev_mem)
 					{
 						volume_size /= 2;
+						proj_size /= 2;
 						*volume_count *= 2;
-						return calcVolumeSizePerDev(volume_size, volume_count, dev_mem);
+						mem_required = volume_size + 90 * proj_size;
+						return calcVolumeSizePerDev(mem_required, volume_size, proj_size, volume_count, dev_mem);
 					}
 					else
 						return volume_size;
 				};
 
-				vol_size_dev = calcVolumeSizePerDev(vol_size_dev, &vol_count_dev, properties.totalGlobalMem);
+				required_mem = calcVolumeSizePerDev(required_mem, volume_bytes_, projection_bytes_, &vol_count_dev, properties.totalGlobalMem);
 				volume_count_ += vol_count_dev;
 				auto chunk_str = std::string{vol_count_dev > 1 ? "chunks" : "chunk"};
-				BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << vol_size_dev
+				BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << required_mem
 					<< " bytes on device #" << i;
 				volumes_per_device_.emplace(std::make_pair(i, vol_count_dev));
 			}
@@ -234,7 +276,7 @@ namespace ddafa
 				auto vol_count_dev = volumes_per_device_[i];
 
 				for(auto c = 0u; c < vol_count_dev; ++c)
-					offset_per_volume_[i][c] = i * vol_count_dev * vol_offset + c * vol_offset;
+					offset_per_volume_[static_cast<std::size_t>(i)][c] = static_cast<std::size_t>(i) * vol_count_dev * vol_offset + c * vol_offset;
 			}
 		}
 
@@ -245,18 +287,18 @@ namespace ddafa
 			auto N_v = geo.det_pixels_column;
 			auto N = volume_count_;
 			auto d_src = geo.dist_src;
-			auto r_max = (vol_geo_.dim_x * vol_geo_.voxel_size_x) / 2.f;
+			auto r_max = (static_cast<float>(vol_geo_.dim_x) * vol_geo_.voxel_size_x) / 2.f;
 
 			for(auto n = 0u; n < volume_count_; ++n)
 			{
-				auto top = -(volume_height_ / 2.f) + (static_cast<float>(n) / N) * volume_height_;
-				auto bottom = -(volume_height_ / 2.f) + (static_cast<float>(n + 1) / N) * volume_height_;
+				auto top = -(volume_height_ / 2.f) + (static_cast<float>(n) / static_cast<float>(N)) * volume_height_;
+				auto bottom = -(volume_height_ / 2.f) + (static_cast<float>(n + 1) / static_cast<float>(N)) * volume_height_;
 
 				auto top_proj_virt = top * (dist_sd_) / (std::abs(d_src) + (top < 0.f ? -r_max : r_max));
 				auto bottom_proj_virt = bottom * (dist_sd_) / (std::abs(d_src) + (bottom < 0.f ? r_max : -r_max));
 
-				auto top_proj_real = 0.f - ((N_v * d_v) / 2.f) - delta_v + (d_v / 2.f);
-				auto bottom_proj_real = top_proj_real + N_v * d_v - d_v;
+				auto top_proj_real = 0.f - ((static_cast<float>(N_v) * d_v) / 2.f) - delta_v + (d_v / 2.f);
+				auto bottom_proj_real = top_proj_real + static_cast<float>(N_v) * d_v - d_v;
 
 				auto top_proj = float{};
 				if(top_proj_virt > bottom_proj_real)
@@ -274,8 +316,8 @@ namespace ddafa
 				else
 					bottom_proj = bottom_proj_virt;
 
-				auto start_row = std::floor((((top_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
-				auto bottom_row = std::ceil((((bottom_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
+				auto start_row = std::floor((((top_proj) + ((static_cast<float>(N_v) * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
+				auto bottom_row = std::ceil((((bottom_proj) + ((static_cast<float>(N_v) * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
 
 				if(start_row < 0.f)
 					start_row = 0.f;
@@ -303,8 +345,10 @@ namespace ddafa
 					std::vector<std::pair<std::uint32_t, std::uint32_t>>(subprojs_begin, subprojs_begin + subprojs_count)));
 				subprojs_begin += subprojs_count;
 
-				BOOST_LOG_TRIVIAL(info) << "Device #" << i << " will process the following subprojection(s):";
 				auto vec = subprojs_.at(i);
+				auto subproj_string = vec.size() > 1 ? std::string{"subprojection"} : std::string{"subprojections"};
+				BOOST_LOG_TRIVIAL(info) << "Device #" << i << " will process the following " << subproj_string;
+
 				for(auto& p : vec)
 					BOOST_LOG_TRIVIAL(info) << "\t" << "(" << p.first << "px, " << p.second << "px)";
 			}

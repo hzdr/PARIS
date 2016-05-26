@@ -1,9 +1,12 @@
 #ifndef CUDA_FELDKAMPSCHEDULER_H_
 #define CUDA_FELDKAMPSCHEDULER_H_
 
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -53,13 +56,21 @@ namespace ddafa
 				auto get_subproj_offset(int device, std::uint32_t index) const noexcept -> std::size_t;
 				auto get_volume_geometry() const noexcept -> VolumeGeometry;
 
+				auto acquire_projection(int device) noexcept -> void;
+				auto release_projection(int device) noexcept -> void;
+
+				FeldkampScheduler(const FeldkampScheduler&) = delete;
+				auto operator=(const FeldkampScheduler&) -> FeldkampScheduler& = delete;
+				FeldkampScheduler(FeldkampScheduler&&) = delete;
+				auto operator=(FeldkampScheduler&&) -> FeldkampScheduler& = delete;
+
 			protected:
 				FeldkampScheduler(const common::Geometry&, volume_type);
 
 			private:
 				auto calculate_volume_geo(const common::Geometry&) -> void;
 				auto calculate_volume_height_mm() -> void;
-				auto calculate_volume_bytes(volume_type) -> void;
+				auto calculate_volume_bytes(volume_type, const common::Geometry&) -> void;
 				auto calculate_volumes_per_device() -> void;
 				auto calculate_subvolume_offsets() -> void;
 				auto calculate_subprojection_borders(const common::Geometry&) -> void;
@@ -69,6 +80,7 @@ namespace ddafa
 			private:
 				float volume_height_;
 				std::size_t volume_bytes_;
+				std::size_t projection_bytes_;
 				VolumeGeometry vol_geo_;
 				int devices_;
 				std::uint32_t volume_count_;
@@ -78,6 +90,11 @@ namespace ddafa
 				std::vector<std::pair<std::uint32_t, std::uint32_t>> subproj_dims_;
 				std::map<int, std::vector<std::pair<std::uint32_t, std::uint32_t>>> subprojs_;
 				std::map<int, std::map<std::uint32_t, std::size_t>> offset_per_subproj_;
+
+				std::map<int, int> proj_counters_;
+				std::map<int, std::mutex> pc_mutices_;
+				std::map<int, std::condition_variable> pc_cvs_;
+
 		};
 	}
 }

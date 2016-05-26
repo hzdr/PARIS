@@ -151,8 +151,8 @@ namespace ddafa
 		}
 
 		Feldkamp::Feldkamp(const common::Geometry& geo, const std::string& angles)
-		: scheduler_{FeldkampScheduler::instance(geo, cuda::volume_type::single_float)}, done_{false}
-		, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}, vol_geo_(scheduler_.get_volume_geometry())
+		: done_{false}, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}
+		, vol_geo_(FeldkampScheduler::instance(geo, cuda::volume_type::single_float).get_volume_geometry())
 		, input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
 		, output_{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z}
 		{
@@ -264,11 +264,15 @@ namespace ddafa
 
 				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing image #" << img.index() << " on device #" << device;
 
+				if(img.index() % 10 == 0)
+					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing image #" << img.index() << " of volume #" << vol_count;
+
 				auto& v = volume_map_[device];
 
 				// the geometry offsets are measured in pixels
-				auto vol_offset = scheduler_.get_volume_offset(device, vol_count);
-				auto proj_offset = scheduler_.get_subproj_offset(device, vol_count);
+				auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+				auto vol_offset = scheduler.get_volume_offset(device, vol_count);
+				auto proj_offset = scheduler.get_subproj_offset(device, vol_count);
 				auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
 				auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
 
@@ -295,7 +299,6 @@ namespace ddafa
 									proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
 									geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
 									offset_horiz, offset_vert, sin, cos, std::abs(geo_.dist_src), dist_sd_);
-
 			}
 
 		}
@@ -310,8 +313,9 @@ namespace ddafa
 		{
 			CHECK(cudaSetDevice(device));
 
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			auto vol_dev_size = vol_geo_.dim_z / static_cast<std::size_t>(devices_);
-			auto subvol_dev_size = vol_dev_size / scheduler_.get_volume_num(device);
+			auto subvol_dev_size = vol_dev_size / scheduler.get_volume_num(device);
 
 			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << subvol_dev_size << " volume on device #" << device;
 			auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, subvol_dev_size);
@@ -321,12 +325,13 @@ namespace ddafa
 
 		auto Feldkamp::download_and_reset_volume(int device, std::uint32_t vol_num) -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Downloading subvolume #" << vol_num << " from device #" << device;
+			BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Downloading subvolume #" << vol_num << " from device #" << device;
 
 			CHECK(cudaSetDevice(device));
 
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			auto& v = volume_map_.at(device);
-			auto offset = scheduler_.get_volume_offset(device, vol_num);
+			auto offset = scheduler.get_volume_offset(device, vol_num);
 
 			auto output_start_ptr = output_.data() + offset * output_.width() * output_.height();
 

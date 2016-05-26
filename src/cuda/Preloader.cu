@@ -145,7 +145,6 @@ namespace ddafa
 
 				return ret;
 			};
-
 			results_.push(upload(img));
 		}
 
