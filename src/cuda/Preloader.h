@@ -14,8 +14,6 @@
 
 #include "../common/Geometry.h"
 
-#include "FeldkampScheduler.h"
-
 namespace ddafa
 {
 	namespace cuda
@@ -45,13 +43,13 @@ namespace ddafa
 				auto uploadAndSend(int, input_type) -> void;
 
 			private:
+				common::Geometry geo_;
+
 				ddrf::Queue<input_type> imgs_;
 				ddrf::Queue<output_type> results_;
 				int devices_;
 
 				std::thread processor_thread_;
-
-				FeldkampScheduler scheduler_;
 
 				std::map<int, std::map<std::size_t, std::deque<input_type>>> remaining_;
 		};

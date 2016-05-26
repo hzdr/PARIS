@@ -265,7 +265,7 @@ namespace ddafa
 				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing image #" << img.index() << " on device #" << device;
 
 				if(img.index() % 10 == 0)
-					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing image #" << img.index() << " of volume #" << vol_count;
+					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing subprojection #" << img.index() << " of subvolume #" << vol_count;
 
 				auto& v = volume_map_[device];
 
@@ -281,7 +281,7 @@ namespace ddafa
 
 				if(!angle_tabs_created_)
 				{
-					auto angle = img.index() * geo_.rot_angle;
+					auto angle = static_cast<float>(img.index()) * geo_.rot_angle;
 					auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
 					sin = std::sin(angle_rad);
 					cos = std::cos(angle_rad);
@@ -300,6 +300,8 @@ namespace ddafa
 									proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
 									geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
 									offset_horiz, offset_vert, sin, cos, std::abs(geo_.dist_src), dist_sd_);
+
+				scheduler.release_projection(device);
 			}
 
 		}
@@ -332,6 +334,7 @@ namespace ddafa
 			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			auto& v = volume_map_.at(device);
 			auto offset = scheduler.get_volume_offset(device, vol_num);
+			BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: subvolume #" << vol_num << " has the following offset: " << offset;
 
 			auto output_start_ptr = output_.data() + offset * output_.width() * output_.height();
 

@@ -18,8 +18,7 @@ namespace ddafa
 	namespace cuda
 	{
 		Preloader::Preloader(const common::Geometry& geo)
-		: scheduler_{FeldkampScheduler::instance(geo, volume_type::single_float)}
-		, processor_thread_{&Preloader::processor, this}
+		: geo_(geo), processor_thread_{&Preloader::processor, this}
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
 		}
@@ -52,12 +51,13 @@ namespace ddafa
 
 		auto Preloader::split(input_type img) -> void
 		{
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			for(auto d = 0; d < devices_; ++d)
 			{
-				auto subproj_num = scheduler_.get_subproj_num(d);
+				auto subproj_num = scheduler.get_subproj_num(d);
 				for(auto i = 0u; i < subproj_num; ++i)
 				{
-					auto subproj_dims = scheduler_.get_subproj_dims(d, i);
+					auto subproj_dims = scheduler.get_subproj_dims(d, i);
 					auto firstRow = subproj_dims.first;
 					auto lastRow = subproj_dims.second;
 					auto rows = lastRow - firstRow + 1;
@@ -145,6 +145,8 @@ namespace ddafa
 
 				return ret;
 			};
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+			scheduler.acquire_projection(device);
 			results_.push(upload(img));
 		}
 

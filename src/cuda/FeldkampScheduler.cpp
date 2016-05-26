@@ -1,4 +1,5 @@
 #include <cmath>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -25,6 +26,13 @@ namespace ddafa
 		: vol_geo_{0}, volume_count_{0u}, dist_sd_{std::abs(geo.dist_det) + std::abs(geo.dist_src)}
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
+			for(auto d = 0; d < devices_; ++d)
+			{
+				proj_counters_[d] = 0;
+				// the following constructs a mutex and a condition_variable in place
+				pc_mutices_[d];
+				pc_cvs_[d];
+			}
 
 			calculate_volume_geo(geo);
 			calculate_volume_height_mm();
@@ -38,7 +46,7 @@ namespace ddafa
 
 		auto FeldkampScheduler::instance(const common::Geometry& geo, volume_type vol_type) -> FeldkampScheduler&
 		{
-			static auto instance = FeldkampScheduler{geo, vol_type};
+			static FeldkampScheduler instance{geo, vol_type};
 			return instance;
 		}
 
@@ -105,6 +113,7 @@ namespace ddafa
 
 		auto FeldkampScheduler::acquire_projection(int device) noexcept -> void
 		{
+			BOOST_LOG_TRIVIAL(debug) << "Acquirung projection on device #" << device;
 			try
 			{
 				auto lock = std::unique_lock<std::mutex>{pc_mutices_.at(device)};
@@ -122,6 +131,7 @@ namespace ddafa
 
 		auto FeldkampScheduler::release_projection(int device) noexcept -> void
 		{
+			BOOST_LOG_TRIVIAL(debug) << "Releasing projection on device #" << device;
 			try
 			{
 				auto lock = std::unique_lock<std::mutex>{pc_mutices_.at(device)};
@@ -131,7 +141,7 @@ namespace ddafa
 			}
 			catch(const std::out_of_range&)
 			{
-				BOOST_LOG_TRIVIAL(error) << "cuda::FeldkampScheduler: Invalid device specified";
+				BOOST_LOG_TRIVIAL(error) << "cuda::FeldkampScheduler: Invalid device specified: " << device;
 				std::terminate();
 			}
 		}
