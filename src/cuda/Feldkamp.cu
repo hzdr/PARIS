@@ -278,6 +278,7 @@ namespace ddafa
 
 				auto sin = 0.f;
 				auto cos = 0.f;
+
 				if(!angle_tabs_created_)
 				{
 					auto angle = img.index() * geo_.rot_angle;
@@ -326,7 +327,6 @@ namespace ddafa
 		auto Feldkamp::download_and_reset_volume(int device, std::uint32_t vol_num) -> void
 		{
 			BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Downloading subvolume #" << vol_num << " from device #" << device;
-
 			CHECK(cudaSetDevice(device));
 
 			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
