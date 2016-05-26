@@ -254,7 +254,7 @@ namespace ddafa
 				}
 
 				++proj_count;
-				if(input_num_set_ && (proj_count >= input_num_))
+				if(input_num_set_ && (proj_count > input_num_))
 				{
 					// we are processing the next subvolume -> download the old subvolume to the host and reset the GPU volume to 0
 					download_and_reset_volume(device, vol_count);
@@ -334,7 +334,6 @@ namespace ddafa
 			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			auto& v = volume_map_.at(device);
 			auto offset = scheduler.get_volume_offset(device, vol_num);
-			BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: subvolume #" << vol_num << " has the following offset: " << offset;
 
 			auto output_start_ptr = output_.data() + offset * output_.width() * output_.height();
 

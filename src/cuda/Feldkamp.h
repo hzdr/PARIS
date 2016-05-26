@@ -49,15 +49,14 @@ namespace ddafa
 
 			private:
 				std::map<int, ddrf::Queue<input_type>> map_imgs_;
-				output_type output_;
 				ddrf::Queue<output_type> results_;
 				int devices_;
 				bool done_;
 
 				common::Geometry geo_;
-
 				float dist_sd_;
 				FeldkampScheduler::VolumeGeometry vol_geo_;
+				output_type output_; // this has to be at this point because of the weird initialization order rules
 
 				std::uint32_t input_num_;
 				std::atomic_bool input_num_set_;

@@ -113,11 +113,11 @@ namespace ddafa
 
 		auto FeldkampScheduler::acquire_projection(int device) noexcept -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "Acquirung projection on device #" << device;
+			BOOST_LOG_TRIVIAL(debug) << "Acquiring projection on device #" << device;
 			try
 			{
 				auto lock = std::unique_lock<std::mutex>{pc_mutices_.at(device)};
-				while(proj_counters_.at(device) >= 90)
+				while(proj_counters_.at(device) >= 30)
 					pc_cvs_.at(device).wait(lock);
 
 				++(proj_counters_.at(device));
@@ -243,13 +243,13 @@ namespace ddafa
 			projection_bytes_ /= static_cast<unsigned int>(devices_);
 			for(auto i = 0; i < devices_; ++i)
 			{
-				auto required_mem = volume_bytes_ + 90 * projection_bytes_;
+				auto required_mem = volume_bytes_ + 32 * projection_bytes_;
 				auto vol_count_dev = 1u;
 				CHECK(cudaSetDevice(i));
 				auto properties = cudaDeviceProp{};
 				CHECK(cudaGetDeviceProperties(&properties, i));
 
-				// divide volume size by 2 until it and (roughly) 90 projections fit into memory
+				// divide volume size by 2 until it and (roughly) 32 projections fit into memory
 				auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::size_t, std::size_t, std::uint32_t*, std::size_t)>();
 				calcVolumeSizePerDev = [&calcVolumeSizePerDev](std::size_t mem_required, std::size_t volume_size, std::size_t proj_size,
 																std::uint32_t* volume_count, std::size_t dev_mem)
@@ -259,11 +259,11 @@ namespace ddafa
 						volume_size /= 2;
 						proj_size /= 2;
 						*volume_count *= 2;
-						mem_required = volume_size + 90 * proj_size;
+						mem_required = volume_size + 32 * proj_size;
 						return calcVolumeSizePerDev(mem_required, volume_size, proj_size, volume_count, dev_mem);
 					}
 					else
-						return volume_size;
+						return mem_required;
 				};
 
 				required_mem = calcVolumeSizePerDev(required_mem, volume_bytes_, projection_bytes_, &vol_count_dev, properties.totalGlobalMem);
