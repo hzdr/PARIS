@@ -95,15 +95,15 @@ auto main(int argc, char** argv) -> int
 		// parse geometry file
 		boost::program_options::options_description geom{"Geometry file"};
 		geom.add_options()
-				("det_pixels_row", boost::program_options::value<std::uint32_t>(&geo.det_pixels_row)->required(), "Detector pixels per row")
-				("det_pixels_column", boost::program_options::value<std::uint32_t>(&geo.det_pixels_column)->required(), "Detector pixels per column")
-				("det_pixel_size_horiz", boost::program_options::value<float>(&geo.det_pixel_size_horiz)->required(), "Detector pixel size (= size between pixel centers) in horizontal direction")
-				("det_pixel_size_vert", boost::program_options::value<float>(&geo.det_pixel_size_vert)->required(), "Detector pixel size (= size between pixel centers) in vertical direction")
-				("det_offset_horiz", boost::program_options::value<float>(&geo.det_offset_horiz)->required(), "Detector offset in horizontal direction")
-				("det_offset_vert", boost::program_options::value<float>(&geo.det_offset_vert)->required(), "Detector offset in vertical direction")
-				("dist_src", boost::program_options::value<float>(&geo.dist_src)->required(), "Distance between object (= center of rotation) and source")
-				("dist_det", boost::program_options::value<float>(&geo.dist_det)->required(), "Distance between detector and source")
-				("rot_angle", boost::program_options::value<float>(&geo.rot_angle)->required(), "Angle of rotation");
+				("det_pixels_row", boost::program_options::value<std::uint32_t>(&geo.det_pixels_row)->required(), "[integer] number of pixels per detector row (= projection width)")
+				("det_pixels_column", boost::program_options::value<std::uint32_t>(&geo.det_pixels_column)->required(), "[integer] number of pixels per detector column (= projection height)")
+				("det_pixel_size_horiz", boost::program_options::value<float>(&geo.det_pixel_size_horiz)->required(), "[float] horizontal pixel size (= distance between pixel centers) in mm")
+				("det_pixel_size_vert", boost::program_options::value<float>(&geo.det_pixel_size_vert)->required(), "[float] vertical pixel size (= distance between pixel centers) in mm")
+				("det_offset_horiz", boost::program_options::value<float>(&geo.det_offset_horiz)->required(), "[float] horizontal detector offset in pixels")
+				("det_offset_vert", boost::program_options::value<float>(&geo.det_offset_vert)->required(), "[float] vertical detector offset in pixels")
+				("dist_src", boost::program_options::value<float>(&geo.dist_src)->required(), "[float] distance between object (= center of rotation) and source in mm")
+				("dist_det", boost::program_options::value<float>(&geo.dist_det)->required(), "[float] distance between object (= center of rotation) and detector in mm")
+				("rot_angle", boost::program_options::value<float>(&geo.rot_angle)->required(), "[float] angle step between two successive projections in °");
 
 		boost::program_options::variables_map param_map, geom_map;
 		boost::program_options::store(boost::program_options::parse_command_line(argc, argv, param), param_map);
