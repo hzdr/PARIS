@@ -1,3 +1,4 @@
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -126,6 +127,8 @@ auto main(int argc, char** argv) -> int
 		boost::program_options::notify(geom_map);
 
 		// set up pipeline
+		auto start = std::chrono::high_resolution_clock::now();
+
 		auto pipeline = ddrf::pipeline::Pipeline{};
 
 		auto source = pipeline.create<source_stage>(projection_path);
@@ -145,6 +148,14 @@ auto main(int argc, char** argv) -> int
 		reconstruction->set_input_num(source->num());
 
 		pipeline.wait();
+
+		auto stop = std::chrono::high_resolution_clock::now();
+
+		auto duration = stop - start;
+		auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
+		auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
+
+		BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: " << minutes.count() << "min (" << seconds.count() << "s)";
 	}
 	catch(const std::runtime_error& err)
 	{

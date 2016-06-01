@@ -249,6 +249,7 @@ namespace ddafa
 				if(!img.valid())
 				{
 					// our work here is done
+					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Received poisonous pill";
 					download_and_reset_volume(device, vol_count);
 					break;
 				}

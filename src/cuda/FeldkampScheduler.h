@@ -94,7 +94,6 @@ namespace ddafa
 				std::map<int, int> proj_counters_;
 				std::map<int, std::mutex> pc_mutices_;
 				std::map<int, std::condition_variable> pc_cvs_;
-
 		};
 	}
 }

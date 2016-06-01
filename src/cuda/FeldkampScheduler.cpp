@@ -246,8 +246,14 @@ namespace ddafa
 				auto required_mem = volume_bytes_ + 32 * projection_bytes_;
 				auto vol_count_dev = 1u;
 				CHECK(cudaSetDevice(i));
-				auto properties = cudaDeviceProp{};
-				CHECK(cudaGetDeviceProperties(&properties, i));
+				auto free_mem = std::size_t{};
+				auto total_mem = std::size_t{};
+				auto max_malloc = std::size_t{};
+				CHECK(cudaMemGetInfo(&free_mem, &total_mem));
+				CHECK(cudaDeviceGetLimit(&max_malloc, cudaLimitMallocHeapSize));
+				BOOST_LOG_TRIVIAL(info) << "Free device memory: " << free_mem << " bytes";
+				BOOST_LOG_TRIVIAL(info) << "Total device memory: " << total_mem << " bytes";
+				BOOST_LOG_TRIVIAL(info) << "Maximum malloc: " << max_malloc << " bytes";
 
 				// divide volume size by 2 until it and (roughly) 32 projections fit into memory
 				auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::size_t, std::size_t, std::uint32_t*, std::size_t)>();
@@ -266,7 +272,7 @@ namespace ddafa
 						return mem_required;
 				};
 
-				required_mem = calcVolumeSizePerDev(required_mem, volume_bytes_, projection_bytes_, &vol_count_dev, properties.totalGlobalMem);
+				required_mem = calcVolumeSizePerDev(required_mem, volume_bytes_, projection_bytes_, &vol_count_dev, free_mem);
 				volume_count_ += vol_count_dev;
 				auto chunk_str = std::string{vol_count_dev > 1 ? "chunks" : "chunk"};
 				BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << required_mem

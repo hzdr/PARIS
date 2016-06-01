@@ -1,6 +1,8 @@
 #include <cstddef>
 #include <future>
+#include <ios>
 #include <iterator>
+#include <stdexcept>
 #include <utility>
 
 #include <boost/log/trivial.hpp>
@@ -90,11 +92,18 @@ namespace ddafa
 				 * take the first associated input image out of the queue and pass it to
 				 * the upload thread. Then, pop the (now empty) first entry in the queue.
 				 */
-				auto& queue = std::begin(remaining_[d])->second;
-				if(queue.empty())
+				try
+				{
+					auto& queue = std::begin(remaining_.at(d))->second;
+					if(queue.empty())
+						continue;
+					distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(queue.front()));
+					queue.pop_front();
+				}
+				catch(const std::out_of_range&)
+				{
 					continue;
-				distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(queue.front()));
-				queue.pop_front();
+				}
 			}
 
 
@@ -110,13 +119,15 @@ namespace ddafa
 
 			for(auto d = 0; d < devices_; ++d)
 			{
-				auto map = remaining_.at(d);
+				auto& map = remaining_.at(d);
+				if(map.empty())
+					continue;
 				futures.emplace_back(std::async(std::launch::async, [&map, d, this]()
 						{
 							for(auto& p : map)
 							{
 								for(auto& img : p.second)
-									uploadAndSend(d, std::move(img));
+										uploadAndSend(d, std::move(img));
 							}
 						}));
 			}

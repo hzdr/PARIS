@@ -17,7 +17,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.debug.1467660151" name="Debug" parent="com.nvidia.cuda.ide.configuration.debug.1467660151" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generate build version information" prebuildStep="../gen_version.sh">
+				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.debug.1467660151" name="Debug" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generate build version information" prebuildStep="../gen_version.sh">
 					<folderInfo id="com.nvidia.cuda.ide.configuration.debug.1467660151." name="/" resourcePath="">
 						<toolChain id="com.nvidia.cuda.ide.toolchain.seven_five.27534242" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1121371478" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
@@ -135,36 +135,32 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.release.1735503515" name="Release" parent="com.nvidia.cuda.ide.configuration.release.1735503515" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generate build version information" prebuildStep="../gen_version.sh">
+				<configuration artifactExtension="" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.release.1735503515" name="Release" parent="com.nvidia.cuda.ide.configuration.release.1735503515" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generate build version information" prebuildStep="../gen_version.sh">
 					<folderInfo id="com.nvidia.cuda.ide.configuration.release.1735503515." name="/" resourcePath="">
-						<toolChain errorParsers="" id="com.nvidia.cuda.ide.toolchain.exe.release.1188542912" name="CUDA Toolkit 7.0">
-							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.587196580" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/ddafa}/Release" errorParsers="org.eclipse.cdt.core.GmakeErrorParser" id="com.nvidia.cuda.ide.builder.464368921" keepEnvironmentInBuildfile="false" managedBuildOn="true" name="CUDA Toolkit 7.5 Builder" superClass="com.nvidia.cuda.ide.builder"/>
-							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GCCErrorParser" id="nvcc.compiler.base.266151318" name="NVCC Compiler" superClass="nvcc.compiler.base">
-								<option id="nvcc.compiler.deviceDebug.490977050" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" value="false" valueType="boolean"/>
-								<option id="nvcc.compiler.option.level.1703077132" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="false" valueType="boolean"/>
-								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.732118566" name="Optimization Level" superClass="nvcc.compiler.optimization.level" value="nvcc.compiler.optimization.level.more" valueType="enumerated"/>
-								<option id="nvcc.compiler.pic.72297298" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.def.symbols.2127884151" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="BOOST_ALL_DYN_LINK"/>
-								</option>
-								<option id="nvcc.compiler.cpp11option.1408570101" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.include.paths.1133348101" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
+						<toolChain errorParsers="" id="com.nvidia.cuda.ide.toolchain.seven_five.148320630" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
+							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.197697805" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
+							<builder buildPath="${workspace_loc:/ddafa}/Release" errorParsers="org.eclipse.cdt.core.GmakeErrorParser" id="com.nvidia.cuda.ide.builder.744850616" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 7.5 Builder" superClass="com.nvidia.cuda.ide.builder"/>
+							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GCCErrorParser" id="nvcc.compiler.base.1433864274" name="NVCC Compiler" superClass="nvcc.compiler.base">
+								<option id="nvcc.compiler.include.paths.1769752615" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/include}&quot;"/>
 								</option>
-								<option id="nvcc.compiler.maxregcount.1492292388" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="63" valueType="string"/>
-								<option id="nvcc.compiler.compileroptions.217939908" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList">
-									<listOptionValue builtIn="false" value="-g"/>
+								<option id="nvcc.compiler.def.symbols.1049124364" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="BOOST_ALL_DYN_LINK"/>
 								</option>
-								<option id="nvcc.compiler.optionsfile.791739079" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" value="/home/ufxray/cuda-workspace2/ddafa/nvcc.args" valueType="string"/>
-								<option id="nvcc.compiler.option.lineinfo.690864522" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
-								<option id="nvcc.compiler.option.gprof.563156181" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
-								<inputType id="nvcc.compiler.input.cu.586720573" superClass="nvcc.compiler.input.cu"/>
-								<inputType id="nvcc.compiler.input.cpp.1119589895" superClass="nvcc.compiler.input.cpp"/>
-								<inputType id="nvcc.compiler.input.c.815561883" superClass="nvcc.compiler.input.c"/>
+								<option id="nvcc.compiler.deviceDebug.1687733503" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug"/>
+								<option id="nvcc.compiler.option.level.2059747022" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level"/>
+								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.2025410827" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
+								<option id="nvcc.compiler.pic.1838937582" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.lineinfo.1645795768" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.option.gprof.1885425226" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.cpp11option.2079131615" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.optionsfile.273736157" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" value="../nvcc.args" valueType="string"/>
+								<inputType id="nvcc.compiler.input.cu.1834504745" superClass="nvcc.compiler.input.cu"/>
+								<inputType id="nvcc.compiler.input.cpp.173552315" superClass="nvcc.compiler.input.cpp"/>
+								<inputType id="nvcc.compiler.input.c.1908437339" superClass="nvcc.compiler.input.c"/>
 							</tool>
-							<tool errorParsers="nvcc.errorParser;org.eclipse.cdt.core.GLDErrorParser" id="nvcc.linker.base.1817600321" name="NVCC Linker" superClass="nvcc.linker.base">
-								<option id="nvcc.linker.option.libs.1660317699" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
+							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;nvcc.errorParser" id="nvcc.linker.base.767305409" name="NVCC Linker" superClass="nvcc.linker.base">
+								<option id="nvcc.linker.option.libs.295853310" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="ddrf"/>
 									<listOptionValue builtIn="false" value="tiff"/>
 									<listOptionValue builtIn="false" value="cufft"/>
@@ -173,22 +169,22 @@
 									<listOptionValue builtIn="false" value="boost_program_options"/>
 									<listOptionValue builtIn="false" value="pthread"/>
 								</option>
-								<option id="nvcc.linker.option.cudart.1667356551" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
-								<option id="nvcc.linker.option.paths.705103114" name="Library search path (-L)" superClass="nvcc.linker.option.paths" valueType="libPaths">
+								<option id="nvcc.linker.option.paths.153133441" name="Library search path (-L)" superClass="nvcc.linker.option.paths" valueType="libPaths">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/ddrf/Release}&quot;"/>
 								</option>
-								<option id="nvcc.linker.option.other.1630663964" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
+								<option id="nvcc.linker.option.cudart.1570142459" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
+								<option id="nvcc.linker.option.other.1350302508" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
 									<listOptionValue builtIn="false" value="--export-dynamic"/>
-									<listOptionValue builtIn="false" value="-rpath=."/>
+									<listOptionValue builtIn="false" value="--rpath=."/>
 								</option>
-								<inputType id="nvcc.linker.input.1749268450" superClass="nvcc.linker.input">
+								<inputType id="nvcc.linker.input.1200366166" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>
 								</inputType>
 							</tool>
-							<tool id="nvcc.archiver.base.1051759603" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
-							<tool errorParsers="org.eclipse.cdt.core.GASErrorParser" id="com.nvidia.host.assembler.126777329" name="Host Assembler" superClass="com.nvidia.host.assembler">
-								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1187984504" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
+							<tool id="nvcc.archiver.base.1270122225" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
+							<tool command="as" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GASErrorParser" id="com.nvidia.host.assembler.271899916" name="Host Assembler" superClass="com.nvidia.host.assembler">
+								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.1969461677" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
 					</folderInfo>
@@ -203,6 +199,7 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
+					<sass major="2" minor="1"/>
 				</executable>
 				<editor-arch major="3" minor="5"/>
 			</storageModule>
