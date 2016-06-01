@@ -275,7 +275,7 @@ namespace ddafa
 				{
 					BOOST_LOG_TRIVIAL(info) << "Trying test allocation...";
 					// FIXME: This currently only works for types <= sizeof(float)
-					auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, (vol_geo_.dim_z / vol_count_dev));
+					auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
 					BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
 				}
 				catch(const ddrf::cuda::out_of_memory&)
