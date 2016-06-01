@@ -132,7 +132,7 @@ auto main(int argc, char** argv) -> int
 		auto pipeline = ddrf::pipeline::Pipeline{};
 
 		auto source = pipeline.create<source_stage>(projection_path);
-		auto preloader = pipeline.create<preloader_stage>(geo);
+		auto preloader = pipeline.create<preloader_stage>(ddrf::queue_limit(100), geo);
 		auto weighting = pipeline.create<weighting_stage>(geo);
 		auto filter = pipeline.create<filter_stage>(geo);
 		auto reconstruction = pipeline.create<reconstruction_stage>(geo, angle_path);
