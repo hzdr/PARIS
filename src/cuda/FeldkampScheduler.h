@@ -71,7 +71,7 @@ namespace ddafa
 				auto calculate_volume_geo(const common::Geometry&) -> void;
 				auto calculate_volume_height_mm() -> void;
 				auto calculate_volume_bytes(volume_type, const common::Geometry&) -> void;
-				auto calculate_volumes_per_device() -> void;
+				auto calculate_volumes_per_device(volume_type) -> void;
 				auto calculate_subvolume_offsets() -> void;
 				auto calculate_subprojection_borders(const common::Geometry&) -> void;
 				auto distribute_subprojections() -> void;

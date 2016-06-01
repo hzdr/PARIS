@@ -38,7 +38,7 @@ namespace ddafa
 			calculate_volume_geo(geo);
 			calculate_volume_height_mm();
 			calculate_volume_bytes(vol_type, geo);
-			calculate_volumes_per_device();
+			calculate_volumes_per_device(vol_type);
 			calculate_subvolume_offsets();
 			calculate_subprojection_borders(geo);
 			distribute_subprojections();
@@ -236,7 +236,7 @@ namespace ddafa
 			BOOST_LOG_TRIVIAL(info) << "One projection requires " << projection_bytes_ << " bytes.";
 		}
 
-		auto FeldkampScheduler::calculate_volumes_per_device() -> void
+		auto FeldkampScheduler::calculate_volumes_per_device(volume_type vol_type) -> void
 		{
 			// split volume up if it doesn't fit into device memory
 			volume_bytes_ /= static_cast<unsigned int>(devices_);
@@ -274,8 +274,54 @@ namespace ddafa
 				try
 				{
 					BOOST_LOG_TRIVIAL(info) << "Trying test allocation...";
-					// FIXME: This currently only works for types <= sizeof(float)
-					auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+					//FIXME: This is really ugly
+					switch(vol_type)
+					{
+						case volume_type::int8:
+							ddrf::cuda::make_device_ptr<std::int8_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::uint8:
+							ddrf::cuda::make_device_ptr<std::uint8_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::int16:
+							ddrf::cuda::make_device_ptr<std::int16_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::uint16:
+							ddrf::cuda::make_device_ptr<std::uint16_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::int32:
+							ddrf::cuda::make_device_ptr<std::int32_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::uint32:
+							ddrf::cuda::make_device_ptr<std::uint8_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::int64:
+							ddrf::cuda::make_device_ptr<std::int64_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::uint64:
+							ddrf::cuda::make_device_ptr<std::uint64_t>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::single_float:
+							ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						case volume_type::double_float:
+							ddrf::cuda::make_device_ptr<double>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+
+						// CUDA currently doesn't support long double and shortens the type to double
+						case volume_type::long_double_float:
+							ddrf::cuda::make_device_ptr<double>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
+							break;
+					}
 					BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
 				}
 				catch(const ddrf::cuda::out_of_memory&)
