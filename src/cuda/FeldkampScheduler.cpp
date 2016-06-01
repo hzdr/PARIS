@@ -14,6 +14,7 @@
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/Check.h>
+#include <ddrf/cuda/Memory.h>
 
 #include "../common/Geometry.h"
 #include "FeldkampScheduler.h"
@@ -180,60 +181,59 @@ namespace ddafa
 
 		auto FeldkampScheduler::calculate_volume_bytes(volume_type vol_type, const common::Geometry& geo) -> void
 		{
-			auto size = std::size_t{};
 			switch(vol_type)
 			{
 				case volume_type::int8:
-					size = sizeof(std::int8_t);
+					type_bytes_ = sizeof(std::int8_t);
 					break;
 
 				case volume_type::uint8:
-					size = sizeof(std::uint8_t);
+					type_bytes_ = sizeof(std::uint8_t);
 					break;
 
 				case volume_type::int16:
-					size = sizeof(std::int16_t);
+					type_bytes_ = sizeof(std::int16_t);
 					break;
 
 				case volume_type::uint16:
-					size = sizeof(std::uint16_t);
+					type_bytes_ = sizeof(std::uint16_t);
 					break;
 
 				case volume_type::int32:
-					size = sizeof(std::int32_t);
+					type_bytes_ = sizeof(std::int32_t);
 					break;
 
 				case volume_type::uint32:
-					size = sizeof(std::uint32_t);
+					type_bytes_ = sizeof(std::uint32_t);
 					break;
 
 				case volume_type::int64:
-					size = sizeof(std::int64_t);
+					type_bytes_ = sizeof(std::int64_t);
 					break;
 
 				case volume_type::uint64:
-					size = sizeof(std::uint64_t);
+					type_bytes_ = sizeof(std::uint64_t);
 					break;
 
 				case volume_type::single_float:
-					size = sizeof(float);
+					type_bytes_ = sizeof(float);
 					break;
 
 				case volume_type::double_float:
-					size = sizeof(double);
+					type_bytes_ = sizeof(double);
 					break;
 
 				// CUDA currently doesn't support long double and shortens the type to double
 				case volume_type::long_double_float:
-					size = sizeof(double);
+					type_bytes_ = sizeof(double);
 					break;
 			}
 
-			volume_bytes_ = vol_geo_.dim_x * vol_geo_.dim_y * vol_geo_.dim_z * size;
+			volume_bytes_ = vol_geo_.dim_x * vol_geo_.dim_y * vol_geo_.dim_z * type_bytes_;
 			BOOST_LOG_TRIVIAL(info) << "Volume requires " << volume_bytes_ << " bytes.";
 
-			projection_bytes_ = geo.det_pixels_row * geo.det_pixels_column * size;
-			BOOST_LOG_TRIVIAL(info) << "One projection requires " << projection_bytes_ << " bytes";
+			projection_bytes_ = geo.det_pixels_row * geo.det_pixels_column * type_bytes_;
+			BOOST_LOG_TRIVIAL(info) << "One projection requires " << projection_bytes_ << " bytes.";
 		}
 
 		auto FeldkampScheduler::calculate_volumes_per_device() -> void
@@ -251,9 +251,6 @@ namespace ddafa
 				auto max_malloc = std::size_t{};
 				CHECK(cudaMemGetInfo(&free_mem, &total_mem));
 				CHECK(cudaDeviceGetLimit(&max_malloc, cudaLimitMallocHeapSize));
-				BOOST_LOG_TRIVIAL(info) << "Free device memory: " << free_mem << " bytes";
-				BOOST_LOG_TRIVIAL(info) << "Total device memory: " << total_mem << " bytes";
-				BOOST_LOG_TRIVIAL(info) << "Maximum malloc: " << max_malloc << " bytes";
 
 				// divide volume size by 2 until it and (roughly) 32 projections fit into memory
 				auto calcVolumeSizePerDev = std::function<std::size_t(std::size_t, std::size_t, std::size_t, std::uint32_t*, std::size_t)>();
@@ -273,6 +270,23 @@ namespace ddafa
 				};
 
 				required_mem = calcVolumeSizePerDev(required_mem, volume_bytes_, projection_bytes_, &vol_count_dev, free_mem);
+
+				try
+				{
+					BOOST_LOG_TRIVIAL(info) << "Trying test allocation...";
+					// FIXME: This currently only works for types <= sizeof(float)
+					auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, (vol_geo_.dim_z / vol_count_dev));
+					BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
+				}
+				catch(const ddrf::cuda::out_of_memory&)
+				{
+					BOOST_LOG_TRIVIAL(info) << "Test allocation failed, reducing subvolume size.";
+					volume_bytes_ /= 2;
+					projection_bytes_ /= 2;
+					vol_count_dev *= 2;
+					required_mem = volume_bytes_ + 32 * projection_bytes_;
+				}
+
 				volume_count_ += vol_count_dev;
 				auto chunk_str = std::string{vol_count_dev > 1 ? "chunks" : "chunk"};
 				BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << required_mem
@@ -362,7 +376,7 @@ namespace ddafa
 				subprojs_begin += subprojs_count;
 
 				auto vec = subprojs_.at(i);
-				auto subproj_string = vec.size() > 1 ? std::string{"subprojection"} : std::string{"subprojections"};
+				auto subproj_string = vec.size() > 1 ? std::string{"subprojections"} : std::string{"subprojection"};
 				BOOST_LOG_TRIVIAL(info) << "Device #" << i << " will process the following " << subproj_string;
 
 				for(auto& p : vec)

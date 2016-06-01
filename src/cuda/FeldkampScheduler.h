@@ -79,6 +79,7 @@ namespace ddafa
 
 			private:
 				float volume_height_;
+				std::size_t type_bytes_;
 				std::size_t volume_bytes_;
 				std::size_t projection_bytes_;
 				VolumeGeometry vol_geo_;
