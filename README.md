@@ -1,4 +1,4 @@
-# ddafa
+# ddafa - Dresden Accelerated Feldkamp Algorithm
 
 ## Build instructions
 
