@@ -154,7 +154,7 @@ namespace ddafa
 		: done_{false}, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}
 		, vol_geo_(FeldkampScheduler::instance(geo, cuda::volume_type::single_float).get_volume_geometry())
 		, input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
-		, output_{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z}
+		, output_{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z}, angle_tabs_created_{false}
 		{
 			if(!angles.empty())
 				parse_angles(angles);
@@ -249,7 +249,7 @@ namespace ddafa
 				if(!img.valid())
 				{
 					// our work here is done
-					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Received poisonous pill";
+					BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Received poisonous pill";
 					download_and_reset_volume(device, vol_count);
 					break;
 				}
