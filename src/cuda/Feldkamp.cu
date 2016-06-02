@@ -151,9 +151,10 @@ namespace ddafa
 		}
 
 		Feldkamp::Feldkamp(const common::Geometry& geo, const std::string& angles)
-		: scheduler_{FeldkampScheduler::instance(geo, cuda::volume_type::single_float)}, done_{false}
-		, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}, vol_geo_(scheduler_.get_volume_geometry())
+		: done_{false}, geo_(geo), dist_sd_{geo_.dist_det + geo_.dist_src}
+		, vol_geo_(FeldkampScheduler::instance(geo, cuda::volume_type::single_float).get_volume_geometry())
 		, input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
+		, output_{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z}, angle_tabs_created_{false}
 		{
 			if(!angles.empty())
 				parse_angles(angles);
@@ -163,7 +164,7 @@ namespace ddafa
 
 			for(auto i = 0; i < devices_; ++i)
 			{
-				creation_threads.emplace_back(&Feldkamp::create_volumes, this, i);
+				creation_threads.emplace_back(&Feldkamp::create_volume, this, i);
 				processor_threads_[i] = std::thread{&Feldkamp::processor, this, i};
 			}
 
@@ -220,7 +221,7 @@ namespace ddafa
 				for(auto i = 0; i < devices_; ++i)
 					processor_threads_[i].join();
 
-				merge_volumes();
+				results_.push(std::move(output_));
 				results_.push(output_type());
 				done_ = true;
 				BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Done.";
@@ -238,69 +239,70 @@ namespace ddafa
 		auto Feldkamp::processor(int device) -> void
 		{
 			CHECK(cudaSetDevice(device));
+
+			auto proj_count = 0u;
+			auto vol_count = 0u;
+
 			while(true)
 			{
 				auto img = map_imgs_[device].take();
 				if(!img.valid())
+				{
+					// our work here is done
+					BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Received poisonous pill";
+					download_and_reset_volume(device, vol_count);
 					break;
+				}
+
+				++proj_count;
+				if(input_num_set_ && (proj_count > input_num_))
+				{
+					// we are processing the next subvolume -> download the old subvolume to the host and reset the GPU volume to 0
+					download_and_reset_volume(device, vol_count);
+					proj_count = 1u;
+					++vol_count;
+				}
 
 				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing image #" << img.index() << " on device #" << device;
 
-				while(!input_num_set_)
-					std::this_thread::yield();
+				if(img.index() % 10 == 0)
+					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing subprojection #" << img.index() << " of subvolume #" << vol_count;
+
+				auto& v = volume_map_[device];
+
+				// the geometry offsets are measured in pixels
+				auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+				auto vol_offset = scheduler.get_volume_offset(device, vol_count);
+				auto proj_offset = scheduler.get_subproj_offset(device, vol_count);
+				auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
+				auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
+
+				auto sin = 0.f;
+				auto cos = 0.f;
 
 				if(!angle_tabs_created_)
 				{
-					std::call_once(angle_flag_, [&](){
-						sin_tab_.resize(input_num_);
-						cos_tab_.resize(input_num_);
-
-						std::iota(std::begin(sin_tab_), std::end(sin_tab_), 0.f);
-						std::iota(std::begin(cos_tab_), std::end(cos_tab_), 0.f);
-
-						auto angle_step = geo_.rot_angle;
-
-						std::transform(std::begin(sin_tab_), std::end(sin_tab_), std::begin(sin_tab_),
-							[&](const float& i)
-							{
-								auto angle = i * angle_step;
-								auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
-								return std::sin(angle_rad);
-							});
-
-						std::transform(std::begin(cos_tab_), std::end(cos_tab_), std::begin(cos_tab_),
-							[&](const float& i)
-							{
-								auto angle = i * angle_step;
-								auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
-								return std::cos(angle_rad);
-							});
-
-						angle_tabs_created_ = true;
-					});
+					auto angle = static_cast<float>(img.index()) * geo_.rot_angle;
+					auto angle_rad = static_cast<float>(angle * M_PI / 180.f);
+					sin = std::sin(angle_rad);
+					cos = std::cos(angle_rad);
 				}
-
-				auto& volumes = volume_map_[device];
-				auto vol_count = 0u;
-				for(auto& v : volumes) // FIXME: This won't work for multiple volumes per device
+				else
 				{
-					// the geometry offsets are measured in pixels
-					auto vol_offset = scheduler_.get_volume_offset(device, vol_count);
-					auto proj_offset = scheduler_.get_subproj_offset(device, vol_count);
-					auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
-					auto offset_vert = geo_.det_offset_vert * geo_.det_pixel_size_vert;
-
-					ddrf::cuda::launch(v.width(), v.height(), v.depth(),
-										backproject,
-										v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset, vol_geo_.dim_z,
-										vol_geo_.voxel_size_x, vol_geo_.voxel_size_y, vol_geo_.voxel_size_z,
-										static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
-										proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
-										geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
-										offset_horiz, offset_vert, sin_tab_.at(img.index()), cos_tab_.at(img.index()),
-										std::abs(geo_.dist_src), dist_sd_);
-					++vol_count;
+					sin = sin_tab_.at(img.index());
+					cos = cos_tab_.at(img.index());
 				}
+
+				ddrf::cuda::launch(v.width(), v.height(), v.depth(),
+									backproject,
+									v.data(), v.width(), v.height(), v.depth(), v.pitch(), vol_offset, vol_geo_.dim_z,
+									vol_geo_.voxel_size_x, vol_geo_.voxel_size_y, vol_geo_.voxel_size_z,
+									static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
+									proj_offset, static_cast<std::size_t>(geo_.det_pixels_column),
+									geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert,
+									offset_horiz, offset_vert, sin, cos, std::abs(geo_.dist_src), dist_sd_);
+
+				scheduler.release_projection(device);
 			}
 
 		}
@@ -311,57 +313,41 @@ namespace ddafa
 			input_num_set_ = true;
 		}
 
-		auto Feldkamp::create_volumes(int device) -> void
+		auto Feldkamp::create_volume(int device) -> void
 		{
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating volumes on device #" << device;
 			CHECK(cudaSetDevice(device));
 
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			auto vol_dev_size = vol_geo_.dim_z / static_cast<std::size_t>(devices_);
+			auto subvol_dev_size = vol_dev_size / scheduler.get_volume_num(device);
 
-			auto vol_on_device = scheduler_.get_volume_num(device);
-			for(auto i = 0u; i < vol_on_device; ++i)
-			{
-				auto subvol_dev_size = vol_dev_size / vol_on_device;
-				auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, subvol_dev_size);
-				BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << subvol_dev_size << " volume on device #" << device;
-				ddrf::cuda::memset(ptr, 0);
-
-				volume_map_[device].emplace_back(ptr.width(), ptr.height(), ptr.depth(), std::move(ptr));
-			}
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << subvol_dev_size << " volume on device #" << device;
+			auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, subvol_dev_size);
+			ddrf::cuda::memset(ptr, 0);
+			volume_map_.emplace(std::make_pair(device, volume_type{ptr.width(), ptr.height(), ptr.depth(), std::move(ptr)}));
 		}
 
-		auto Feldkamp::merge_volumes() -> void
+		auto Feldkamp::download_and_reset_volume(int device, std::uint32_t vol_num) -> void
 		{
-			// FIXME: The following code is absolutely hideous. Replace ASAP.
-			BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Merging volumes";
-			auto output = output_type{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z};
-			for(auto i = 0; i < devices_; ++i)
-			{
-				CHECK(cudaSetDevice(i));
-				auto vol_dev_size = output.depth() / static_cast<std::size_t>(devices_);
-				auto offset = static_cast<std::size_t>(i) * vol_dev_size;
-				auto vol_on_device = scheduler_.get_volume_num(i);
-				auto subvol_counter = 0u;
-				for(auto& v : volume_map_[i])
-				{
-					auto subvol_dev_size = vol_dev_size / vol_on_device;
-					auto first_row = offset + subvol_counter * subvol_dev_size;
-					auto output_start = output.data() + first_row * output.width() * output.height();
-					BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Copying subvolume #" << subvol_counter << " from device #" << i << " to row " << first_row;
+			BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Downloading subvolume #" << vol_num << " from device #" << device;
+			CHECK(cudaSetDevice(device));
 
-					auto parms = cudaMemcpy3DParms{0};
-					auto uchar_width = output.width() * sizeof(float)/sizeof(unsigned char);
-					auto height = output.height();
-					parms.srcPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(v.data()), v.pitch(), uchar_width, height);
-					parms.dstPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(output_start), output.pitch(), uchar_width, height);
-					parms.extent = make_cudaExtent(uchar_width, height, v.depth());
-					parms.kind = cudaMemcpyDeviceToHost;
-					CHECK(cudaMemcpy3D(&parms));
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+			auto& v = volume_map_.at(device);
+			auto offset = scheduler.get_volume_offset(device, vol_num);
 
-					++subvol_counter;
-				}
-			}
-			results_.push(std::move(output));
+			auto output_start_ptr = output_.data() + offset * output_.width() * output_.height();
+
+			auto parms = cudaMemcpy3DParms{0};
+			auto uchar_width = output_.width() * sizeof(float) / sizeof(unsigned char);
+			auto height = output_.height();
+			parms.srcPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(v.data()), v.pitch(), uchar_width, height);
+			parms.dstPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(output_start_ptr), output_.pitch(), uchar_width, height);
+			parms.extent = make_cudaExtent(uchar_width, height, v.depth());
+			parms.kind = cudaMemcpyDeviceToHost;
+			CHECK(cudaMemcpy3D(&parms));
+
+			ddrf::cuda::memset(v.container(), 0);
 		}
 	}
 }

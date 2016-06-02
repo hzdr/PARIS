@@ -1,5 +1,8 @@
 #include <cstddef>
+#include <future>
+#include <ios>
 #include <iterator>
+#include <stdexcept>
 #include <utility>
 
 #include <boost/log/trivial.hpp>
@@ -17,8 +20,7 @@ namespace ddafa
 	namespace cuda
 	{
 		Preloader::Preloader(const common::Geometry& geo)
-		: scheduler_{FeldkampScheduler::instance(geo, volume_type::single_float)}
-		, processor_thread_{&Preloader::processor, this}
+		: geo_(geo), processor_thread_{&Preloader::processor, this}
 		{
 			CHECK(cudaGetDeviceCount(&devices_));
 		}
@@ -40,6 +42,7 @@ namespace ddafa
 				auto img = imgs_.take();
 				if(!img.valid())
 				{
+					distribute_rest();
 					finish();
 					break;
 				}
@@ -50,12 +53,13 @@ namespace ddafa
 
 		auto Preloader::split(input_type img) -> void
 		{
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
 			for(auto d = 0; d < devices_; ++d)
 			{
-				auto subproj_num = scheduler_.get_subproj_num(d);
+				auto subproj_num = scheduler.get_subproj_num(d);
 				for(auto i = 0u; i < subproj_num; ++i)
 				{
-					auto subproj_dims = scheduler_.get_subproj_dims(d, i);
+					auto subproj_dims = scheduler.get_subproj_dims(d, i);
 					auto firstRow = subproj_dims.first;
 					auto lastRow = subproj_dims.second;
 					auto rows = lastRow - firstRow + 1;
@@ -75,7 +79,6 @@ namespace ddafa
 					};
 
 					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
-					// remaining_[d][i].emplace_back(extract(img, 0, img.height())); // TRY THIS
 				}
 			}
 		}
@@ -89,16 +92,48 @@ namespace ddafa
 				 * take the first associated input image out of the queue and pass it to
 				 * the upload thread. Then, pop the (now empty) first entry in the queue.
 				 */
-				auto& queue = std::begin(remaining_[d])->second;
-				if(queue.empty())
+				try
+				{
+					auto& queue = std::begin(remaining_.at(d))->second;
+					if(queue.empty())
+						continue;
+					distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(queue.front()));
+					queue.pop_front();
+				}
+				catch(const std::out_of_range&)
+				{
 					continue;
-				distribution_threads.emplace_back(&Preloader::uploadAndSend, this, d, std::move(queue.front()));
-				queue.pop_front();
+				}
 			}
 
 
 			for(auto&& t : distribution_threads)
 				t.join();
+		}
+
+		auto Preloader::distribute_rest() -> void
+		{
+			BOOST_LOG_TRIVIAL(debug) << "cuda::Preloader: Uploading remaining subprojections.";
+
+			auto futures = std::vector<std::future<void>>{};
+
+			for(auto d = 0; d < devices_; ++d)
+			{
+				auto& map = remaining_.at(d);
+				if(map.empty())
+					continue;
+				futures.emplace_back(std::async(std::launch::async, [&map, d, this]()
+						{
+							for(auto& p : map)
+							{
+								for(auto& img : p.second)
+										uploadAndSend(d, std::move(img));
+							}
+						}));
+			}
+
+			for(auto& f : futures)
+				f.wait();
 		}
 
 		auto Preloader::uploadAndSend(int device, input_type img) -> void
@@ -121,7 +156,8 @@ namespace ddafa
 
 				return ret;
 			};
-
+			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+			scheduler.acquire_projection(device);
 			results_.push(upload(img));
 		}
 
