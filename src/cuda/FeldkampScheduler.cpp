@@ -150,22 +150,22 @@ namespace ddafa
 		auto FeldkampScheduler::calculate_volume_geo(const common::Geometry& geo) -> void
 		{
 			// calculate volume dimensions -- x and y
-			auto N_h = geo.det_pixels_row;
+			auto N_h = static_cast<float>(geo.det_pixels_row);
 			auto d_h = geo.det_pixel_size_horiz;
 			auto delta_h = geo.det_offset_horiz * d_h; // the offset is measured in pixels!
-			auto alpha = std::atan((((static_cast<float>(N_h) * d_h) / 2.f) + std::abs(delta_h)) / dist_sd_);
+			auto alpha = std::atan((((N_h * d_h) / 2.f) + std::abs(delta_h)) / dist_sd_);
 			auto r = std::abs(geo.dist_src) * std::sin(alpha);
-			vol_geo_.voxel_size_x = r / ((((static_cast<float>(N_h) * d_h) / 2.f) + std::abs(delta_h)) / d_h);
+			vol_geo_.voxel_size_x = r / ((((N_h * d_h) / 2.f) + std::abs(delta_h)) / d_h);
 			vol_geo_.voxel_size_y = vol_geo_.voxel_size_x;
 			vol_geo_.dim_x = static_cast<std::size_t>((2.f * r) / vol_geo_.voxel_size_x);
 			vol_geo_.dim_y = vol_geo_.dim_x;
 
 			// calculate volume dimensions -- z
 			vol_geo_.voxel_size_z = vol_geo_.voxel_size_x;
-			auto N_v = geo.det_pixels_column;
+			auto N_v = static_cast<float>(geo.det_pixels_column);
 			auto d_v = geo.det_pixel_size_vert;
 			auto delta_v = geo.det_offset_vert * d_v;
-			vol_geo_.dim_z = static_cast<std::size_t>(((static_cast<float>(N_v) * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
+			vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(geo.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
 
 			BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.dim_x << " x " << vol_geo_.dim_y << " x " << vol_geo_.dim_z << " vx";
 			BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.voxel_size_x << " x " << vol_geo_.voxel_size_y << " x " << vol_geo_.voxel_size_z << " mm³";
@@ -345,14 +345,15 @@ namespace ddafa
 		{
 			for(auto i = 0; i < devices_; ++i)
 			{
+				auto idx = static_cast<std::size_t>(i);
 				if(volumes_per_device_.count(i) == 0)
 					continue;
 
 				auto vol_offset = (vol_geo_.dim_z / volume_count_);
-				auto vol_count_dev = volumes_per_device_[i];
+				auto vol_count_dev = volumes_per_device_[idx];
 
 				for(auto c = 0u; c < vol_count_dev; ++c)
-					offset_per_volume_[static_cast<std::size_t>(i)][c] = static_cast<std::size_t>(i) * vol_count_dev * vol_offset + c * vol_offset;
+					offset_per_volume_[idx][c] = idx * vol_count_dev * vol_offset + c * vol_offset;
 			}
 		}
 
@@ -360,21 +361,26 @@ namespace ddafa
 		{
 			auto delta_v = geo.det_offset_vert * geo.det_pixel_size_vert;
 			auto d_v = geo.det_pixel_size_vert;
-			auto N_v = geo.det_pixels_column;
-			auto N = volume_count_;
+			auto N_v = static_cast<float>(geo.det_pixels_column);
+			auto N = static_cast<float>(volume_count_);
 			auto d_src = geo.dist_src;
-			auto r_max = (static_cast<float>(vol_geo_.dim_x) * vol_geo_.voxel_size_x) / 2.f;
+
+			auto N_x = static_cast<float>(vol_geo_.dim_x);
+			auto d_x = vol_geo_.voxel_size_x;
+			auto N_y = static_cast<float>(vol_geo_.dim_y);
+			auto d_y = vol_geo_.voxel_size_y;
+			auto r_max = std::sqrt(std::pow(N_x, 2.f) * std::pow(d_x, 2.f) + std::pow(N_y, 2.f) * std::pow(d_y, 2.f)) / 2.f;
 
 			for(auto n = 0u; n < volume_count_; ++n)
 			{
-				auto top = -(volume_height_ / 2.f) + (static_cast<float>(n) / static_cast<float>(N)) * volume_height_;
-				auto bottom = -(volume_height_ / 2.f) + (static_cast<float>(n + 1) / static_cast<float>(N)) * volume_height_;
+				auto top = -(volume_height_ / 2.f) + (static_cast<float>(n) / N) * volume_height_;
+				auto bottom = -(volume_height_ / 2.f) + (static_cast<float>(n + 1) / N) * volume_height_;
 
 				auto top_proj_virt = top * (dist_sd_) / (std::abs(d_src) + (top < 0.f ? -r_max : r_max));
 				auto bottom_proj_virt = bottom * (dist_sd_) / (std::abs(d_src) + (bottom < 0.f ? r_max : -r_max));
 
-				auto top_proj_real = 0.f - ((static_cast<float>(N_v) * d_v) / 2.f) - delta_v + (d_v / 2.f);
-				auto bottom_proj_real = top_proj_real + static_cast<float>(N_v) * d_v - d_v;
+				auto top_proj_real = 0.f - ((N_v * d_v) / 2.f) - delta_v + (d_v / 2.f);
+				auto bottom_proj_real = top_proj_real + (N_v * d_v) - d_v;
 
 				auto top_proj = float{};
 				if(top_proj_virt > bottom_proj_real)
@@ -392,13 +398,13 @@ namespace ddafa
 				else
 					bottom_proj = bottom_proj_virt;
 
-				auto start_row = std::floor((((top_proj) + ((static_cast<float>(N_v) * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
-				auto bottom_row = std::ceil((((bottom_proj) + ((static_cast<float>(N_v) * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
+				auto start_row = std::floor((((top_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
+				auto bottom_row = std::ceil((((bottom_proj) + ((N_v * d_v) / 2.f) + delta_v) / d_v) - (1.f / 2.f));
 
 				if(start_row < 0.f)
 					start_row = 0.f;
 				if(bottom_row >= N_v)
-					bottom_row = static_cast<float>(N_v) - 1.f;
+					bottom_row = N_v - 1.f;
 
 				subproj_dims_.emplace_back(std::make_pair(static_cast<std::uint32_t>(start_row), static_cast<std::uint32_t>(bottom_row)));
 
