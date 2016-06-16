@@ -174,6 +174,12 @@ namespace ddafa
 
 		Feldkamp::~Feldkamp()
 		{
+			for(auto& p : volume_map_)
+			{
+				auto& v = p.second;
+				cudaSetDevice(p.first);
+				v.reset();
+			}
 			// this is the last stage in the pipeline, time to clean up CUDA
 			cudaDeviceReset();
 		}

@@ -19,7 +19,7 @@ namespace ddafa
 {
 	namespace cuda
 	{
-		__global__ void weight(float* img,
+		__global__ void weight(float* output, const float* input,
 								std::size_t width, std::size_t height, std::size_t pitch,
 								float h_min, float v_min, float d_dist,
 								float pixel_size_horiz, float pixel_size_vert)
@@ -29,7 +29,7 @@ namespace ddafa
 
 			if((j < width) && (i < height))
 			{
-				auto* row = reinterpret_cast<float*>(reinterpret_cast<char*>(img) + i * pitch);
+				auto* row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + i * pitch);
 
 				// detector coordinates
 				auto h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
@@ -39,7 +39,7 @@ namespace ddafa
 				auto w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
 				// apply
-				row[j] = row[j] * w_ij;
+				output[j] = row[j] * w_ij;
 			}
 			__syncthreads();
 		}
@@ -91,8 +91,8 @@ namespace ddafa
 
 				ddrf::cuda::launch(img.width(), img.height(),
 						weight,
-						img.data(), img.width(), img.height(), img.pitch(), h_min_, v_min_, d_dist_,
-						geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+						img.data(), static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
+						h_min_, v_min_, d_dist_, geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 
 				CHECK(cudaStreamSynchronize(0));
 				results_.push(std::move(img));

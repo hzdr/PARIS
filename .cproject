@@ -35,6 +35,8 @@
 								<option id="nvcc.compiler.optionsfile.1680958795" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" useByScannerDiscovery="false" value="../nvcc.args" valueType="string"/>
 								<option id="nvcc.compiler.compileroptions.22434737" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" useByScannerDiscovery="false" valueType="stringList">
 									<listOptionValue builtIn="false" value="-g"/>
+									<listOptionValue builtIn="false" value="-fno-omit-frame-pointer"/>
+									<listOptionValue builtIn="false" value="-ggdb"/>
 									<listOptionValue builtIn="false" value="-Wall"/>
 									<listOptionValue builtIn="false" value="-Wextra"/>
 									<listOptionValue builtIn="false" value="-Wno-missing-field-initializers"/>
