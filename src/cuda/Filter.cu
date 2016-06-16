@@ -59,7 +59,6 @@ namespace ddafa
 
 				}
 			}
-			__syncthreads();
 		}
 
 		__global__ void convertProjection(float* __restrict__ output, const float* __restrict__ input,
@@ -79,7 +78,6 @@ namespace ddafa
 				else
 					output_row[x] = 0.0f;
 			}
-			__syncthreads();
 		}
 
 		__global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
@@ -94,7 +92,6 @@ namespace ddafa
 				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
 				output_row[x] = input_row[x] / filter_length;
 			}
-			__syncthreads();
 		}
 
 		__global__ void createK(cufftComplex* __restrict__ data, std::size_t filter_length, float tau)
@@ -106,7 +103,6 @@ namespace ddafa
 				data[x].x = result;
 				data[x].y = result;
 			}
-			__syncthreads();
 		}
 
 		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
@@ -128,7 +124,6 @@ namespace ddafa
 				row[x].x = a1 * k1;
 				row[x].y = b1 * k2;
 			}
-			__syncthreads();
 		}
 
 		Filter::Filter(const common::Geometry& geo)

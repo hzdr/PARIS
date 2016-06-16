@@ -41,7 +41,6 @@ namespace ddafa
 				// apply
 				output[j] = row[j] * w_ij;
 			}
-			__syncthreads();
 		}
 
 		Weighting::Weighting(const common::Geometry& geo)
