@@ -29,7 +29,8 @@ namespace ddafa
 
 			if((j < width) && (i < height))
 			{
-				auto* row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + i * pitch);
+				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + i * pitch);
+				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + i * pitch);
 
 				// detector coordinates
 				auto h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
@@ -39,7 +40,7 @@ namespace ddafa
 				auto w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
 				// apply
-				output[j] = row[j] * w_ij;
+				output_row[j] = input_row[j] * w_ij;
 			}
 		}
 

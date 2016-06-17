@@ -223,7 +223,7 @@ namespace ddafa
 					type_bytes_ = sizeof(double);
 					break;
 
-				// CUDA currently doesn't support long double and shortens the type to double
+				// CUDA currently (v7.5) doesn't support long double and shortens the type to double
 				case volume_type::long_double_float:
 					type_bytes_ = sizeof(double);
 					break;
@@ -317,7 +317,7 @@ namespace ddafa
 							ddrf::cuda::make_device_ptr<double>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
 							break;
 
-						// CUDA currently doesn't support long double and shortens the type to double
+						// CUDA currently (v7.5) doesn't support long double and shortens the type to double
 						case volume_type::long_double_float:
 							ddrf::cuda::make_device_ptr<double>(vol_geo_.dim_x, vol_geo_.dim_y, ((vol_geo_.dim_z / devices_) / vol_count_dev));
 							break;
