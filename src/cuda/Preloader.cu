@@ -46,42 +46,64 @@ namespace ddafa
 					finish();
 					break;
 				}
-				split(std::move(img));
+				auto ex_img = expand(std::move(img));
+				split(std::move(ex_img));
 				distribute_first();
 			}
 		}
 
-		auto Preloader::split(input_type img) -> void
-		{
-			auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
-			for(auto d = 0; d < devices_; ++d)
-			{
-				auto subproj_num = scheduler.get_subproj_num(d);
-				for(auto i = 0u; i < subproj_num; ++i)
-				{
-					auto subproj_dims = scheduler.get_subproj_dims(d, i);
-					auto firstRow = subproj_dims.first;
-					auto lastRow = subproj_dims.second;
-					auto rows = lastRow - firstRow + 1;
+        auto Preloader::expand(input_type img) -> input_type
+        {
+            auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+            auto add_top = scheduler.get_additional_proj_lines_top();
+            auto add_bot = scheduler.get_additional_proj_lines_bot();
 
-					auto extract = [this](const input_type& src, std::uint32_t first, std::uint32_t height)
-					{
-						auto width = src.width();
-						auto dest = ddrf::cuda::make_host_ptr<float>(width, height);
+            auto width = img.width();
+            auto old_height = img.height();
+            auto new_height = old_height + add_top + add_bot;
+            auto offset = add_top * width;
 
-						// explicit call to cudaMemcpy2D as we are only copying parts of the input data
-						CHECK(cudaMemcpy2D(dest.get(), dest.pitch(),
-									src.data() + first * width, src.pitch(),
-									width * sizeof(float), height, cudaMemcpyHostToHost));
+            auto ptr = ddrf::cuda::make_host_ptr<float>(width, new_height);
+            ddrf::cuda::memset(ptr, 0.f);
+            CHECK(cudaMemcpy2D(ptr.get() + offset, ptr.pitch(), img.data(), img.pitch(),
+                    width * sizeof(float), old_height, cudaMemcpyHostToHost));
 
-						auto ret = input_type{width, height, src.index(), std::move(dest)};
-						return ret;
-					};
+            return input_type{width, new_height, img.index(), std::move(ptr)};
+        }
 
-					remaining_[d][i].emplace_back(extract(img, firstRow, rows));
-				}
-			}
-		}
+        auto Preloader::split(input_type img) -> void
+        {
+            auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+            for(auto d = 0; d < devices_; ++d)
+            {
+                auto subproj_num = scheduler.get_subproj_num(d);
+                for(auto i = 0u; i < subproj_num; ++i)
+                {
+                    auto subproj_dims = scheduler.get_subproj_dims(d, i);
+                    auto firstRow = subproj_dims.first;
+                    auto lastRow = subproj_dims.second;
+                    auto rows = lastRow - firstRow + 1;
+
+                    auto extract = [this](const input_type& src, std::uint32_t first, std::uint32_t rows)
+                    {
+                        auto width = src.width();
+
+                        auto dest = ddrf::cuda::make_host_ptr<float>(width, rows);
+
+                        // explicit call to cudaMemcpy2D as we are only copying parts of the input data
+                        CHECK(cudaMemcpy2D(dest.get(), dest.pitch(),
+                                    src.data() + first * width, src.pitch(),
+                                    width * sizeof(float), rows, cudaMemcpyHostToHost));
+
+                        auto ret = input_type{width, rows, src.index(), std::move(dest)};
+                        return ret;
+                    };
+
+
+                    remaining_[d][i].emplace_back(extract(img, firstRow, rows));
+                }
+            }
+        }
 
 		auto Preloader::distribute_first() -> void
 		{

@@ -26,126 +26,129 @@
 
 #include "../common/Geometry.h"
 
+#include "FeldkampScheduler.h"
 #include "Filter.h"
 
 namespace ddafa
 {
-	namespace cuda
-	{
-		__global__ void createFilter(float* __restrict__ r, const std::int32_t* __restrict__ j,
-				std::size_t size, float tau)
-		{
-			auto x = ddrf::cuda::getX();
+    namespace cuda
+    {
+        __global__ void createFilter(float* __restrict__ r, const std::int32_t* __restrict__ j,
+                std::size_t size, float tau)
+        {
+            auto x = ddrf::cuda::getX();
 
-			/*
-			 * r(j) with j = [ -(filter_length - 2)/2, ..., 0, ..., filter_length/2 ]
-			 * tau = horizontal pixel distance
-			 *
-			 * 			1/8 * 1/tau^2						j = 0
-			 * r(j) = {	0									j even
-			 * 			-(1 / (2 * j^2 * pi^2 * tau^2))		j odd
-			 *
-			 */
-			if(x < size)
-			{
-				if(j[x] == 0) // is j = 0?
-					r[x] = (1.f / 8.f) * (1.f / powf(tau, 2)); // j = 0
-				else // j != 0
-				{
-					if(j[x] % 2 == 0) // is j even?
-						r[x] = 0.f; // j is even
-					else // j is odd
-						r[x] = (-1.f / (2.f * powf(j[x], 2) * powf(M_PI, 2) * powf(tau, 2)));
+            /*
+             * r(j) with j = [ -(filter_length - 2)/2, ..., 0, ..., filter_length/2 ]
+             * tau = horizontal pixel distance
+             *
+             * 			1/8 * 1/tau^2						j = 0
+             * r(j) = {	0									j even
+             * 			-(1 / (2 * j^2 * pi^2 * tau^2))		j odd
+             *
+             */
+            if(x < size)
+            {
+                if(j[x] == 0) // is j = 0?
+                    r[x] = (1.f / 8.f) * (1.f / powf(tau, 2)); // j = 0
+                else // j != 0
+                {
+                    if(j[x] % 2 == 0) // is j even?
+                        r[x] = 0.f; // j is even
+                    else // j is odd
+                        r[x] = (-1.f / (2.f * powf(j[x], 2) * powf(M_PI, 2) * powf(tau, 2)));
 
-				}
-			}
-		}
+                }
+            }
+        }
 
-		__global__ void convertProjection(float* __restrict__ output, const float* __restrict__ input,
-				std::size_t width, std::size_t height, std::size_t input_pitch, std::size_t output_pitch,
-				std::size_t filter_length)
-		{
-			auto x = ddrf::cuda::getX();
-			auto y = ddrf::cuda::getY();
+        __global__ void convertProjection(float* __restrict__ output, const float* __restrict__ input,
+                std::size_t width, std::size_t height, std::size_t input_pitch, std::size_t output_pitch,
+                std::size_t filter_length)
+        {
+            auto x = ddrf::cuda::getX();
+            auto y = ddrf::cuda::getY();
 
-			if((x < filter_length) && (y < height))
-			{
-				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
-				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+            if((x < filter_length) && (y < height))
+            {
+                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+                auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
 
-				if(x < width)
-					output_row[x] = input_row[x];
-				else
-					output_row[x] = 0.0f;
-			}
-		}
+                if(x < width)
+                    output_row[x] = input_row[x];
+                else
+                    output_row[x] = 0.0f;
+            }
+        }
 
-		__global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
-				std::size_t width, std::size_t height, std::size_t output_pitch,
-				std::size_t input_pitch, std::size_t filter_length)
-		{
-			auto x = ddrf::cuda::getX();
-			auto y = ddrf::cuda::getY();
+        __global__ void convertFiltered(float* __restrict__ output, const float* __restrict__ input,
+                std::size_t width, std::size_t height, std::size_t output_pitch,
+                std::size_t input_pitch, std::size_t filter_length)
+        {
+            auto x = ddrf::cuda::getX();
+            auto y = ddrf::cuda::getY();
 
-			if((x < width) && (y < height)) {
-				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
-				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
-				output_row[x] = input_row[x] / filter_length;
-			}
-		}
+            if((x < width) && (y < height)) {
+                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + y * output_pitch);
+                auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + y * input_pitch);
+                output_row[x] = input_row[x] / filter_length;
+            }
+        }
 
-		__global__ void createK(cufftComplex* __restrict__ data, std::size_t filter_length, float tau)
-		{
-			auto x = ddrf::cuda::getX();
-			if(x < filter_length)
-			{
-				auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
-				data[x].x = result;
-				data[x].y = result;
-			}
-		}
+        __global__ void createK(cufftComplex* __restrict__ data, std::size_t filter_length, float tau)
+        {
+            auto x = ddrf::cuda::getX();
+            if(x < filter_length)
+            {
+                auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
+                data[x].x = result;
+                data[x].y = result;
+            }
+        }
 
-		__global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
-				std::size_t filter_length, std::size_t data_height, std::size_t pitch)
-		{
-			auto x = ddrf::cuda::getX();
-			auto y = ddrf::cuda::getY();
+        __global__ void applyFilter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
+                std::size_t filter_length, std::size_t data_height, std::size_t pitch)
+        {
+            auto x = ddrf::cuda::getX();
+            auto y = ddrf::cuda::getY();
 
-			if((x < filter_length) && (y < data_height))
-			{
-				auto row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
+            if((x < filter_length) && (y < data_height))
+            {
+                auto row = reinterpret_cast<cufftComplex*>(reinterpret_cast<char*>(data) + y * pitch);
 
-				auto a1 = 0.f, b1 = 0.f, k1 = 0.f, k2 = 0.f;
-				a1 = row[x].x;
-				b1 = row[x].y;
-				k1 = filter[x].x;
-				k2 = filter[x].y;
+                auto a1 = 0.f, b1 = 0.f, k1 = 0.f, k2 = 0.f;
+                a1 = row[x].x;
+                b1 = row[x].y;
+                k1 = filter[x].x;
+                k2 = filter[x].y;
 
-				row[x].x = a1 * k1;
-				row[x].y = b1 * k2;
-			}
-		}
+                row[x].x = a1 * k1;
+                row[x].y = b1 * k2;
+            }
+        }
 
-		Filter::Filter(const common::Geometry& geo)
-		: filter_length_{static_cast<decltype(filter_length_)>(
-				2 * std::pow(2, std::ceil(std::log2(float(geo.det_pixels_column))))
-				)}
-		, tau_{geo.det_pixel_size_horiz}
-		{
-			CHECK(cudaGetDeviceCount(&devices_));
+        Filter::Filter(const common::Geometry& geo)
+        {
+            auto& scheduler = FeldkampScheduler::instance(geo, cuda::volume_type::single_float);
+            auto new_geo = scheduler.get_updated_detector_geometry();
 
-			rs_.resize(static_cast<unsigned int>(devices_));
+            filter_length_ = static_cast<decltype(filter_length_)>(2 * std::pow(2, std::ceil(std::log2(float(new_geo.det_pixels_column)))));
+            tau_ = new_geo.det_pixel_size_horiz;
 
-			auto filter_creation_threads = std::vector<std::thread>{};
-			for(auto i = 0; i < devices_; ++i)
-			{
-				filter_creation_threads.emplace_back(&Filter::filterProcessor, this, i);
-				processor_threads_[i] = std::thread{&Filter::processor, this, i};
-			}
+            CHECK(cudaGetDeviceCount(&devices_));
 
-			for(auto&& t : filter_creation_threads)
-				t.join();
-		}
+            rs_.resize(static_cast<unsigned int>(devices_));
+
+            auto filter_creation_threads = std::vector<std::thread>{};
+            for(auto i = 0; i < devices_; ++i)
+            {
+                filter_creation_threads.emplace_back(&Filter::filterProcessor, this, i);
+                processor_threads_[i] = std::thread{&Filter::processor, this, i};
+            }
+
+            for(auto&& t : filter_creation_threads)
+                t.join();
+        }
 
 		auto Filter::process(input_type&& img) -> void
 		{

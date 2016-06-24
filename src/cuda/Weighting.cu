@@ -11,92 +11,96 @@
 #include <ddrf/cuda/Coordinates.h>
 #include <ddrf/cuda/Launch.h>
 
-#include "Weighting.h"
-
 #include "../common/Geometry.h"
+
+#include "FeldkampScheduler.h"
+#include "Weighting.h"
 
 namespace ddafa
 {
-	namespace cuda
-	{
-		__global__ void weight(float* output, const float* input,
-								std::size_t width, std::size_t height, std::size_t pitch,
-								float h_min, float v_min, float d_dist,
-								float pixel_size_horiz, float pixel_size_vert)
-		{
-			auto j = ddrf::cuda::getX(); // column index
-			auto i = ddrf::cuda::getY(); // row index
+    namespace cuda
+    {
+        __global__ void weight(float* output, const float* input,
+                                std::size_t width, std::size_t height, std::size_t pitch,
+                                float h_min, float v_min, float d_dist,
+                                float pixel_size_horiz, float pixel_size_vert)
+        {
+            auto j = ddrf::cuda::getX(); // column index
+            auto i = ddrf::cuda::getY(); // row index
 
-			if((j < width) && (i < height))
-			{
-				auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + i * pitch);
-				auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + i * pitch);
+            if((j < width) && (i < height))
+            {
+                auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + i * pitch);
+                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + i * pitch);
 
-				// detector coordinates
-				auto h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
-				auto v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
+                // detector coordinates
+                auto h_j = (pixel_size_horiz / 2) + j * pixel_size_horiz + h_min;
+                auto v_i = (pixel_size_vert / 2) + i * pixel_size_vert + v_min;
 
-				// calculate weight
-				auto w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
+                // calculate weight
+                auto w_ij = d_dist * rsqrtf(powf(d_dist, 2) + powf(h_j, 2) + powf(v_i, 2));
 
-				// apply
-				output_row[j] = input_row[j] * w_ij;
-			}
-		}
+                // apply
+                output_row[j] = input_row[j] * w_ij;
+            }
+        }
 
-		Weighting::Weighting(const common::Geometry& geo)
-		: geo_(geo)
-		, h_min_{-(geo.det_offset_horiz * geo.det_pixel_size_horiz) - ((static_cast<float>(geo.det_pixels_row) * geo.det_pixel_size_horiz) / 2)}
-		, v_min_{-(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2)}
-		, d_dist_{geo.dist_det + geo.dist_src}
-		{
-			CHECK(cudaGetDeviceCount(&devices_));
-			for(auto i = 0; i < devices_; ++i)
-				processor_threads_[i] = std::thread{&Weighting::processor, this, i};
-		}
+        Weighting::Weighting(const common::Geometry& geo)
+        {
+            auto& scheduler = FeldkampScheduler::instance(geo, cuda::volume_type::single_float);
+            geo_ = scheduler.get_updated_detector_geometry();
 
-		auto Weighting::process(input_type&& img) -> void
-		{
-			if(img.valid())
-				map_imgs_[img.device()].push(std::move(img));
-			else
-			{
-				BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: Received poisonous pill, finishing...";
-				for(auto i = 0; i < devices_; ++i)
-					map_imgs_[i].push(input_type());
+            h_min_ = -(geo.det_offset_horiz * geo.det_pixel_size_horiz) - ((static_cast<float>(geo.det_pixels_row) * geo.det_pixel_size_horiz) / 2);
+            v_min_ = -(geo.det_offset_vert * geo.det_pixel_size_vert) - ((static_cast<float>(geo.det_pixels_column) * geo.det_pixel_size_vert) / 2);
+            d_dist_ = geo.dist_det + geo.dist_src;
 
-				for(auto i = 0; i < devices_; ++i)
-					processor_threads_[i].join();
+            CHECK(cudaGetDeviceCount(&devices_));
+            for(auto i = 0; i < devices_; ++i)
+                processor_threads_[i] = std::thread{&Weighting::processor, this, i};
+        }
 
-				results_.push(output_type());
-				BOOST_LOG_TRIVIAL(info) << "cuda::Weighting: Done.";
-			}
-		}
+        auto Weighting::process(input_type&& img) -> void
+        {
+            if(img.valid())
+                map_imgs_[img.device()].push(std::move(img));
+            else
+            {
+                BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: Received poisonous pill, finishing...";
+                for(auto i = 0; i < devices_; ++i)
+                    map_imgs_[i].push(input_type());
 
-		auto Weighting::wait() -> output_type
-		{
-			return results_.take();
-		}
+                for(auto i = 0; i < devices_; ++i)
+                    processor_threads_[i].join();
 
-		auto Weighting::processor(int device) -> void
-		{
-			CHECK(cudaSetDevice(device));
-			while(true)
-			{
-				auto img = map_imgs_[device].take();
-				if(!img.valid())
-					break;
+                results_.push(output_type());
+                BOOST_LOG_TRIVIAL(info) << "cuda::Weighting: Done.";
+            }
+        }
 
-				BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing image #" << img.index() << " on device #" << device;
+        auto Weighting::wait() -> output_type
+        {
+            return results_.take();
+        }
 
-				ddrf::cuda::launch(img.width(), img.height(),
-						weight,
-						img.data(), static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
-						h_min_, v_min_, d_dist_, geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+        auto Weighting::processor(int device) -> void
+        {
+            CHECK(cudaSetDevice(device));
+            while(true)
+            {
+                auto img = map_imgs_[device].take();
+                if(!img.valid())
+                    break;
 
-				CHECK(cudaStreamSynchronize(0));
-				results_.push(std::move(img));
-			}
-		}
-	}
+                BOOST_LOG_TRIVIAL(debug) << "cuda::Weighting: processing image #" << img.index() << " on device #" << device;
+
+                ddrf::cuda::launch(img.width(), img.height(),
+                        weight,
+                        img.data(), static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(),
+                        h_min_, v_min_, d_dist_, geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
+
+                CHECK(cudaStreamSynchronize(0));
+                results_.push(std::move(img));
+            }
+        }
+    }
 }

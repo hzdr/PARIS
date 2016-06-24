@@ -34,6 +34,7 @@ namespace ddafa
 
 			private:
 				auto processor() -> void;
+				auto expand(input_type) -> input_type;
 				auto split(input_type) -> void;
 				auto distribute_first() -> void;
 				auto distribute_rest() -> void;
