@@ -40,6 +40,7 @@ namespace ddafa
                     std::size_t dim_x;
                     std::size_t dim_y;
                     std::size_t dim_z;
+                    std::size_t remainder;
 
                     float voxel_size_x;
                     float voxel_size_y;
@@ -55,9 +56,9 @@ namespace ddafa
                 auto get_subproj_dims(int device, std::size_t index) const noexcept -> std::pair<std::uint32_t, std::uint32_t>;
                 auto get_subproj_offset(int device, std::uint32_t index) const noexcept -> std::size_t;
                 auto get_volume_geometry() const noexcept -> VolumeGeometry;
-                auto get_additional_proj_lines_top() const noexcept -> std::size_t;
-                auto get_additional_proj_lines_bot() const noexcept -> std::size_t;
                 auto get_updated_detector_geometry() const noexcept -> common::Geometry;
+                auto get_additional_projection_lines_top() const noexcept -> std::size_t;
+                auto get_additional_projection_lines_bot() const noexcept -> std::size_t;
 
                 auto acquire_projection(int device) noexcept -> void;
                 auto release_projection(int device) noexcept -> void;
@@ -88,6 +89,7 @@ namespace ddafa
 
                 std::size_t proj_add_top_;
                 std::size_t proj_add_bot_;
+                std::size_t remaining_slices_;
 
                 float volume_height_;
                 std::size_t type_bytes_;

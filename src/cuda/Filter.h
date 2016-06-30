@@ -16,38 +16,38 @@
 
 namespace ddafa
 {
-	namespace cuda
-	{
-		class Filter
-		{
-			public:
-				using input_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
-				using output_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
+    namespace cuda
+    {
+        class Filter
+        {
+            public:
+                using input_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
+                using output_type = ddrf::Image<ddrf::cuda::DeviceMemoryManager<float>>;
 
-			public:
-				Filter(const ddafa::common::Geometry& geo);
-				auto process(input_type&& img) -> void;
-				auto wait() -> output_type;
+            public:
+                Filter(const ddafa::common::Geometry& geo);
+                auto process(input_type&& img) -> void;
+                auto wait() -> output_type;
 
-			protected:
-				~Filter() = default;
+            protected:
+                ~Filter() = default;
 
-			private:
-				auto filterProcessor(int) -> void;
-				auto processor(int) -> void;
+            private:
+                auto filterProcessor(int) -> void;
+                auto processor(int) -> void;
 
-			private:
-				std::map<int, ddrf::Queue<input_type>> map_imgs_;
-				ddrf::Queue<output_type> results_;
+            private:
+                std::map<int, ddrf::Queue<input_type>> map_imgs_;
+                ddrf::Queue<output_type> results_;
 
-				std::map<int, std::thread> processor_threads_;
+                std::map<int, std::thread> processor_threads_;
 
-				int devices_;
-				std::size_t filter_length_;
-				std::vector<ddrf::cuda::device_ptr<float, ddrf::cuda::sync_copy_policy>> rs_;
-				float tau_;
-		};
-	}
+                int devices_;
+                std::size_t filter_length_;
+                std::vector<ddrf::cuda::device_ptr<float, ddrf::cuda::sync_copy_policy>> rs_;
+                float tau_;
+        };
+    }
 }
 
 

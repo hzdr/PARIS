@@ -98,10 +98,10 @@ namespace ddafa
                 br = lower_row[h_j1_ui];
             }
 
-            auto val = 	w_h1	* w_v1	* tl +
-                        w_h1	* w_v0	* bl +
-                        w_h0	* w_v1	* tr +
-                        w_h0	* w_v0	* br;
+            auto val =  w_h1    * w_v1  * tl +
+                        w_h1    * w_v0  * bl +
+                        w_h0    * w_v1  * tr +
+                        w_h0    * w_v0  * br;
 
             return val;
         }
@@ -147,24 +147,15 @@ namespace ddafa
                 // backproject
                 auto u = -(dist_src / (s + dist_src));
                 row[k] += 0.5f * det * powf(u, 2.f);
-
-                /*if((m_off == 211) && (k == 512) && (l == 512))
-                {
-                    printf("u = %f\n", u);
-                    printf("det = %f\n", det);
-                    printf("val = %f\n", row[k]);
-                }*/
             }
         }
 
         Feldkamp::Feldkamp(const common::Geometry& geo, const std::string& angles)
-        : done_{false} , input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
-        , angle_tabs_created_{false}
+        : geo_(geo), done_{false} , input_num_{0u}, input_num_set_{false}, current_img_{0u}, current_angle_{0.f}
+        , angle_tabs_created_{false}, dist_sd_{geo_.dist_det + geo_.dist_src}
         {
-            auto& scheduler = FeldkampScheduler::instance(geo, cuda::volume_type::single_float);
-            geo_ = scheduler.get_updated_detector_geometry();
+            auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
             vol_geo_ = scheduler.get_volume_geometry();
-            dist_sd_ = geo_.dist_det + geo_.dist_src;
             output_ = output_type{vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z};
 
             if(!angles.empty())
@@ -337,6 +328,8 @@ namespace ddafa
             auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
             auto vol_dev_size = vol_geo_.dim_z / static_cast<std::size_t>(devices_);
             auto subvol_dev_size = vol_dev_size / scheduler.get_volume_num(device);
+            if(device == (devices_ - 1))
+                subvol_dev_size += vol_geo_.remainder; // the last subvolume includes the remaining slices
 
             BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Creating " << vol_geo_.dim_x << "x" << vol_geo_.dim_y << "x" << subvol_dev_size << " volume on device #" << device;
             auto ptr = ddrf::cuda::make_device_ptr<float>(vol_geo_.dim_x, vol_geo_.dim_y, subvol_dev_size);

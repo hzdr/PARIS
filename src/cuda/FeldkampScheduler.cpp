@@ -24,8 +24,7 @@ namespace ddafa
     namespace cuda
     {
         FeldkampScheduler::FeldkampScheduler(const common::Geometry& geo, volume_type vol_type)
-        : det_geo_(geo), vol_geo_{0}
-        , proj_add_top_{0} , proj_add_bot_{0}
+        : det_geo_(geo), vol_geo_{0}, proj_add_top_{0}, proj_add_bot_{0}, remaining_slices_{0}
         , volume_count_{0u}, dist_sd_{std::abs(det_geo_.dist_det) + std::abs(det_geo_.dist_src)}
         {
             CHECK(cudaGetDeviceCount(&devices_));
@@ -116,19 +115,19 @@ namespace ddafa
             return vol_geo_;
         }
 
-        auto FeldkampScheduler::get_additional_proj_lines_top() const noexcept -> std::size_t
+        auto FeldkampScheduler::get_updated_detector_geometry() const noexcept -> common::Geometry
+        {
+            return det_geo_;
+        }
+
+        auto FeldkampScheduler::get_additional_projection_lines_top() const noexcept -> std::size_t
         {
             return proj_add_top_;
         }
 
-        auto FeldkampScheduler::get_additional_proj_lines_bot() const noexcept -> std::size_t
+        auto FeldkampScheduler::get_additional_projection_lines_bot() const noexcept -> std::size_t
         {
             return proj_add_bot_;
-        }
-
-        auto FeldkampScheduler::get_updated_detector_geometry() const noexcept -> common::Geometry
-        {
-            return det_geo_;
         }
 
         auto FeldkampScheduler::acquire_projection(int device) noexcept -> void
@@ -197,50 +196,24 @@ namespace ddafa
             auto delta_h = det_geo_.det_offset_horiz * d_h; // the offset is measured in pixels!
             auto alpha = std::atan((((N_h * d_h) / 2.f) + std::abs(delta_h)) / dist_sd_);
             auto r = std::abs(det_geo_.dist_src) * std::sin(alpha);
+
             vol_geo_.voxel_size_x = r / ((((N_h * d_h) / 2.f) + std::abs(delta_h)) / d_h);
             vol_geo_.voxel_size_y = vol_geo_.voxel_size_x;
+
             vol_geo_.dim_x = static_cast<std::size_t>((2.f * r) / vol_geo_.voxel_size_x);
             vol_geo_.dim_y = vol_geo_.dim_x;
         }
 
-        /*
-         * This method expands the projection height according to the following algorithm:
-         *      1) Calculate the number of slices in the output volume
-         *      2) If slices mod 64 != 0, append an additional line to the bottom of the projection and recalculate the number of slices
-         *      3) If slices mod 64 != 0, put an additional line on the top of the projection and recalculate the number of slices
-         *      4) If slices mod 64 != 0, go to 2), else go to 5)
-         *      5) The volume is now divisible into 64 subvolumes which should be enough for any hardware that is CUDA enabled
-         */
         auto FeldkampScheduler::calculate_volume_slices_vx() -> void
         {
             vol_geo_.voxel_size_z = vol_geo_.voxel_size_x;
             auto N_v = static_cast<float>(det_geo_.det_pixels_column);
             auto d_v = det_geo_.det_pixel_size_vert;
             auto delta_v = det_geo_.det_offset_vert * d_v;
-
-            auto calc_dim_z = [&]() {
-                return static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(det_geo_.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
-            };
-
-
-            vol_geo_.dim_z = calc_dim_z();
-
-            auto add_to_bot = true;
-            while(vol_geo_.dim_z % 64 != 0)
-            {
-                ++N_v;
-                add_to_bot ? ++proj_add_bot_ : ++proj_add_top_;
-                add_to_bot = !add_to_bot;
-                vol_geo_.dim_z = calc_dim_z();
-            }
-            det_geo_.det_pixels_column = static_cast<std::uint32_t>(N_v);
-
-            BOOST_LOG_TRIVIAL(info) << "Requires additional projection lines: " << proj_add_top_ << " to the top and " << proj_add_bot_ << " to the bottom";
+            vol_geo_.dim_z = static_cast<std::size_t>(((N_v * d_v) / 2.f + std::abs(delta_v)) * (std::abs(det_geo_.dist_src) / dist_sd_) * (2.f / vol_geo_.voxel_size_z));
 
             BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.dim_x << " x " << vol_geo_.dim_y << " x " << vol_geo_.dim_z << " vx";
                         BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.voxel_size_x << " x " << vol_geo_.voxel_size_y << " x " << vol_geo_.voxel_size_z << " mm³";
-
-            BOOST_LOG_TRIVIAL(info) << "Working projection dimensions: " << det_geo_.det_pixels_row << " x " << det_geo_.det_pixels_column << " px²";
         }
 
         auto FeldkampScheduler::calculate_volume_height_mm() -> void
@@ -308,7 +281,7 @@ namespace ddafa
 
         auto FeldkampScheduler::calculate_volumes_per_device(volume_type vol_type) -> void
         {
-            // split volume up if it doesn't fit into device memory
+            /*// split volume up if it doesn't fit into device memory
             volume_bytes_ /= static_cast<unsigned int>(devices_);
             projection_bytes_ /= static_cast<unsigned int>(devices_);
             for(auto i = 0; i < devices_; ++i)
@@ -409,7 +382,11 @@ namespace ddafa
                 BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << required_mem
                     << " bytes on device #" << i;
                 volumes_per_device_.emplace(std::make_pair(i, vol_count_dev));
-            }
+            }*/
+
+            volume_count_ = 8;
+            volumes_per_device_.emplace(std::make_pair(0, 4));
+            volumes_per_device_.emplace(std::make_pair(1, 4));
         }
 
         auto FeldkampScheduler::calculate_subvolume_offsets() -> void
@@ -420,14 +397,11 @@ namespace ddafa
                     continue;
 
                 auto vol_offset = vol_geo_.dim_z / volume_count_;
+                vol_geo_.remainder = vol_geo_.dim_z % volume_count_;
                 auto vol_count_dev = volumes_per_device_[i];
 
                 for(auto c = 0u; c < vol_count_dev; ++c)
-                {
                     offset_per_volume_[i][c] = static_cast<std::size_t>(i) * vol_count_dev * vol_offset + c * vol_offset;
-                    BOOST_LOG_TRIVIAL(info) << "Subvolume #" << c << " on device #" << i << " has an offset of " << offset_per_volume_[i][c] << "px";
-                }
-
             }
         }
 
