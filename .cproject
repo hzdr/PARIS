@@ -216,7 +216,6 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
-					<sass major="2" minor="1"/>
 				</executable>
 				<editor-arch major="3" minor="5"/>
 			</storageModule>
