@@ -281,7 +281,7 @@ namespace ddafa
 
         auto FeldkampScheduler::calculate_volumes_per_device(volume_type vol_type) -> void
         {
-            /*// split volume up if it doesn't fit into device memory
+            // split volume up if it doesn't fit into device memory
             volume_bytes_ /= static_cast<unsigned int>(devices_);
             projection_bytes_ /= static_cast<unsigned int>(devices_);
             for(auto i = 0; i < devices_; ++i)
@@ -382,11 +382,7 @@ namespace ddafa
                 BOOST_LOG_TRIVIAL(info) << "Requires " << vol_count_dev << " " << chunk_str << " with " << required_mem
                     << " bytes on device #" << i;
                 volumes_per_device_.emplace(std::make_pair(i, vol_count_dev));
-            }*/
-
-            volume_count_ = 8;
-            volumes_per_device_.emplace(std::make_pair(0, 4));
-            volumes_per_device_.emplace(std::make_pair(1, 4));
+            }
         }
 
         auto FeldkampScheduler::calculate_subvolume_offsets() -> void
@@ -425,6 +421,11 @@ namespace ddafa
 
                 auto top = -(volume_height_ / 2.f) + (n_f / N) * volume_height_;
                 auto bottom = -(volume_height_ / 2.f) + ((n_f + 1.f) / N) * volume_height_;
+
+                auto sub = (static_cast<float>(vol_geo_.remainder) / N) * vol_geo_.voxel_size_z * n;
+                top -= sub;
+                if(n != (volume_count_ - 1))
+                    bottom -= sub;
 
                 auto top_proj_virt = top * (dist_sd_) / (std::abs(d_src) + (top < 0.f ? -r_max : r_max));
                 auto bottom_proj_virt = bottom * (dist_sd_) / (std::abs(d_src) + (bottom < 0.f ? r_max : -r_max));

@@ -251,6 +251,7 @@ namespace ddafa
             auto proj_count = 0u;
             auto vol_count = 0u;
 
+            auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
             while(true)
             {
                 auto img = map_imgs_[device].take();
@@ -279,7 +280,6 @@ namespace ddafa
                 auto& v = volume_map_[device];
 
                 // the geometry offsets are measured in pixels
-                auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
                 auto vol_offset = scheduler.get_volume_offset(device, vol_count);
                 auto proj_offset = scheduler.get_subproj_offset(device, vol_count);
                 auto offset_horiz = geo_.det_offset_horiz * geo_.det_pixel_size_horiz;
@@ -348,12 +348,19 @@ namespace ddafa
 
             auto output_start_ptr = output_.data() + offset * output_.width() * output_.height();
 
+            auto volumes = scheduler.get_volume_num(device);
+            auto depth = typename volume_type::size_type{};
+            if((device == (devices_ - 1)) && (vol_num != (volumes - 1)))
+                depth = v.depth() - vol_geo_.remainder;
+            else
+                depth = v.depth();
+
             auto parms = cudaMemcpy3DParms{0};
             auto uchar_width = output_.width() * sizeof(float) / sizeof(unsigned char);
             auto height = output_.height();
             parms.srcPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(v.data()), v.pitch(), uchar_width, height);
             parms.dstPtr = make_cudaPitchedPtr(reinterpret_cast<unsigned char*>(output_start_ptr), output_.pitch(), uchar_width, height);
-            parms.extent = make_cudaExtent(uchar_width, height, v.depth());
+            parms.extent = make_cudaExtent(uchar_width, height, depth);
             parms.kind = cudaMemcpyDeviceToHost;
             CHECK(cudaMemcpy3D(&parms));
 
