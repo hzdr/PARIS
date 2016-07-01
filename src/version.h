@@ -5,6 +5,7 @@
 
 namespace ddafa
 {
+    extern std::string version;
     extern std::string git_build_time;
     extern std::string git_build_sha;
 }
