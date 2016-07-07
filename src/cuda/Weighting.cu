@@ -115,7 +115,6 @@ namespace ddafa
                         img.data(), static_cast<const float*>(img.data()), img.width(), img.height(), img.pitch(), offset,
                         h_min_, v_min_, d_dist_, geo_.det_pixel_size_horiz, geo_.det_pixel_size_vert);
 
-                CHECK(cudaStreamSynchronize(0));
                 results_.push(std::move(img));
             }
         }
