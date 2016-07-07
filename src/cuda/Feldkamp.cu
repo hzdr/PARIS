@@ -252,6 +252,7 @@ namespace ddafa
             auto vol_count = 0u;
 
             auto& scheduler = FeldkampScheduler::instance(geo_, cuda::volume_type::single_float);
+            auto vol_total = scheduler.get_volume_num(device);
             while(true)
             {
                 auto img = map_imgs_[device].take();
@@ -275,7 +276,8 @@ namespace ddafa
                 BOOST_LOG_TRIVIAL(debug) << "cuda::Feldkamp: Processing image #" << img.index() << " on device #" << device;
 
                 if(img.index() % 10 == 0)
-                    BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing subprojection #" << img.index() << " of subvolume #" << vol_count;
+                    BOOST_LOG_TRIVIAL(info) << "cuda::Feldkamp: Device #" << device << " is processing projection #" << img.index()
+                                            << " of subvolume #" << vol_count << " (" << vol_total << " on this device)";
 
                 auto& v = volume_map_[device];
 
