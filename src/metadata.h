@@ -21,8 +21,14 @@ namespace ddafa
         std::size_t width;
         std::size_t height;
         std::size_t depth;
+        std::size_t remainder;
+        std::size_t offset;
         bool valid = false;
         int device;
+
+        float vx_size_x;
+        float vx_size_y;
+        float vx_size_z;
     };
 }
 

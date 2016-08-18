@@ -121,13 +121,14 @@ auto main(int argc, char** argv) -> int
         auto weighting = pipeline.create<ddafa::weighting_stage>(geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.create<ddafa::filter_stage>(geo.n_row, geo.n_col, geo.l_px_row);
 
+        pipeline.connect(source, preloader);
+        pipeline.connect(preloader, weighting);
+        pipeline.connect(weighting, filter);
+
         /*
         auto reconstruction = pipeline.create<reconstruction_stage>(geo, angle_path);
         auto sink = pipeline.create<sink_stage>(output_path, prefix);
 
-        pipeline.connect(source, preloader);
-        pipeline.connect(preloader, weighting);
-        pipeline.connect(weighting, filter);
         pipeline.connect(filter, reconstruction);
         pipeline.connect(reconstruction, sink);
 
