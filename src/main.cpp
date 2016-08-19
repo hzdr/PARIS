@@ -43,6 +43,8 @@
 #include "geometry.h"
 #include "geometry_calculator.h"
 #include "preloader_stage.h"
+#include "reconstruction_stage.h"
+#include "sink_stage.h"
 #include "source_stage.h"
 #include "version.h"
 #include "weighting_stage.h"
@@ -137,6 +139,7 @@ auto main(int argc, char** argv) -> int
 
     try
     {
+        auto predef_phi = angle_path.empty();
         auto geo_calc = ddafa::geometry_calculator{geo};
 
         // set up pipeline
@@ -148,21 +151,16 @@ auto main(int argc, char** argv) -> int
         auto preloader = pipeline.create<ddafa::preloader_stage>();
         auto weighting = pipeline.create<ddafa::weighting_stage>(geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.create<ddafa::filter_stage>(geo.n_row, geo.n_col, geo.l_px_row);
+        auto reconstruction = pipeline.create<ddafa::reconstruction_stage>(geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
+        auto sink = pipeline.create<ddafa::sink_stage>(output_path, prefix);
 
         pipeline.connect(source, preloader);
         pipeline.connect(preloader, weighting);
         pipeline.connect(weighting, filter);
-
-        /*
-        auto reconstruction = pipeline.create<reconstruction_stage>(geo, angle_path);
-        auto sink = pipeline.create<sink_stage>(output_path, prefix);
-
         pipeline.connect(filter, reconstruction);
         pipeline.connect(reconstruction, sink);
 
         pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
-        weighting->set_input_num(source->num());
-        reconstruction->set_input_num(source->num());*/
 
         pipeline.wait();
 
