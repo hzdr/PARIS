@@ -1,3 +1,25 @@
+/*
+ * This file is part of the ddafa reconstruction program.
+ *
+ * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
+ *
+ * Licensed under the EUPL, Version 1.1 or - as soon they will be approved by
+ * the European Commission - subsequent version of the EUPL (the "Licence");
+ * You may not use this work except in compliance with the Licence.
+ * You may obtain a copy of the Licence at:
+ *
+ * http://ec.europa.eu/idabc/eupl
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Licence is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the Licence for the specific language governing permissions and
+ * limitations under the Licence.
+ *
+ * Date: 18 August 2016
+ * Authors: Jan Stephan
+ */
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -48,6 +70,11 @@ namespace ddafa
 
         auto p = std::max_element(std::begin(vol_per_dev_), std::end(vol_per_dev_), [](const pair_type& p1, const pair_type& p2) { return p1.second < p2.second; });
         return p->second;
+    }
+
+    auto geometry_calculator::get_volume_metadata() const noexcept -> volume_metadata
+    {
+        return vol_geo_;
     }
 
     auto geometry_calculator::get_subvolume_metadata() const noexcept -> std::vector<volume_metadata>
