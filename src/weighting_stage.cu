@@ -24,7 +24,6 @@
 #include <cmath>
 #include <functional>
 #include <future>
-#include <map>
 #include <thread>
 #include <utility>
 
@@ -39,7 +38,7 @@
 
 namespace ddafa
 {
-    namespace kernel
+    namespace
     {
         __global__ void weight(float* output, const float* input,
                                 std::size_t n_row, std::size_t n_col, std::size_t pitch,
@@ -53,7 +52,7 @@ namespace ddafa
             if((s < n_row) && (t < n_col))
             {
                 auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + t * pitch);
-                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(input) + t * pitch);
+                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + t * pitch);
 
                 // detector coordinates in mm
                 auto h_s = (l_px_row / 2) + s * l_px_row + h_min;
@@ -69,51 +68,87 @@ namespace ddafa
     }
 
     weighting_stage::weighting_stage(std::uint32_t n_row, std::uint32_t n_col,
-                                        float l_px_row, float l_px_col,
-                                        float delta_s, float delta_t,
-                                        float d_so, float d_od) noexcept
+                                     float l_px_row, float l_px_col,
+                                     float delta_s, float delta_t,
+                                     float d_so, float d_od)
+    : l_px_row_{l_px_row_}, l_px_col_{l_px_col_}
     {
         h_min_ = delta_s * l_px_row - n_row * l_px_row / 2;
         v_min_ = delta_t * l_px_col - n_col * l_px_col / 2;
         d_sd_ = std::abs(d_so) + std::abs(d_od);
+
+        auto err = cudaGetDeviceCount(&devices_);
+        if(err != cudaSuccess)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::weighting_stage() could not obtain CUDA devices: " << cudaGetErrorString(err);
+            throw stage_construction_error{"weighting_stage::weigthing_stage() failed to initialize"};
+        }
+
+        using vec_type = decltype(input_vec_);
+        using size_type = typename vec_type::size_type;
+        auto d = static_cast<size_type>(devices_);
+        input_vec_ = vec_type{d};
+    }
+
+    weighting_stage::weighting_stage(weighting_stage&& other) noexcept
+    : input_{std::move(other.input_)}, output_{std::move(other.output_)}
+    , l_px_row_{other.l_px_row_}, l_px_col_{other.l_px_col_}, h_min_{other.h_min_}, v_min_{other.v_min_}, d_sd_{other.d_sd_}
+    , input_vec_{std::move(other.input_vec_)}
+    {
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+    }
+
+    auto weighting_stage::operator=(weighting_stage&& other) noexcept -> weighting_stage&
+    {
+        input_ = std::move(other.input_);
+        output_ = std::move(other.output_);
+        h_min_ = other.h_min_;
+        v_min_ = other.v_min_;
+        d_sd_ = other.d_sd_;
+        input_vec_ = std::move(other.input_vec_);
+
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+
+        return *this;
     }
 
     auto weighting_stage::run() -> void
     {
-        auto devices = int{};
-        auto err = cudaGetDeviceCount(&devices);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_runtime_error{"weighting_stage::run() failed to initialize"};
-        }
-
-        std::map<int, std::future<void>> futures;
-        for(int i = 0; i < devices; ++i)
-            futures[i] = std::async(std::launch::async, &weighting_stage::process, this, i);
+        auto futures = std::vector<std::future<void>>{};
+        for(int i = 0; i < devices_; ++i)
+            futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
 
         while(true)
         {
 
             auto proj = input_();
+            auto valid = proj.second.valid;
             while(lock_.test_and_set(std::memory_order_acquire))
                 std::this_thread::yield();
 
-            if(proj.second.valid)
-                input_map_[proj.second.device].push(std::move(proj));
+            if(valid)
+                input_vec_[proj.second.device].push(std::move(proj));
             else
             {
-                for(auto i = 0; i < devices; ++i)
-                    input_map_[i].push(input_type());
+                for(auto i = 0; i < devices_; ++i)
+                    input_vec_[i].push(input_type());
             }
 
             lock_.clear(std::memory_order_release);
+            if(!valid)
+                break;
         }
 
         try
         {
-            for(auto&& fp : futures)
-                fp.second.get();
+            for(auto&& f : futures)
+                f.get();
         }
         catch(const stage_runtime_error& sre)
         {
@@ -146,18 +181,19 @@ namespace ddafa
 
         while(true)
         {
-            while(input_map_.count(device) == 0)
+            while(input_vec_.empty())
                 std::this_thread::yield();
 
             while(lock_.test_and_set(std::memory_order_acquire))
                 std::this_thread::yield();
 
-            auto& queue = input_map_.at(device);
+            auto& queue = input_vec_.at(device);
             if(queue.empty())
             {
                 lock_.clear(std::memory_order_release);
                 continue;
             }
+
             auto proj = std::move(queue.front());
             queue.pop();
 
@@ -169,9 +205,9 @@ namespace ddafa
             try
             {
                 ddrf::cuda::launch(proj.second.width, proj.second.height,
-                                    kernel::weight,
+                                    weight,
                                     proj.first.get(), static_cast<const float*>(proj.first.get()),
-                                    n_row_, n_col_, proj.first.pitch(),
+                                    proj.second.width, proj.second.height, proj.first.pitch(),
                                     h_min_, v_min_,
                                     d_sd_,
                                     l_px_row_, l_px_col_);

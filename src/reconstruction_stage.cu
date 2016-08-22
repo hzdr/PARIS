@@ -24,18 +24,21 @@
 #include <cmath>
 #include <functional>
 #include <future>
-#include <map>
 #include <thread>
 #include <utility>
 #include <vector>
 
 #include <boost/log/trivial.hpp>
 
+#include <ddrf/cuda/algorithm.h>
 #include <ddrf/cuda/coordinates.h>
 #include <ddrf/cuda/launch.h>
 #include <ddrf/cuda/memory.h>
+#include <ddrf/cuda/sync_policy.h>
 
 #include "exception.h"
+#include "geometry.h"
+#include "metadata.h"
 #include "reconstruction_stage.h"
 
 namespace ddafa
@@ -177,11 +180,23 @@ namespace ddafa
             throw stage_construction_error{"reconstruction_stage::reconstruction_stage() failed"};
         }
 
+        using sv_size_type = typename decltype(subvol_vec_)::size_type;
+        auto d_sv = static_cast<sv_size_type>(devices_);
+        subvol_vec_ = decltype(subvol_vec_){d_sv};
+
+        using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
+        auto d_svg = static_cast<svg_size_type>(devices_);
+        subvol_geo_vec_ = decltype(subvol_geo_vec_){d_svg};
+
+        using iv_size_type = typename decltype(input_vec_)::size_type;
+        auto d_iv = static_cast<iv_size_type>(devices_);
+        input_vec_ = decltype(input_vec_){d_iv};
+
         try
         {
             vol_out_.first = ddrf::cuda::make_unique_pinned_host<float>(vol_geo_.width, vol_geo_.height, vol_geo_.depth);
-            vol_geo_.second = vol_geo;
-            vol_geo_.second.valid = true;
+            vol_out_.second = vol_geo;
+            vol_out_.second.valid = true;
 
             for(auto i = 0; i < devices_; ++i)
             {
@@ -194,13 +209,16 @@ namespace ddafa
 
                 for(const auto& g : subvol_geos)
                 {
+
                     if(g.device == i)
                     {
-                        subvol_map_[g.device] = std::make_pair(ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder), g);
+                        d_sv = static_cast<sv_size_type>(g.device);
+                        subvol_vec_[d_sv] = std::make_pair(ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder), g);
                         break;
                     }
 
-                    subvol_geo_map_[g.device].push_back(g);
+                    d_svg = static_cast<svg_size_type>(g.device);
+                    subvol_geo_vec_[d_svg].push_back(g);
                 }
             }
         }
@@ -211,20 +229,52 @@ namespace ddafa
         }
     }
 
+    reconstruction_stage::reconstruction_stage(reconstruction_stage&& other) noexcept
+    : input_{std::move(other.input_)}, output_{std::move(other.output_)}
+    , det_geo_(other.det_geo_), vol_geo_(other.vol_geo_), predefined_angles_(other.predefined_angles_), vol_out_{std::move(other.vol_out_)}
+    , devices_{other.devices_}, subvol_vec_{std::move(other.subvol_vec_)}, subvol_geo_vec_{std::move(other.subvol_geo_vec_)}, input_vec_{std::move(other.input_vec_)}
+    {
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+    }
+
     reconstruction_stage::~reconstruction_stage()
     {
-        for(auto&& s : subvol_map_)
+        for(auto&& s : subvol_vec_)
         {
-            cudaSetDevice(s.first);
-            s.second.first.reset();
+            cudaSetDevice(s.second.device);
+            s.first.reset(nullptr);
         }
+    }
+
+    auto reconstruction_stage::operator=(reconstruction_stage&& other) noexcept -> reconstruction_stage&
+    {
+        input_ = std::move(other.input_);
+        output_ = std::move(other.output_);
+        det_geo_ = other.det_geo_;
+        vol_geo_ = other.vol_geo_;
+        predefined_angles_ = other.predefined_angles_;
+        vol_out_ = std::move(other.vol_out_);
+        devices_ = other.devices_;
+        subvol_vec_ = std::move(other.subvol_vec_);
+        subvol_geo_vec_ = std::move(other.subvol_geo_vec_);
+        input_vec_ = std::move(other.input_vec_);
+
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+
+        return *this;
     }
 
     auto reconstruction_stage::run() -> void
     {
-        std::map<int, std::future<void>> futures;
+        std::vector<std::future<void>> futures;
         for(int i = 0; i < devices_; ++i)
-            futures[i] = std::async(std::launch::async, &reconstruction_stage::process, this, i);
+            futures.emplace_back(std::async(std::launch::async, &reconstruction_stage::process, this, i));
 
         while(true)
         {
@@ -237,8 +287,8 @@ namespace ddafa
 
         try
         {
-            for(auto&& fp : futures)
-                fp.second.get();
+            for(auto&& f: futures)
+                f.get();
         }
         catch(const stage_runtime_error& sre)
         {
@@ -266,22 +316,22 @@ namespace ddafa
             std::this_thread::yield();
 
         if(proj.second.valid)
-            input_map_[proj.second.device].push(std::move(proj));
+            input_vec_[proj.second.device].push(std::move(proj));
         else
         {
             for(auto i = 0; i < devices_; ++i)
-                input_map_[i].push(input_type{});
+                input_vec_[i].push(input_type{});
         }
 
         lock_.clear(std::memory_order_release);
     }
 
-    auto reconstruction_stage::safe_pop(int device) -> output_type
+    auto reconstruction_stage::safe_pop(int device) -> input_type
     {
-        while(input_map_.count(device) == 0)
+        while(input_vec_.empty())
             std::this_thread::yield();
 
-        auto& queue = input_map_[device];
+        auto& queue = input_vec_[device];
         while(queue.empty())
             std::this_thread::yield();
 
@@ -304,22 +354,25 @@ namespace ddafa
             throw stage_runtime_error{"reconstruction_stage::process() failed"};
         }
 
-        auto vol_count = typename decltype(subvol_geo_map_)::mapped_type::size_type{0};
+        auto vol_count = typename decltype(subvol_geo_vec_)::value_type::size_type{0};
         auto first = true;
         while(true)
         {
             auto delta_s = det_geo_.delta_s * det_geo_.l_px_row;
             auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
-            auto v_geo = subvol_geo_map_[device].at(vol_count);
 
-            auto proj = safe_pop(device);
-            if(!proj.second.valid)
+            using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
+            auto d_svg = static_cast<svg_size_type>(device);
+            auto v_geo = subvol_geo_vec_.at(d_svg).at(vol_count);
+
+            auto p = safe_pop(device);
+            if(!p.second.valid)
             {
                 download_and_reset(device, v_geo);
                 break;
             }
 
-            if(proj.second.index == 0)
+            if(p.second.index == 0)
             {
                 if(first)
                     first = false;
@@ -330,29 +383,33 @@ namespace ddafa
                 }
             }
 
-            if(proj.second.index % 10 == 0)
-                BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << proj.second.index << " on device #" << device;
+            if(p.second.index % 10 == 0)
+                BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.second.index << " on device #" << device;
 
-            auto& v = subvol_map_[device];
+            using sv_size_type = typename decltype(subvol_vec_)::size_type;
+            auto d_sv = static_cast<sv_size_type>(device);
+            auto& v = subvol_vec_[d_sv];
 
             auto phi = 0.f;
             if(predefined_angles_)
-                phi = proj.second.phi;
+                phi = p.second.phi;
             else
-                phi = proj.second.index * det_geo_.delta_phi;
+                phi = p.second.index * det_geo_.delta_phi;
             auto phi_rad = phi * M_PI / 180.f;
-            auto sin = std::sin(phi_rad);
-            auto cos = std::cos(phi_rad);
+            auto sin = static_cast<float>(std::sin(phi_rad));
+            auto cos = static_cast<float>(std::cos(phi_rad));
 
             try
             {
+                auto v_ptr = v.first.get();
+                auto p_ptr = static_cast<const float*>(p.first.get());
                 ddrf::cuda::launch(v.second.width, v.second.height, v.second.depth,
                                     backproject,
-                                    v.first.get(), v.second.width, v.second.height, v.second.depth, v.first.pitch(), v_geo.offset, vol_geo_.depth,
+                                    v_ptr, v.second.width, v.second.height, v.second.depth, v.first.pitch(), v_geo.offset, vol_geo_.depth,
                                         v.second.vx_size_x, v.second.vx_size_y, v.second.vx_size_z,
-                                    p.first.get(), p.second.width, p.second.height, p.first.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
-                                        det_geo_.delta_s, det_geo_.delta_t,
-                                    det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
+                                    p_ptr, p.second.width, p.second.height, p.first.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
+                                        delta_s, delta_t,
+                                    sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
             }
             catch(const ddrf::cuda::bad_alloc& ba)
             {
@@ -372,9 +429,11 @@ namespace ddafa
         }
     }
 
-    auto reconstruction_stage::download_and_reset(int device, volume_metadata geo)
+    auto reconstruction_stage::download_and_reset(int device, volume_metadata geo) -> void
     {
-        auto& v = subvol_map_[device];
+        using sv_size_type = typename decltype(subvol_vec_)::size_type;
+        auto d_sv = static_cast<sv_size_type>(device);
+        auto& v = subvol_vec_[d_sv];
         try
         {
             ddrf::cuda::copy(ddrf::cuda::async, vol_out_.first, v.first, v.second.width, v.second.height, v.second.depth + v.second.remainder,

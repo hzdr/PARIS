@@ -31,6 +31,7 @@
 
 #include "exception.h"
 #include "filesystem.h"
+#include "metadata.h"
 #include "source_stage.h"
 
 
@@ -61,15 +62,15 @@ namespace ddafa
             {
                 vec = loader_.load(s);
             }
-            catch(const std::runtime_error& e)
-            {
-                BOOST_LOG_TRIVIAL(warning) << "source_stage::run(): Skipping invalid HIS file at " << s << " : " << e.what();
-                continue;
-            }
             catch(const std::system_error& e)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "source_stage::run(): Could not open file at " << s << " : " << e.what();
                 throw stage_runtime_error{"source_stage::run() failed"};
+            }
+            catch(const std::runtime_error& e)
+            {
+                BOOST_LOG_TRIVIAL(warning) << "source_stage::run(): Skipping invalid HIS file at " << s << " : " << e.what();
+                continue;
             }
 
             for(auto&& img : vec)
@@ -81,7 +82,7 @@ namespace ddafa
         }
 
         // all frames loaded, send empty image
-        output_(std::make_pair(nullptr, image_metadata{0, 0, 0, 0.f, false}));
+        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
     }
 
     auto source_stage::set_output_function(std::function<void(output_type)> output) noexcept -> void

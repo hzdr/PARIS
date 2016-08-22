@@ -25,7 +25,6 @@
 
 #include <atomic>
 #include <functional>
-#include <map>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -33,6 +32,7 @@
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "geometry.h"
 #include "metadata.h"
 
 namespace ddafa
@@ -46,12 +46,14 @@ namespace ddafa
             using volume_type = std::pair<ddrf::cuda::pitched_device_ptr<float>, volume_metadata>;
 
         public:
-            using input_type = std::pair<smart_pointer, image_metadata>;
+            using input_type = std::pair<smart_pointer, projection_metadata>;
             using output_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata>;
 
         public:
             reconstruction_stage(const geometry& det_geo, const volume_metadata& vol_geo, const std::vector<volume_metadata>& subvol_geos, bool predefined_angles);
+            reconstruction_stage(reconstruction_stage&& other) noexcept;
             ~reconstruction_stage();
+            auto operator=(reconstruction_stage&& other) noexcept -> reconstruction_stage&;
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
@@ -73,10 +75,10 @@ namespace ddafa
             output_type vol_out_;
 
             int devices_;
-            std::map<int, volume_type> subvol_map_;
-            std::map<int, std::vector<volume_metadata>> subvol_geo_map_;
-            std::map<int, std::queue<input_type>> input_map_;
-            std::atomic_flag lock_;
+            std::vector<volume_type> subvol_vec_;
+            std::vector<std::vector<volume_metadata>> subvol_geo_vec_;
+            std::vector<std::queue<input_type>> input_vec_;
+            std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
     };
 }
 

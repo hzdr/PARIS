@@ -37,6 +37,7 @@ namespace ddafa
     {
         public:
             using input_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata>;
+            using output_type = void;
 
         public:
             sink_stage(const std::string& path, const std::string& prefix);

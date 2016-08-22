@@ -26,7 +26,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <future>
-#include <map>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -47,9 +46,9 @@
 
 namespace ddafa
 {
-    namespace kernel
+    namespace
     {
-        __global__ void create_filter(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
+        __global__ void create_filter_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
 
@@ -75,7 +74,7 @@ namespace ddafa
             }
         }
 
-        __global__ void create_k(cufftComplex* __restrict__ data, std::size_t filter_size, float tau)
+        __global__ void create_k_kernel(cufftComplex* __restrict__ data, std::size_t filter_size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
             if(x < filter_size)
@@ -86,7 +85,7 @@ namespace ddafa
             }
         }
 
-        __global__ void apply_filter(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
+        __global__ void apply_filter_kernel(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
                                         std::size_t filter_size, std::size_t data_height, std::size_t pitch)
         {
             auto x = ddrf::cuda::coord_x();
@@ -103,7 +102,7 @@ namespace ddafa
     }
 
     filter_stage::filter_stage(std::uint32_t n_row, std::uint32_t n_col, float l_px_row)
-    : filter_length_{2 * std::pow(2, std::ceil(std::log2(n_row)))}
+    : filter_size_{static_cast<std::size_t>(2 * std::pow(2, std::ceil(std::log2(n_row))))}
     , n_col_{n_col}
     , tau_{l_px_row}
     {
@@ -114,7 +113,7 @@ namespace ddafa
             throw stage_construction_error{"filter_stage::filter_stage() failed"};
         }
 
-        auto filter_futures = std::vector<std::future>{};
+        auto filter_futures = std::vector<std::future<void>>{};
         for(auto i = 0; i < devices_; ++i)
             filter_futures.emplace_back(std::async(std::launch::async, &filter_stage::create_filter, this, i));
 
@@ -128,24 +127,68 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() could not create filters: " << sce.what();
             throw stage_construction_error{"filter_stage::filter_stage() failed"};
         }
+
+        using vec_type = decltype(input_vec_);
+        using size_type = typename vec_type::size_type;
+        auto d = static_cast<size_type>(devices_);
+        input_vec_ = vec_type{d};
+
+        using r_vec_type = decltype(rs_);
+        using r_size_type = typename r_vec_type::size_type;
+        auto dr = static_cast<size_type>(devices_);
+        rs_ = r_vec_type{dr};
+    }
+
+    filter_stage::filter_stage(filter_stage&& other) noexcept
+    : input_{std::move(other.input_)}, output_{std::move(other.output_)}
+    , devices_{other.devices_}
+    , filter_size_{other.filter_size_}, n_col_{other.n_col_}, tau_{other.tau_}, rs_{std::move(other.rs_)}
+    , input_vec_{std::move(other.input_vec_)}
+    {
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+    }
+
+    auto filter_stage::operator=(filter_stage&& other) noexcept -> filter_stage&
+    {
+        input_ = std::move(other.input_);
+        output_ = std::move(other.output_);
+        devices_ = other.devices_;
+        filter_size_ = other.filter_size_;
+        n_col_ = other.n_col_;
+        tau_ = other.tau_;
+        rs_ = std::move(other.rs_);
+        input_vec_ = std::move(other.input_vec_);
+
+        if(other.lock_.test_and_set())
+            lock_.test_and_set();
+        else
+            lock_.clear();
+
+        return *this;
     }
 
     auto filter_stage::run() -> void
     {
-        std::map<int, std::future<void>> futures;
+        auto futures = std::vector<std::future<void>>{};
         for(int i = 0; i < devices_; ++i)
-            futures[i] = std::async(std::launch::async, &filter_stage::process, this, i);
+            futures.emplace_back(std::async(std::launch::async, &filter_stage::process, this, i));
 
         while(true)
         {
             auto proj = input_();
+            auto valid = proj.second.valid;
             safe_push(std::move(proj));
+            if(!valid)
+                break;
         }
 
         try
         {
-            for(auto&& fp : futures)
-                fp.second.get();
+            for(auto&& f : futures)
+                f.get();
         }
         catch(const stage_runtime_error& sre)
         {
@@ -173,11 +216,11 @@ namespace ddafa
             std::this_thread::yield();
 
         if(proj.second.valid)
-            input_map_[proj.second.device].push(std::move(proj));
+            input_vec_[proj.second.device].push(std::move(proj));
         else
         {
-            for(auto i = 0; i < devices; ++i)
-                input_map_[i].push(input_type());
+            for(auto i = 0; i < devices_; ++i)
+                input_vec_[i].push(input_type());
         }
 
         lock_.clear(std::memory_order_release);
@@ -185,23 +228,20 @@ namespace ddafa
 
     auto filter_stage::safe_pop(int device) -> input_type
     {
-        while(input_map_.count(device) == 0)
+        while(input_vec_.empty())
+            std::this_thread::yield();
+
+        auto& queue = input_vec_[device];
+        while(queue.empty())
             std::this_thread::yield();
 
         while(lock_.test_and_set(std::memory_order_acquire))
             std::this_thread::yield();
 
-        auto& queue = input_map_[device];
-        if(queue.empty())
-        {
-            lock_.clear(std::memory_order_release);
-            continue;
-        }
         auto proj = std::move(queue.front());
         queue.pop();
 
         lock_.clear(std::memory_order_release);
-
         return proj;
     }
 
@@ -220,21 +260,23 @@ namespace ddafa
              * for a more detailed description see kernel::create_filter()
              */
             // create j on the host and fill it with values from -(filter_size_ - 2) / 2 to filter_size / 2
-            auto h_j = ddrf::cuda::make_unique_host<std::int32_t>(filter_size_);
+            auto h_j = ddrf::cuda::make_unique_pinned_host<std::int32_t>(filter_size_);
             auto size = static_cast<std::int32_t>(filter_size_);
             auto j = (size - 2) / 2;
             std::iota(h_j.get(), h_j.get() + filter_size_, j);
 
             // create j on the device and copy j from the host to the device
-            auto d_j = ddrf::cuda::make_unique_device<float>(filter_size_);
+            auto d_j = ddrf::cuda::make_unique_device<std::int32_t>(filter_size_);
             ddrf::cuda::copy(ddrf::cuda::async, d_j, h_j, filter_size_);
 
             // create r on the device and calculate the filter values
             auto d_r = ddrf::cuda::make_unique_device<float>(filter_size_);
-            ddrf::cuda::launch(filter_size_, kernel::create_filter, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
+            ddrf::cuda::launch(filter_size_, create_filter_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
 
             // move to filter container
-            rs_[device] = std::move(d_r);
+            using size_type = typename decltype(rs_)::size_type;
+            auto d = static_cast<size_type>(device);
+            rs_[d] = std::move(d_r);
         }
         catch(const ddrf::cuda::bad_alloc& ba)
         {
@@ -271,8 +313,8 @@ namespace ddafa
         try
         {
             converted_proj = ddrf::cuda::make_unique_device<float>(filter_size_, n_col_);
-            transformed_proj = ddrf::cuda::make_unique_device<cufftComplex(transformed_filter_size, n_col_);
-            transformed_filter_ = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size);
+            transformed_proj = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size, n_col_);
+            transformed_filter = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size);
 
             ddrf::cuda::fill(ddrf::cuda::async, converted_proj, 0, filter_size_, n_col_);
         }
@@ -292,18 +334,20 @@ namespace ddafa
         auto filter_plan = ddrf::cufft::plan<CUFFT_R2C>{};
         auto inverse_plan = ddrf::cufft::plan<CUFFT_C2R>{};
 
-        auto proj_n = int{filter_size_};
-        auto proj_dist = int{converted_proj.pitch() / sizeof(float)};
+        auto proj_n = static_cast<int>(filter_size_);
+        auto proj_dist = static_cast<int>(converted_proj.pitch() / sizeof(float));
         auto proj_nembed = proj_dist;
 
-        auto trans_dist = int{transformed_proj.pitch() / sizeof(cufftComplex)};
+        auto trans_dist = static_cast<int>(transformed_proj.pitch() / sizeof(cufftComplex));
         auto trans_nembed = trans_dist;
+
+        auto batch = static_cast<int>(n_col_);
 
         try
         {
-            converted_proj_plan = ddrf::cufft::plan<CUFFT_R2C>{1, &proj_n, &proj_nembed, 1, proj_dist, trans_nembed, 1, trans_dist, n_col_};
+            converted_proj_plan = ddrf::cufft::plan<CUFFT_R2C>{1, &proj_n, &proj_nembed, 1, proj_dist, &trans_nembed, 1, trans_dist, batch};
             filter_plan = ddrf::cufft::plan<CUFFT_R2C>{proj_n};
-            inverse_plan = ddrf::cufft::plan<CUFFT_C2R>{1, &proj_n, &trans_nembed, 1, trans_dist, &proj_nembed, 1, proj_dist, n_col_};
+            inverse_plan = ddrf::cufft::plan<CUFFT_C2R>{1, &proj_n, &trans_nembed, 1, trans_dist, &proj_nembed, 1, proj_dist, batch};
         }
         catch(const ddrf::cufft::bad_alloc& ba)
         {
@@ -319,23 +363,28 @@ namespace ddafa
 
             try
             {
+                auto converted_ptr = converted_proj.get();
+                auto transformed_ptr = transformed_proj.get();
+                auto filter_ptr = transformed_filter.get();
+                auto const_filter_ptr = static_cast<const cufftComplex*>(filter_ptr);
+
                 // copy projection to larger projection which has a width of 2^x
                 ddrf::cuda::copy(ddrf::cuda::async, converted_proj, proj.first, proj.second.width, proj.second.height);
 
                 // execute the FFT for the projection and the filter
-                converted_proj_plan.execute(converted_proj.get(), transformed_proj.get());
-                filter_plan.execute(rs_[device].get(), transformed_filter.get());
+                converted_proj_plan.execute(converted_ptr, transformed_ptr);
+                filter_plan.execute(rs_[device].get(), filter_ptr);
 
                 // create K
-                ddrf::cuda::launch(transformed_filter_size, create_k, transformed_filter.get(), transformed_filter_size, tau_);
+                ddrf::cuda::launch(transformed_filter_size, create_k_kernel, filter_ptr, transformed_filter_size, tau_);
 
                 // apply the transformed filter to the transformed projection
                 ddrf::cuda::launch(transformed_filter_size, n_col_,
-                                    apply_filter,
-                                    transformed_proj.get(), transformed_filter.get(), transformed_filter_size, n_col_, transformed_proj.pitch());
+                                    apply_filter_kernel,
+                                    transformed_ptr, const_filter_ptr, transformed_filter_size, n_col_, transformed_proj.pitch());
 
                 // run inverse FFT on the transformed projection
-                inverse_plan.execute(transformed_proj.get(), converted_proj.get());
+                inverse_plan.execute(transformed_ptr, converted_ptr);
 
                 // copy back to original projection dimensions
                 ddrf::cuda::copy(ddrf::cuda::async, proj.first, converted_proj, proj.second.width, proj.second.height);

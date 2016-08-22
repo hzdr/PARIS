@@ -42,7 +42,7 @@ namespace ddafa
             using smart_pointer = typename pool_allocator::smart_pointer;
             using image_type = std::pair<smart_pointer, projection_metadata>;
 
-            his_loader() noexcept = default;
+            his_loader() = default;
             auto load(const std::string& path) -> std::vector<image_type>;
 
         private:

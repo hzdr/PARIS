@@ -26,9 +26,9 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <queue>
 #include <utility>
+#include <vector>
 
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
@@ -50,6 +50,8 @@ namespace ddafa
 
         public:
             filter_stage(std::uint32_t n_row, std::uint32_t n_col, float l_px_row);
+            filter_stage(filter_stage&& other) noexcept;
+            auto operator=(filter_stage&& other) noexcept -> filter_stage&;
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
@@ -70,9 +72,9 @@ namespace ddafa
             std::size_t filter_size_;
             std::size_t n_col_;
             float tau_;
-            std::map<int, ddrf::cuda::device_ptr<float>> rs_;
+            std::vector<ddrf::cuda::device_ptr<float>> rs_;
 
-            std::map<int, std::queue<input_type>> input_map_;
+            std::vector<std::queue<input_type>> input_vec_;
             std::atomic_flag lock_;
     };
 }

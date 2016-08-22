@@ -60,7 +60,7 @@ namespace ddafa
                     throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
                 }
 
-                auto dev_proj = alloc_.smart_allocate(proj.second.width, proj.second.height);
+                auto dev_proj = alloc_.allocate_smart(proj.second.width, proj.second.height);
                 try
                 {
                     ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.first, proj.second.width, proj.second.height);
@@ -77,7 +77,7 @@ namespace ddafa
         }
 
         // Uploaded all projections to the GPU, notify the next stage that we are done here
-        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false}));
+        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
         BOOST_LOG_TRIVIAL(info) << "Uploaded all projections to the device(s)";
     }
 

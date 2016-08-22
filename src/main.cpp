@@ -102,15 +102,15 @@ auto main(int argc, char** argv) -> int
         // parse geometry file
         boost::program_options::options_description geom{"Geometry file"};
         geom.add_options()
-                ("det_pixels_row", boost::program_options::value<std::uint32_t>(&geo.det_pixels_row)->required(), "[integer] number of pixels per detector row (= projection width)")
-                ("det_pixels_column", boost::program_options::value<std::uint32_t>(&geo.det_pixels_column)->required(), "[integer] number of pixels per detector column (= projection height)")
-                ("det_pixel_size_horiz", boost::program_options::value<float>(&geo.det_pixel_size_horiz)->required(), "[float] horizontal pixel size (= distance between pixel centers) in mm")
-                ("det_pixel_size_vert", boost::program_options::value<float>(&geo.det_pixel_size_vert)->required(), "[float] vertical pixel size (= distance between pixel centers) in mm")
-                ("det_offset_horiz", boost::program_options::value<float>(&geo.det_offset_horiz)->required(), "[float] horizontal detector offset in pixels")
-                ("det_offset_vert", boost::program_options::value<float>(&geo.det_offset_vert)->required(), "[float] vertical detector offset in pixels")
-                ("dist_src", boost::program_options::value<float>(&geo.dist_src)->required(), "[float] distance between object (= center of rotation) and source in mm")
-                ("dist_det", boost::program_options::value<float>(&geo.dist_det)->required(), "[float] distance between object (= center of rotation) and detector in mm")
-                ("rot_angle", boost::program_options::value<float>(&geo.rot_angle)->required(), "[float] angle step between two successive projections in °");
+                ("n_row", boost::program_options::value<std::uint32_t>(&geo.n_row)->required(), "[integer] number of pixels per detector row (= projection width)")
+                ("n_col", boost::program_options::value<std::uint32_t>(&geo.n_col)->required(), "[integer] number of pixels per detector column (= projection height)")
+                ("l_px_row", boost::program_options::value<float>(&geo.l_px_row)->required(), "[float] horizontal pixel size (= distance between pixel centers) in mm")
+                ("l_px_col", boost::program_options::value<float>(&geo.l_px_col)->required(), "[float] vertical pixel size (= distance between pixel centers) in mm")
+                ("delta_s", boost::program_options::value<float>(&geo.delta_s)->required(), "[float] horizontal detector offset in pixels")
+                ("delta_t", boost::program_options::value<float>(&geo.delta_t)->required(), "[float] vertical detector offset in pixels")
+                ("d_so", boost::program_options::value<float>(&geo.d_so)->required(), "[float] distance between object (= center of rotation) and source in mm")
+                ("d_od", boost::program_options::value<float>(&geo.d_od)->required(), "[float] distance between object (= center of rotation) and detector in mm")
+                ("delta_phi", boost::program_options::value<float>(&geo.delta_phi)->required(), "[float] angle step between two successive projections in °");
 
         boost::program_options::variables_map param_map, geom_map;
         boost::program_options::store(boost::program_options::parse_command_line(argc, argv, param), param_map);
@@ -135,6 +135,7 @@ auto main(int argc, char** argv) -> int
     catch(const boost::program_options::error& err)
     {
         std::cerr << err.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
 
     try
@@ -147,12 +148,12 @@ auto main(int argc, char** argv) -> int
 
         auto pipeline = ddrf::pipeline::pipeline{};
 
-        auto source = pipeline.create<ddafa::source_stage>(projection_path);
-        auto preloader = pipeline.create<ddafa::preloader_stage>();
-        auto weighting = pipeline.create<ddafa::weighting_stage>(geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
-        auto filter = pipeline.create<ddafa::filter_stage>(geo.n_row, geo.n_col, geo.l_px_row);
-        auto reconstruction = pipeline.create<ddafa::reconstruction_stage>(geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
-        auto sink = pipeline.create<ddafa::sink_stage>(output_path, prefix);
+        auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
+        auto preloader = pipeline.make_stage<ddafa::preloader_stage>();
+        auto weighting = pipeline.make_stage<ddafa::weighting_stage>(geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
+        auto filter = pipeline.make_stage<ddafa::filter_stage>(geo.n_row, geo.n_col, geo.l_px_row);
+        auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
+        auto sink = pipeline.make_stage<ddafa::sink_stage>(output_path, prefix);
 
         pipeline.connect(source, preloader);
         pipeline.connect(preloader, weighting);

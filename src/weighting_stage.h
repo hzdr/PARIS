@@ -24,13 +24,16 @@
 #define DDAFA_WEIGHTING_STAGE_H_
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
-#include <map>
+#include <queue>
 #include <utility>
+#include <vector>
 
 #include <boost/lockfree/spsc_queue.hpp>
 
 #include <ddrf/cuda/memory.h>
+#include <ddrf/memory.h>
 
 #include "metadata.h"
 
@@ -51,25 +54,31 @@ namespace ddafa
             weighting_stage(std::uint32_t n_row, std::uint32_t n_col,
                             float l_px_row, float l_px_col,
                             float delta_s, float delta_t,
-                            float d_so, float d_od) noexcept;
+                            float d_so, float d_od);
+
+            weighting_stage(weighting_stage&& other) noexcept;
+            auto operator=(weighting_stage&& other) noexcept -> weighting_stage&;
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
 
         private:
-            auto process(int);
+            auto process(int) -> void;
 
         private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
 
+            float l_px_row_;
+            float l_px_col_;
             float h_min_;
             float v_min_;
             float d_sd_;
 
-            std::map<int, std::queue<input_type>> input_map_;
-            std::atomic_flag lock_;
+            int devices_;
+            std::vector<std::queue<input_type>> input_vec_;
+            std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
     };
 }
 

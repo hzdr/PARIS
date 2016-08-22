@@ -44,8 +44,8 @@
 namespace ddafa
 {
     geometry_calculator::geometry_calculator(const geometry& geo)
-    : det_geo_{geo}
-    , vol_geo_{0}
+    : det_geo_(geo)
+    , vol_geo_{}
     , d_sd_{std::abs(det_geo_.d_od) + std::abs(det_geo_.d_so)}
     , vol_count_{0u}
     {
@@ -118,7 +118,7 @@ namespace ddafa
     auto geometry_calculator::calculate_volume_height_mm() noexcept -> void
     {
         vol_height_ = vol_geo_.depth * vol_geo_.vx_size_z;
-        BOOST_LOG_TRIVIAL(info) << "Volume height: " << volume_height_ << " mm";
+        BOOST_LOG_TRIVIAL(info) << "Volume height: " << vol_height_ << " mm";
     }
 
     auto geometry_calculator::calculate_memory_footprint() noexcept -> void
@@ -136,6 +136,7 @@ namespace ddafa
         vol_mem_ /= std::size_t{devices_};
         for(auto i = 0; i < devices_; ++i)
         {
+            auto d = std::size_t{i};
             auto vol_mem_dev = vol_mem_;
             auto required_mem = vol_mem_dev + 32 * proj_mem_;
             auto vol_count_dev = 1u;
@@ -155,8 +156,8 @@ namespace ddafa
                 throw stage_construction_error{"geometry_calculator::calculate_volume_partition() failed"};
             }
 
-            auto calc_volume_size = std::function<std::size_t(std::size_t, std::size_t, std::uint32_t*, std::size_t)>;
-            calc_volume_size = [&calc_volume_size, this](std::size_t req_mem, std::size_t vol_mem, std::uint32* vol_count, std::size_t dev_mem)
+            auto calc_volume_size = std::function<std::size_t(std::size_t, std::size_t, std::uint32_t*, std::size_t)>{};
+            calc_volume_size = [&calc_volume_size, this](std::size_t req_mem, std::size_t vol_mem, std::uint32_t* vol_count, std::size_t dev_mem)
             {
                 if(req_mem >= dev_mem)
                 {

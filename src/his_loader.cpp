@@ -73,24 +73,24 @@ namespace ddafa
         };
 
         template <typename U>
-        auto read_entry(std::ifstream& file, U& entry)
+        auto read_entry(std::ifstream& file, U& entry) -> void
         {
             using char_type = typename std::ifstream::char_type;
             file.read(reinterpret_cast<char_type*>(&entry), sizeof(entry));
         }
 
         template <typename U>
-        auto read_entry(std::ifstream& file, U* entry, std::streamsize size)
+        auto read_entry(std::ifstream& file, U* entry, std::streamsize size) -> void
         {
             using char_type = typename std::ifstream::char_type;
             file.read(reinterpret_cast<char_type*>(entry), size);
         }
 
         template <typename T>
-        auto copy_to_buf(std::ifstream& file, float* dest, std::uint16_t w, std::uint16_t h)
+        auto copy_to_buf(std::ifstream& file, float* dest, std::uint16_t w, std::uint16_t h) -> void
         {
             auto buffer = std::unique_ptr<T[]>{new T[w * h]};
-            readEntry(file, buffer.get(), w * h * sizeof(T));
+            read_entry(file, buffer.get(), w * h * sizeof(T));
             std::copy(buffer.get(), buffer.get() + (w * h), dest);
         }
     }
@@ -133,7 +133,7 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(warning) << "his_loader::load() encountered a file header size mismatch at " << path;
             throw std::runtime_error{"File header size mismatch"};
         }
-        if(header.number_type == data::type_not_implemented)
+        if(header.number_type == static_cast<std::uint16_t>(data::type_not_implemented))
         {
             BOOST_LOG_TRIVIAL(warning) << "his_loader::load() encountered an unsupported data type at " << path;
             throw std::runtime_error{"File with unsupported data type"};
@@ -145,9 +145,9 @@ namespace ddafa
         {
             // skip image header
             auto img_header = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[header.image_header_size]};
-            readEntry(file, img_header.get(), header.image_header_size);
+            read_entry(file, img_header.get(), header.image_header_size);
 
-            auto img_buffer = alloc_.smart_allocate(width, height);
+            auto img_buffer = alloc_.allocate_smart(width, height);
 
             using num_type = decltype(header.number_type);
             switch(header.number_type)
@@ -173,12 +173,11 @@ namespace ddafa
                     break;
 
                 default:
-                    BOOST_LOG_TRIVIAL(warning) << "his_loader::load() tried to load an unsupported data type."
+                    BOOST_LOG_TRIVIAL(warning) << "his_loader::load() tried to load an unsupported data type.";
                     throw std::runtime_error{"File with unsupported data type"};
             }
 
-            auto m = projection_metadata{width, height, 0, 0, true};
-            vec.emplace_back(std::make_pair(std::move(img_buffer, projection_metadata{width, height, 0, 0, true, 0})));
+            vec.emplace_back(std::make_pair(std::move(img_buffer), projection_metadata{width, height, 0, 0, true, 0}));
         }
         return vec;
     }

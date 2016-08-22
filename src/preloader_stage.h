@@ -26,6 +26,7 @@
 #include <functional>
 #include <utility>
 
+#include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
 #include "metadata.h"
@@ -47,7 +48,7 @@ namespace ddafa
             using output_type = std::pair<smart_pointer, projection_metadata>;
 
         public:
-            preloader_stage() noexcept = default;
+            preloader_stage() = default;
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;

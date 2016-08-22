@@ -179,10 +179,10 @@
 							</tool>
 							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;nvcc.errorParser" id="nvcc.linker.base.767305409" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.295853310" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
-									<listOptionValue builtIn="false" value="ddrf"/>
 									<listOptionValue builtIn="false" value="tiff"/>
 									<listOptionValue builtIn="false" value="cufft"/>
 									<listOptionValue builtIn="false" value="boost_system"/>
+									<listOptionValue builtIn="false" value="boost_filesystem"/>
 									<listOptionValue builtIn="false" value="boost_log"/>
 									<listOptionValue builtIn="false" value="boost_program_options"/>
 									<listOptionValue builtIn="false" value="pthread"/>
@@ -218,9 +218,11 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
+					<ptx major="6" minor="0"/>
+					<sass major="6" minor="0"/>
 					<sass major="2" minor="1"/>
 				</executable>
-				<editor-arch major="3" minor="5"/>
+				<editor-arch major="6" minor="0"/>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>

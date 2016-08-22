@@ -35,9 +35,12 @@ namespace ddafa
 {
     class source_stage
     {
-        public:
+        private:
             using loader_type = his_loader;
-            using output_type = std::pair<his_loader::smart_pointer, image_metadata>;
+
+        public:
+            using input_type = void;
+            using output_type = std::pair<his_loader::smart_pointer, projection_metadata>;
 
         public:
             source_stage(const std::string& dir);

@@ -34,8 +34,9 @@ namespace ddafa
 {
     class tiff_saver
     {
-        tiff_saver() noexcept = default;
-        auto save(std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata> vol, const std::string& path) const -> void;
+        public:
+            tiff_saver() noexcept = default;
+            auto save(std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata> vol, const std::string& path) const -> void;
     };
 }
 

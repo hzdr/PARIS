@@ -50,16 +50,17 @@ namespace ddafa
 
     auto tiff_saver::save(std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata> vol, const std::string& path) const -> void
     {
-        path.append(".tif");
+        auto full_path = path;
+        full_path.append(".tif");
 
-        auto tif = std::unique_ptr<TIFF, std::function<void(TIFF*)>>{TIFFOpen(path.c_str(), "w8"), [](TIFF* p) { TIFFClose(p); }};
+        auto tif = std::unique_ptr<TIFF, std::function<void(TIFF*)>>{TIFFOpen(full_path.c_str(), "w8"), [](TIFF* p) { TIFFClose(p); }};
         if(tif == nullptr)
-            throw std::runtime_error{"tiff_saver::save() failed to open " + path + " for writing"};
+            throw std::runtime_error{"tiff_saver::save() failed to open " + full_path + " for writing"};
 
         auto data_ptr = vol.first.get();
         for(auto i = 0u; i < vol.second.depth; ++i)
         {
-            auto slice = data_ptr[i * width * height];
+            auto slice = data_ptr+ (i * vol.second.width * vol.second.height);
             auto&& ss = std::stringstream{};
             // the locale will take ownership so plain new is okay here
             auto output_facet = new boost::posix_time::time_facet{"%Y:%m:%d %H:%M:%S"};
@@ -86,7 +87,7 @@ namespace ddafa
             auto slice_ptr = slice;
             for(auto row = 0u; row < vol.second.height; ++row)
             {
-                TIFFWriteScanline(tif, slice_ptr, row);
+                TIFFWriteScanline(tifp, reinterpret_cast<void*>(slice_ptr), row);
                 slice_ptr += vol.second.width;
             }
         }

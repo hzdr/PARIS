@@ -30,6 +30,15 @@ namespace ddafa
 {
     struct projection_metadata
     {
+        projection_metadata() noexcept = default;
+
+        /* apparently C++11 can't handle brace initialization once a member is default initialized
+         * (like valid) which is why we have to add this constructor
+         */
+        projection_metadata(std::size_t w, std::size_t h, std::uint64_t i, float p, bool v, int dev) noexcept
+        : width{w}, height{h}, index{i}, phi{p}, valid{v}, device{dev}
+        {}
+
         std::size_t width;
         std::size_t height;
         std::uint64_t index;
@@ -40,6 +49,11 @@ namespace ddafa
 
     struct volume_metadata
     {
+        volume_metadata() noexcept = default;
+        volume_metadata(std::size_t w, std::size_t h, std::size_t d, std::size_t r, std::size_t o, bool v, int dev, float sx, float sy, float sz) noexcept
+        : width{w}, height{h}, depth{d}, remainder{r}, offset{o}, valid{v}, device{dev}, vx_size_x{sx}, vx_size_y{sy}, vx_size_z{sz}
+        {}
+
         std::size_t width;
         std::size_t height;
         std::size_t depth;

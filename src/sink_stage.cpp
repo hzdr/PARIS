@@ -34,6 +34,7 @@
 #include "filesystem.h"
 #include "metadata.h"
 #include "sink_stage.h"
+#include "tiff_saver.h"
 
 namespace ddafa
 {
