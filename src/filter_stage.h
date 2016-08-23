@@ -26,6 +26,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <queue>
 #include <utility>
 #include <vector>
@@ -72,10 +73,10 @@ namespace ddafa
             std::size_t filter_size_;
             std::size_t n_col_;
             float tau_;
-            std::vector<ddrf::cuda::device_ptr<float>> rs_;
+            std::map<int, ddrf::cuda::device_ptr<float>> rs_;
 
             std::vector<std::queue<input_type>> input_vec_;
-            std::atomic_flag lock_;
+            std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
     };
 }
 

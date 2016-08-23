@@ -22,6 +22,7 @@
 
 #include <functional>
 #include <utility>
+#include <vector>
 
 #include <boost/log/trivial.hpp>
 
@@ -36,6 +37,7 @@ namespace ddafa
 {
     auto preloader_stage::run() -> void
     {
+        BOOST_LOG_TRIVIAL(debug) << "Called preloader_stage::run()";
         auto devices = int{};
         auto err = cudaGetDeviceCount(&devices);
         if(err != cudaSuccess)
@@ -43,6 +45,11 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not obtain CUDA devices: " << cudaGetErrorString(err);
             throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
         }
+
+        using vec_type = std::vector<pool_allocator>;
+        using v_size_type = typename vec_type::size_type;
+        auto d_v = static_cast<v_size_type>(devices);
+        auto pools = std::vector<pool_allocator>{d_v};
 
         while(true)
         {
@@ -60,7 +67,9 @@ namespace ddafa
                     throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
                 }
 
-                auto dev_proj = alloc_.allocate_smart(proj.second.width, proj.second.height);
+                d_v = static_cast<v_size_type>(i);
+                auto& alloc = pools[d_v];
+                auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
                 try
                 {
                     ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.first, proj.second.width, proj.second.height);

@@ -56,7 +56,6 @@ namespace ddafa
         private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
-            pool_allocator alloc_;
     };
 }
 

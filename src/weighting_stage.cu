@@ -84,6 +84,8 @@ namespace ddafa
             throw stage_construction_error{"weighting_stage::weigthing_stage() failed to initialize"};
         }
 
+        BOOST_LOG_TRIVIAL(debug) << "weighting_stage found " << devices_ << " CUDA devices";
+
         using vec_type = decltype(input_vec_);
         using size_type = typename vec_type::size_type;
         auto d = static_cast<size_type>(devices_);
@@ -93,7 +95,7 @@ namespace ddafa
     weighting_stage::weighting_stage(weighting_stage&& other) noexcept
     : input_{std::move(other.input_)}, output_{std::move(other.output_)}
     , l_px_row_{other.l_px_row_}, l_px_col_{other.l_px_col_}, h_min_{other.h_min_}, v_min_{other.v_min_}, d_sd_{other.d_sd_}
-    , input_vec_{std::move(other.input_vec_)}
+    , devices_{other.devices_}, input_vec_{std::move(other.input_vec_)}
     {
         if(other.lock_.test_and_set())
             lock_.test_and_set();
@@ -105,9 +107,12 @@ namespace ddafa
     {
         input_ = std::move(other.input_);
         output_ = std::move(other.output_);
+        l_px_row_ = other.l_px_row_;
+        l_px_col_ = other.l_px_col_;
         h_min_ = other.h_min_;
         v_min_ = other.v_min_;
         d_sd_ = other.d_sd_;
+        devices_ = other.devices_;
         input_vec_ = std::move(other.input_vec_);
 
         if(other.lock_.test_and_set())
@@ -120,13 +125,15 @@ namespace ddafa
 
     auto weighting_stage::run() -> void
     {
+        BOOST_LOG_TRIVIAL(debug) << "Called weighting_stage::run()";
+        BOOST_LOG_TRIVIAL(debug) << "Devices: " << devices_;
+
         auto futures = std::vector<std::future<void>>{};
-        for(int i = 0; i < devices_; ++i)
+        for(auto i = 0; i < devices_; ++i)
             futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
 
         while(true)
         {
-
             auto proj = input_();
             auto valid = proj.second.valid;
             while(lock_.test_and_set(std::memory_order_acquire))

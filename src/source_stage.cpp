@@ -53,6 +53,7 @@ namespace ddafa
 
     auto source_stage::run() -> void
     {
+        BOOST_LOG_TRIVIAL(debug) << "Called source_stage::run()";
         auto i = 0u;
         for(const auto& s : paths_)
         {
@@ -83,6 +84,7 @@ namespace ddafa
 
         // all frames loaded, send empty image
         output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
+        BOOST_LOG_TRIVIAL(info) << "All projections loaded.";
     }
 
     auto source_stage::set_output_function(std::function<void(output_type)> output) noexcept -> void

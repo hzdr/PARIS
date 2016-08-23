@@ -88,7 +88,7 @@ namespace ddafa
 
     auto geometry_calculator::calculate_volume_width_height_vx() noexcept -> void
     {
-        auto n_row = float{det_geo_.n_row};
+        auto n_row = static_cast<float>(det_geo_.n_row);
         auto l_px_row = det_geo_.l_px_row;
         auto delta_s = det_geo_.delta_s * l_px_row; // the offset is originally measured in pixels!
 
@@ -98,18 +98,18 @@ namespace ddafa
         vol_geo_.vx_size_x = r / ((((n_row * l_px_row) / 2.f) + std::abs(delta_s)) / l_px_row);
         vol_geo_.vx_size_y = vol_geo_.vx_size_x;
 
-        vol_geo_.width = std::size_t{(2.f * r) / vol_geo_.vx_size_x};
+        vol_geo_.width = static_cast<std::size_t>((2.f * r) / vol_geo_.vx_size_x);
         vol_geo_.height = vol_geo_.width;
     }
 
     auto geometry_calculator::calculate_volume_depth_vx() noexcept -> void
     {
         vol_geo_.vx_size_z = vol_geo_.vx_size_x;
-        auto n_col = float{det_geo_.n_col};
+        auto n_col = static_cast<float>(det_geo_.n_col);
         auto l_px_col = det_geo_.l_px_col;
         auto delta_t = det_geo_.delta_t * l_px_col;
 
-        vol_geo_.depth = std::size_t{((n_col * l_px_col / 2.f) + std::abs(delta_t)) * (std::abs(det_geo_.d_so) / d_sd_) * (2.f / vol_geo_.vx_size_z)};
+        vol_geo_.depth = static_cast<std::size_t>(((n_col * l_px_col / 2.f) + std::abs(delta_t)) * (std::abs(det_geo_.d_so) / d_sd_) * (2.f / vol_geo_.vx_size_z));
 
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.width << " x " << vol_geo_.height << " x " << vol_geo_.depth << " vx";
         BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.vx_size_x << " x " << vol_geo_.vx_size_y << " x " << vol_geo_.vx_size_z << " mm";
@@ -128,15 +128,16 @@ namespace ddafa
         proj_mem_ = det_geo_.n_row * det_geo_.n_col * sizeof(float);
 
         BOOST_LOG_TRIVIAL(info) << "The volume requires (roughly) " << vol_mem_ << " bytes";
-        BOOST_LOG_TRIVIAL(info) << "One projection requires (roughly)" << proj_mem_ << " bytes";
+        BOOST_LOG_TRIVIAL(info) << "One projection requires (roughly) " << proj_mem_ << " bytes";
     }
 
     auto geometry_calculator::calculate_volume_partition() -> void
     {
-        vol_mem_ /= std::size_t{devices_};
+        auto d = static_cast<std::size_t>(devices_);
+        vol_mem_ /= d;
+
         for(auto i = 0; i < devices_; ++i)
         {
-            auto d = std::size_t{i};
             auto vol_mem_dev = vol_mem_;
             auto required_mem = vol_mem_dev + 32 * proj_mem_;
             auto vol_count_dev = 1u;
@@ -174,7 +175,6 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(info) << "Trying test allocation...";
             try
             {
-                auto d = std::size_t{devices_};
                 auto tmp = ddrf::cuda::make_unique_device<float>(vol_geo_.width, vol_geo_.height, (vol_geo_.depth / d) / vol_count_dev);
                 BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
             }
@@ -190,6 +190,7 @@ namespace ddafa
             auto chunk_str = std::string{vol_count_dev > 1 ? "chunks" : "chunk"};
             BOOST_LOG_TRIVIAL(info) << "The reconstruction requires " << vol_count_dev << " " << chunk_str << " with " << required_mem << " bytes on device " << i;
             vol_per_dev_[i] = vol_count_dev;
+
             auto vm = volume_metadata{vol_geo_.width, vol_geo_.height, (vol_geo_.depth / d) / vol_count_dev, 0, 0, false, i, vol_geo_.vx_size_x, vol_geo_.vx_size_y, vol_geo_.vx_size_z};
             vol_geo_per_dev_[i] = vm;
         }
@@ -197,20 +198,26 @@ namespace ddafa
 
     auto geometry_calculator::calculate_subvolume_offsets() noexcept -> void
     {
-        auto d = std::size_t{devices_};
+        auto d = static_cast<std::size_t>(devices_);
         for(auto i = 0; i < devices_; ++i)
         {
-
             if(vol_per_dev_.count(i) == 0)
                 continue;
 
+            BOOST_LOG_TRIVIAL(debug) << "d: " << d;
+            BOOST_LOG_TRIVIAL(debug) << "vol_per_dev_[" << i << "]:" << vol_per_dev_[i];
             vol_geo_per_dev_[i].offset = (vol_geo_.depth / d) / vol_per_dev_[i];
 
             auto r1 = vol_geo_.depth % d; // remainder when partitioning amongst the devices
             auto r2 = (vol_geo_.depth / d) % vol_per_dev_[i]; // remainder when partitioning on one device
+            BOOST_LOG_TRIVIAL(debug) << "r1: " << r1;
+            BOOST_LOG_TRIVIAL(debug) << "r2: " << r2;
             vol_geo_per_dev_[i].remainder = r2;
             if(i == (devices_ - 1))
                 vol_geo_per_dev_[i].remainder += r1;
+
+            BOOST_LOG_TRIVIAL(info) << "Volume offset on device #" << i << ": " << vol_geo_per_dev_[i].offset;
+            BOOST_LOG_TRIVIAL(info) << "Remainder on device #" << i << ": " << vol_geo_per_dev_[i].remainder;
         }
     }
 }
