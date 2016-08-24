@@ -278,7 +278,7 @@ namespace ddafa
 
             // create j on the device and copy j from the host to the device
             auto d_j = ddrf::cuda::make_unique_device<std::int32_t>(filter_size_);
-            ddrf::cuda::copy(ddrf::cuda::async, d_j, h_j, filter_size_);
+            ddrf::cuda::copy(ddrf::cuda::sync, d_j, h_j, filter_size_);
             BOOST_LOG_TRIVIAL(debug) << "Copied filter from host to device";
 
             // create r on the device and calculate the filter values
@@ -325,7 +325,7 @@ namespace ddafa
             auto transformed_proj = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size, n_col_);
             auto transformed_filter = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size);
 
-            ddrf::cuda::fill(ddrf::cuda::async, converted_proj, 0, filter_size_, n_col_);
+            ddrf::cuda::fill(ddrf::cuda::sync, converted_proj, 0, filter_size_, n_col_);
 
             // set up cuFFT
             auto proj_n = static_cast<int>(filter_size_);

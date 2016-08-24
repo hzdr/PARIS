@@ -95,6 +95,15 @@ namespace ddafa
         }
     }
 
+    his_loader::his_loader()
+    : alloc_{std::size_t{100}}
+    {}
+
+    his_loader::~his_loader()
+    {
+        alloc_.release();
+    }
+
     auto his_loader::load(const std::string& path) -> std::vector<image_type>
     {
         auto vec = std::vector<image_type>{};

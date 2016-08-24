@@ -20,39 +20,26 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_HIS_LOADER_H_
-#define DDAFA_HIS_LOADER_H_
+#ifndef DDAFA_TIFF_SAVER_SINGLE_H_
+#define DDAFA_TIFF_SAVER_SINGLE_H_
 
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <ddrf/cuda/memory.h>
-#include <ddrf/memory.h>
 
 #include "metadata.h"
 
 namespace ddafa
 {
-    class his_loader
+    class tiff_saver_single
     {
         public:
-            using cuda_host_allocator = ddrf::cuda::host_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, cuda_host_allocator>;
-            using smart_pointer = typename pool_allocator::smart_pointer;
-            using image_type = std::pair<smart_pointer, projection_metadata>;
-
-            his_loader();
-            his_loader(his_loader&&) = default;
-            auto operator=(his_loader&&) -> his_loader& = default;
-            ~his_loader();
-            auto load(const std::string& path) -> std::vector<image_type>;
-
-        private:
-             pool_allocator alloc_;
+            tiff_saver_single() noexcept = default;
+            auto save(std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata> vol, const std::string& path) const -> void;
     };
 }
 
 
 
-#endif /* DDAFA_HIS_LOADER_H_ */
+#endif /* DDAFA_TIFF_SAVER_H_ */

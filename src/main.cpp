@@ -39,6 +39,7 @@
 
 #include <ddrf/pipeline/pipeline.h>
 
+#include "device_to_host_stage.h"
 #include "exception.h"
 #include "filter_stage.h"
 #include "geometry.h"
@@ -46,6 +47,7 @@
 #include "preloader_stage.h"
 #include "reconstruction_stage.h"
 #include "sink_stage.h"
+#include "sink_stage_single.h"
 #include "source_stage.h"
 #include "version.h"
 #include "weighting_stage.h"
@@ -154,6 +156,22 @@ auto main(int argc, char** argv) -> int
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
+        auto device_to_host = pipeline.make_stage<ddafa::device_to_host_stage>(input_limit);
+        auto sink = pipeline.make_stage<ddafa::sink_stage_single>(output_path, prefix);
+
+        pipeline.connect(source, preloader);
+        pipeline.connect(preloader, weighting);
+        pipeline.connect(weighting, filter);
+        pipeline.connect(filter, device_to_host);
+        pipeline.connect(device_to_host, sink);
+
+        pipeline.run(source, preloader, weighting, filter, device_to_host, sink);
+
+        /*
+        auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
+        auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
+        auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
+        auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
         auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
         auto sink = pipeline.make_stage<ddafa::sink_stage>(output_path, prefix);
 
@@ -163,7 +181,7 @@ auto main(int argc, char** argv) -> int
         pipeline.connect(filter, reconstruction);
         pipeline.connect(reconstruction, sink);
 
-        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);*/
 
         pipeline.wait();
 

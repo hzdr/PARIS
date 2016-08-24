@@ -16,43 +16,45 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 18 August 2016
+ * Date: 24 August 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_HIS_LOADER_H_
-#define DDAFA_HIS_LOADER_H_
+#ifndef DDAFA_SINK_STAGE_SINGLE_H_
+#define DDAFA_SINK_STAGE_SINGLE_H_
 
+#include <functional>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <ddrf/cuda/memory.h>
-#include <ddrf/memory.h>
 
 #include "metadata.h"
 
 namespace ddafa
 {
-    class his_loader
+    class sink_stage_single
     {
         public:
-            using cuda_host_allocator = ddrf::cuda::host_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, cuda_host_allocator>;
-            using smart_pointer = typename pool_allocator::smart_pointer;
-            using image_type = std::pair<smart_pointer, projection_metadata>;
+            using input_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata>;
+            using output_type = void;
 
-            his_loader();
-            his_loader(his_loader&&) = default;
-            auto operator=(his_loader&&) -> his_loader& = default;
-            ~his_loader();
-            auto load(const std::string& path) -> std::vector<image_type>;
+        public:
+            sink_stage_single(const std::string& path, const std::string& prefix);
+            ~sink_stage_single();
+
+            auto run() -> void;
+            auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
 
         private:
-             pool_allocator alloc_;
+            std::function<input_type(void)> input_;
+            int devices_;
+
+            std::string path_;
+            std::string prefix_;
     };
 }
 
 
 
-#endif /* DDAFA_HIS_LOADER_H_ */
+#endif /* DDAFA_SINK_STAGE_H_ */

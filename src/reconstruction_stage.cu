@@ -436,12 +436,12 @@ namespace ddafa
 
         try
         {
-            ddrf::cuda::copy(ddrf::cuda::async, vol_out_.first, v.first, v.second.width, v.second.height, v.second.depth + v.second.remainder,
+            ddrf::cuda::copy(ddrf::cuda::sync, vol_out_.first, v.first, v.second.width, v.second.height, v.second.depth + v.second.remainder,
                                 0, 0, vol_count * v.second.offset);
 
             BOOST_LOG_TRIVIAL(debug) << "Copy succeeded";
 
-            ddrf::cuda::fill(ddrf::cuda::async, v.first, 0, v.second.width, v.second.height, v.second.depth);
+            ddrf::cuda::fill(ddrf::cuda::sync, v.first, 0, v.second.width, v.second.height, v.second.depth);
 
             BOOST_LOG_TRIVIAL(debug) << "Memset succeeded";
         }

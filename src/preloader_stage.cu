@@ -87,7 +87,7 @@ namespace ddafa
                     auto d_v = static_cast<size_type>(i);
                     auto& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
-                    ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.first, proj.second.width, proj.second.height);
+                    ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.first, proj.second.width, proj.second.height);
 
                     auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};
                     output_(std::make_pair(std::move(dev_proj), meta));
