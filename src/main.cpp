@@ -151,7 +151,7 @@ auto main(int argc, char** argv) -> int
         auto pipeline = ddrf::pipeline::pipeline{};
 
         auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
-        auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit);
+        auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
         auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);

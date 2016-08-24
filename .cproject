@@ -161,6 +161,8 @@
 								<option id="nvcc.compiler.option.gprof.1885425226" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.cpp11option.2079131615" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.optionsfile.273736157" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" useByScannerDiscovery="false" value="../nvcc.args" valueType="string"/>
+								<option id="com.nvidia.cuda.ide.build.option1.1511327793" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.option1" value="" valueType="string"/>
+								<option id="nvcc.compiler.compileroptions.1425816964" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions" valueType="stringList"/>
 								<inputType id="nvcc.compiler.input.cu.1834504745" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.173552315" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1908437339" superClass="nvcc.compiler.input.c"/>
@@ -183,6 +185,7 @@
 									<listOptionValue builtIn="false" value="--export-dynamic"/>
 									<listOptionValue builtIn="false" value="--rpath=."/>
 								</option>
+								<option id="com.nvidia.cuda.ide.build.linker.ccbin.1289851176" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.linker.ccbin" value="" valueType="string"/>
 								<inputType id="nvcc.linker.input.1200366166" superClass="nvcc.linker.input">
 									<additionalInput kind="additionalinputdependency" paths="$(USER_OBJS)"/>
 									<additionalInput kind="additionalinput" paths="$(LIBS)"/>

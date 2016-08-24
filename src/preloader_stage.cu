@@ -20,6 +20,7 @@
  * Authors: Jan Stephan
  */
 
+#include <cstddef>
 #include <functional>
 #include <utility>
 #include <vector>
@@ -35,24 +36,37 @@
 
 namespace ddafa
 {
-    auto preloader_stage::run() -> void
+    preloader_stage::preloader_stage(std::size_t pool_limit)
+    : pools_{}, moved_{false}
     {
-        BOOST_LOG_TRIVIAL(debug) << "Called preloader_stage::run()";
-        auto devices = int{};
-        auto err = cudaGetDeviceCount(&devices);
+        auto err = cudaGetDeviceCount(&devices_);
         if(err != cudaSuccess)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() could not obtain CUDA devices: " << cudaGetErrorString(err);
+            throw stage_construction_error{"preloader_stage::preloader_stage() failed"};
         }
 
+        for(auto i = 0; i < devices_; ++i)
+            pools_.emplace_back(pool_limit);
+    }
+
+    preloader_stage::~preloader_stage()
+    {
+        if(pools_.empty())
+            return;
+
+        for(auto i = 0; i < devices_; ++i)
+        {
+            cudaSetDevice(i);
+            pools_[i].release();
+        }
+}
+
+    auto preloader_stage::run() -> void
+    {
         try
         {
-            using vec_type = std::vector<pool_allocator>;
-            using v_size_type = typename vec_type::size_type;
-            auto d_v = static_cast<v_size_type>(devices);
-            auto pools = std::vector<pool_allocator>{d_v};
-
+            BOOST_LOG_TRIVIAL(debug) << "Called preloader_stage::run()";
             while(true)
             {
                 auto proj = input_();
@@ -60,17 +74,18 @@ namespace ddafa
                 if(!proj.second.valid)
                     break;
 
-                for(auto i = 0; i < devices; ++i)
+                for(auto i = 0; i < devices_; ++i)
                 {
-                    err = cudaSetDevice(i);
+                    auto err = cudaSetDevice(i);
                     if(err != cudaSuccess)
                     {
                         BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not set CUDA device: " << cudaGetErrorString(err);
                         throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
                     }
 
-                    d_v = static_cast<v_size_type>(i);
-                    auto& alloc = pools[d_v];
+                    using size_type = typename decltype(pools_)::size_type;
+                    auto d_v = static_cast<size_type>(i);
+                    auto& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
                     ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.first, proj.second.width, proj.second.height);
 

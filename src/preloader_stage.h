@@ -23,6 +23,7 @@
 #ifndef DDAFA_PRELOADER_STAGE_H_
 #define DDAFA_PRELOADER_STAGE_H_
 
+#include <cstddef>
 #include <functional>
 #include <utility>
 
@@ -48,7 +49,10 @@ namespace ddafa
             using output_type = std::pair<smart_pointer, projection_metadata>;
 
         public:
-            preloader_stage() = default;
+            preloader_stage(std::size_t pool_limit);
+            ~preloader_stage();
+            preloader_stage(preloader_stage&&) = default;
+            auto operator=(preloader_stage&&) -> preloader_stage& = default;
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
@@ -56,6 +60,9 @@ namespace ddafa
         private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
+            int devices_;
+            std::vector<pool_allocator> pools_;
+            bool moved_;
     };
 }
 
