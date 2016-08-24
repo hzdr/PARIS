@@ -24,6 +24,7 @@
 #define DDAFA_RECONSTRUCTION_STAGE_H_
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <queue>
 #include <utility>
@@ -63,7 +64,7 @@ namespace ddafa
             auto safe_push(input_type) -> void;
             auto safe_pop(int) -> input_type;
             auto process(int) -> void;
-            auto download_and_reset(int, volume_metadata) -> void;
+            auto download_and_reset(int, std::uint32_t) -> void;
 
         private:
             std::function<input_type(void)> input_;
@@ -76,7 +77,7 @@ namespace ddafa
 
             int devices_;
             std::vector<volume_type> subvol_vec_;
-            std::vector<std::vector<volume_metadata>> subvol_geo_vec_;
+            std::vector<volume_metadata> subvol_geo_vec_;
             std::vector<std::queue<input_type>> input_vec_;
             std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
     };

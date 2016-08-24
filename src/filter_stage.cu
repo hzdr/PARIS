@@ -114,25 +114,25 @@ namespace ddafa
             throw stage_construction_error{"filter_stage::filter_stage() failed"};
         }
 
-        auto filter_futures = std::vector<std::future<void>>{};
-        for(auto i = 0; i < devices_; ++i)
-            filter_futures.emplace_back(std::async(std::launch::async, &filter_stage::create_filter, this, i));
-
         try
         {
+            auto filter_futures = std::vector<std::future<void>>{};
+            for(auto i = 0; i < devices_; ++i)
+                filter_futures.emplace_back(std::async(std::launch::async, &filter_stage::create_filter, this, i));
+
             for(auto&& f : filter_futures)
                 f.get();
+
+            using vec_type = decltype(input_vec_);
+            using size_type = typename vec_type::size_type;
+            auto d = static_cast<size_type>(devices_);
+            input_vec_ = vec_type{d};
         }
         catch(const stage_construction_error& sce)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() could not create filters: " << sce.what();
             throw stage_construction_error{"filter_stage::filter_stage() failed"};
         }
-
-        using vec_type = decltype(input_vec_);
-        using size_type = typename vec_type::size_type;
-        auto d = static_cast<size_type>(devices_);
-        input_vec_ = vec_type{d};
     }
 
     filter_stage::filter_stage(filter_stage&& other) noexcept
@@ -168,33 +168,33 @@ namespace ddafa
 
     auto filter_stage::run() -> void
     {
-        BOOST_LOG_TRIVIAL(debug) << "Called filter_stage::run()";
-        auto futures = std::vector<std::future<void>>{};
-        for(int i = 0; i < devices_; ++i)
-            futures.emplace_back(std::async(std::launch::async, &filter_stage::process, this, i));
-
-        while(true)
-        {
-            auto proj = input_();
-            auto valid = proj.second.valid;
-            safe_push(std::move(proj));
-            if(!valid)
-                break;
-        }
-
         try
         {
+            BOOST_LOG_TRIVIAL(debug) << "Called filter_stage::run()";
+            auto futures = std::vector<std::future<void>>{};
+            for(int i = 0; i < devices_; ++i)
+                futures.emplace_back(std::async(std::launch::async, &filter_stage::process, this, i));
+
+            while(true)
+            {
+                auto proj = input_();
+                auto valid = proj.second.valid;
+                safe_push(std::move(proj));
+                if(!valid)
+                    break;
+            }
+
             for(auto&& f : futures)
                 f.get();
+
+            output_(output_type());
+            BOOST_LOG_TRIVIAL(info) << "All projections have been filtered.";
         }
         catch(const stage_runtime_error& sre)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() failed to execute: " << sre.what();
             throw stage_runtime_error{"filter_stage::run() failed"};
         }
-
-        output_(output_type());
-        BOOST_LOG_TRIVIAL(info) << "All projections have been filtered.";
     }
 
     auto filter_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void
@@ -362,7 +362,6 @@ namespace ddafa
                 ddrf::cuda::copy(ddrf::cuda::sync, converted_proj, proj.first, proj.second.width, proj.second.height);
 
                 // execute the FFT for the projection and the filter
-                BOOST_LOG_TRIVIAL(debug) << "Executing forward FFT for projection #" << proj.second.index << " on device #" << device;
                 converted_proj_plan.execute(converted_ptr, transformed_ptr);
 
                 // create K

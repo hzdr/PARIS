@@ -205,7 +205,7 @@ namespace ddafa
                 continue;
 
             BOOST_LOG_TRIVIAL(debug) << "d: " << d;
-            BOOST_LOG_TRIVIAL(debug) << "vol_per_dev_[" << i << "]:" << vol_per_dev_[i];
+            BOOST_LOG_TRIVIAL(debug) << "vol_per_dev_[" << i << "]: " << vol_per_dev_[i];
             vol_geo_per_dev_[i].offset = (vol_geo_.depth / d) / vol_per_dev_[i];
 
             auto r1 = vol_geo_.depth % d; // remainder when partitioning amongst the devices

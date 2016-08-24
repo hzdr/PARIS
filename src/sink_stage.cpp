@@ -72,10 +72,10 @@ namespace ddafa
 
     auto sink_stage::run() -> void
     {
-        auto vol = input_();
-        auto saver = tiff_saver{};
         try
         {
+            auto vol = input_();
+            auto saver = tiff_saver{};
             saver.save(std::move(vol), path_);
         }
         catch(const std::runtime_error re)

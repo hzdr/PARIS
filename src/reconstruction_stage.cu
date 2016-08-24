@@ -180,27 +180,27 @@ namespace ddafa
             throw stage_construction_error{"reconstruction_stage::reconstruction_stage() failed"};
         }
 
-        using sv_size_type = typename decltype(subvol_vec_)::size_type;
-        auto d_sv = static_cast<sv_size_type>(devices_);
-        subvol_vec_ = decltype(subvol_vec_){d_sv};
-
-        using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
-        auto d_svg = static_cast<svg_size_type>(devices_);
-        subvol_geo_vec_ = decltype(subvol_geo_vec_){d_svg};
-
-        using iv_size_type = typename decltype(input_vec_)::size_type;
-        auto d_iv = static_cast<iv_size_type>(devices_);
-        input_vec_ = decltype(input_vec_){d_iv};
-
         try
         {
+            using sv_size_type = typename decltype(subvol_vec_)::size_type;
+            auto d_sv = static_cast<sv_size_type>(devices_);
+            subvol_vec_ = decltype(subvol_vec_){d_sv};
+
+            using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
+            auto d_svg = static_cast<svg_size_type>(devices_);
+            subvol_geo_vec_ = decltype(subvol_geo_vec_){d_svg};
+
+            using iv_size_type = typename decltype(input_vec_)::size_type;
+            auto d_iv = static_cast<iv_size_type>(devices_);
+            input_vec_ = decltype(input_vec_){d_iv};
+
             vol_out_.first = ddrf::cuda::make_unique_pinned_host<float>(vol_geo_.width, vol_geo_.height, vol_geo_.depth);
             vol_out_.second = vol_geo;
             vol_out_.second.valid = true;
 
             for(auto i = 0; i < devices_; ++i)
             {
-                auto err = cudaSetDevice(i);
+                err = cudaSetDevice(i);
                 if(err != cudaSuccess)
                 {
                     BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::reconstruction_stage could not set CUDA device: " << cudaGetErrorString(err);
@@ -209,16 +209,15 @@ namespace ddafa
 
                 for(const auto& g : subvol_geos)
                 {
-
                     if(g.device == i)
                     {
                         d_sv = static_cast<sv_size_type>(g.device);
                         subvol_vec_[d_sv] = std::make_pair(ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder), g);
+
+                        d_svg = static_cast<svg_size_type>(g.device);
+                        subvol_geo_vec_[d_svg] = g;
                         break;
                     }
-
-                    d_svg = static_cast<svg_size_type>(g.device);
-                    subvol_geo_vec_[d_svg].push_back(g);
                 }
             }
         }
@@ -272,32 +271,32 @@ namespace ddafa
 
     auto reconstruction_stage::run() -> void
     {
-        std::vector<std::future<void>> futures;
-        for(int i = 0; i < devices_; ++i)
-            futures.emplace_back(std::async(std::launch::async, &reconstruction_stage::process, this, i));
-
-        while(true)
-        {
-            auto proj = input_();
-            auto valid = proj.second.valid;
-            safe_push(std::move(proj));
-            if(!valid)
-                break;
-        }
-
         try
         {
+            std::vector<std::future<void>> futures;
+            for(int i = 0; i < devices_; ++i)
+                futures.emplace_back(std::async(std::launch::async, &reconstruction_stage::process, this, i));
+
+            while(true)
+            {
+                auto proj = input_();
+                auto valid = proj.second.valid;
+                safe_push(std::move(proj));
+                if(!valid)
+                    break;
+            }
+
             for(auto&& f: futures)
                 f.get();
+
+            output_(std::move(vol_out_));
+            BOOST_LOG_TRIVIAL(info) << "Reconstruction complete.";
         }
         catch(const stage_runtime_error& sre)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::run() failed to execute: " << sre.what();
             throw stage_runtime_error{"reconstruction_stage::run() failed"};
         }
-
-        output_(std::move(vol_out_));
-        BOOST_LOG_TRIVIAL(info) << "Reconstruction complete.";
     }
 
     auto reconstruction_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void
@@ -354,53 +353,53 @@ namespace ddafa
             throw stage_runtime_error{"reconstruction_stage::process() failed"};
         }
 
-        auto vol_count = typename decltype(subvol_geo_vec_)::value_type::size_type{0};
-        auto first = true;
-        while(true)
+        try
         {
-            auto delta_s = det_geo_.delta_s * det_geo_.l_px_row;
-            auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
-
-            using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
-            auto d_svg = static_cast<svg_size_type>(device);
-            auto v_geo = subvol_geo_vec_.at(d_svg).at(vol_count);
-
-            auto p = safe_pop(device);
-            if(!p.second.valid)
+            auto vol_count = typename decltype(subvol_geo_vec_)::size_type{0};
+            auto first = true;
+            while(true)
             {
-                download_and_reset(device, v_geo);
-                break;
-            }
+                auto delta_s = det_geo_.delta_s * det_geo_.l_px_row;
+                auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
 
-            if(p.second.index == 0)
-            {
-                if(first)
-                    first = false;
-                else
+                using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
+                auto d_svg = static_cast<svg_size_type>(device);
+                auto v_geo = subvol_geo_vec_.at(d_svg);
+
+                auto p = safe_pop(device);
+                if(!p.second.valid)
                 {
-                    ++vol_count;
-                    download_and_reset(device, v_geo);
+                    download_and_reset(device, vol_count);
+                    break;
                 }
-            }
 
-            if(p.second.index % 10 == 0)
-                BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.second.index << " on device #" << device;
+                if(p.second.index == 0)
+                {
+                    if(first)
+                        first = false;
+                    else
+                    {
+                        download_and_reset(device, vol_count);
+                        ++vol_count;
+                    }
+                }
 
-            using sv_size_type = typename decltype(subvol_vec_)::size_type;
-            auto d_sv = static_cast<sv_size_type>(device);
-            auto& v = subvol_vec_[d_sv];
+                if(p.second.index % 10 == 0)
+                    BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.second.index << " on device #" << device;
 
-            auto phi = 0.f;
-            if(predefined_angles_)
-                phi = p.second.phi;
-            else
-                phi = p.second.index * det_geo_.delta_phi;
-            auto phi_rad = phi * M_PI / 180.f;
-            auto sin = static_cast<float>(std::sin(phi_rad));
-            auto cos = static_cast<float>(std::cos(phi_rad));
+                using sv_size_type = typename decltype(subvol_vec_)::size_type;
+                auto d_sv = static_cast<sv_size_type>(device);
+                auto& v = subvol_vec_[d_sv];
 
-            try
-            {
+                auto phi = 0.f;
+                if(predefined_angles_)
+                    phi = p.second.phi;
+                else
+                    phi = p.second.index * det_geo_.delta_phi;
+                auto phi_rad = phi * M_PI / 180.f;
+                auto sin = static_cast<float>(std::sin(phi_rad));
+                auto cos = static_cast<float>(std::cos(phi_rad));
+
                 auto v_ptr = v.first.get();
                 auto p_ptr = static_cast<const float*>(p.first.get());
                 ddrf::cuda::launch(v.second.width, v.second.height, v.second.depth,
@@ -411,38 +410,46 @@ namespace ddafa
                                         delta_s, delta_t,
                                     sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
             }
-            catch(const ddrf::cuda::bad_alloc& ba)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() encountered a bad_alloc: " << ba.what();
-                throw stage_runtime_error{"reconstruction_stage::process() failed"};
-            }
-            catch(const ddrf::cuda::invalid_argument ia)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() passed an invalid argument to the CUDA runtime: " << ia.what();
-                throw stage_runtime_error{"reconstruction_stage::process() failed"};
-            }
-            catch(const ddrf::cuda::runtime_error& re)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "reconstruction-stage::process() encountered a CUDA runtime error: " << re.what();
-                throw stage_runtime_error{"reconstruction_stage::process() failed"};
-            }
+        }
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() encountered a bad_alloc: " << ba.what();
+            throw stage_runtime_error{"reconstruction_stage::process() failed"};
+        }
+        catch(const ddrf::cuda::invalid_argument ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw stage_runtime_error{"reconstruction_stage::process() failed"};
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "reconstruction-stage::process() encountered a CUDA runtime error: " << re.what();
+            throw stage_runtime_error{"reconstruction_stage::process() failed"};
         }
     }
 
-    auto reconstruction_stage::download_and_reset(int device, volume_metadata geo) -> void
+    auto reconstruction_stage::download_and_reset(int device, std::uint32_t vol_count) -> void
     {
         using sv_size_type = typename decltype(subvol_vec_)::size_type;
         auto d_sv = static_cast<sv_size_type>(device);
         auto& v = subvol_vec_[d_sv];
+
         try
         {
             ddrf::cuda::copy(ddrf::cuda::async, vol_out_.first, v.first, v.second.width, v.second.height, v.second.depth + v.second.remainder,
-                                0, 0, v.second.offset);
+                                0, 0, vol_count * v.second.offset);
+
+            BOOST_LOG_TRIVIAL(debug) << "Copy succeeded";
+
             ddrf::cuda::fill(ddrf::cuda::async, v.first, 0, v.second.width, v.second.height, v.second.depth);
+
+            BOOST_LOG_TRIVIAL(debug) << "Memset succeeded";
         }
         catch(const ddrf::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::download_and_reset() passed an invalid argument to the CUDA runtime: " << ia.what();
+            BOOST_LOG_TRIVIAL(fatal) << "Arguments source: " << v.second.width << " x " << v.second.height << " x " << v.second.depth;
+            BOOST_LOG_TRIVIAL(fatal) << "Arguments dest: " << vol_out_.second.width << " x " << vol_out_.second.height << " x " << vol_out_.second.depth;
             throw stage_runtime_error{"reconstruction_stage::download_and_reset() failed"};
         }
     }

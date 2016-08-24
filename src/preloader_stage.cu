@@ -46,48 +46,53 @@ namespace ddafa
             throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
         }
 
-        using vec_type = std::vector<pool_allocator>;
-        using v_size_type = typename vec_type::size_type;
-        auto d_v = static_cast<v_size_type>(devices);
-        auto pools = std::vector<pool_allocator>{d_v};
-
-        while(true)
+        try
         {
-            auto proj = input_();
+            using vec_type = std::vector<pool_allocator>;
+            using v_size_type = typename vec_type::size_type;
+            auto d_v = static_cast<v_size_type>(devices);
+            auto pools = std::vector<pool_allocator>{d_v};
 
-            if(!proj.second.valid)
-                break;
-
-            for(auto i = 0; i < devices; ++i)
+            while(true)
             {
-                err = cudaSetDevice(i);
-                if(err != cudaSuccess)
-                {
-                    BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not set CUDA device: " << cudaGetErrorString(err);
-                    throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
-                }
+                auto proj = input_();
 
-                d_v = static_cast<v_size_type>(i);
-                auto& alloc = pools[d_v];
-                auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
-                try
+                if(!proj.second.valid)
+                    break;
+
+                for(auto i = 0; i < devices; ++i)
                 {
+                    err = cudaSetDevice(i);
+                    if(err != cudaSuccess)
+                    {
+                        BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not set CUDA device: " << cudaGetErrorString(err);
+                        throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
+                    }
+
+                    d_v = static_cast<v_size_type>(i);
+                    auto& alloc = pools[d_v];
+                    auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
                     ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.first, proj.second.width, proj.second.height);
-                }
-                catch(const ddrf::cuda::invalid_argument& ia)
-                {
-                    BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not copy to CUDA device: " << ia.what();
-                    throw stage_runtime_error{"preloader_stage::run() failed to copy projection"};
-                }
 
-                auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};
-                output_(std::make_pair(std::move(dev_proj), meta));
+                    auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};
+                    output_(std::make_pair(std::move(dev_proj), meta));
+                }
             }
-        }
 
-        // Uploaded all projections to the GPU, notify the next stage that we are done here
-        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
-        BOOST_LOG_TRIVIAL(info) << "Uploaded all projections to the device(s)";
+            // Uploaded all projections to the GPU, notify the next stage that we are done here
+            output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
+            BOOST_LOG_TRIVIAL(info) << "Uploaded all projections to the device(s)";
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not copy to CUDA device: " << ia.what();
+            throw stage_runtime_error{"preloader_stage::run() failed to copy projection"};
+        }
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() encountered a bad_alloc: " << ba.what();
+            throw stage_runtime_error{"preloader_stage::run() failed"};
+        }
     }
 
     auto preloader_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void

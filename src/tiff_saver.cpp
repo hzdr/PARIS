@@ -60,7 +60,7 @@ namespace ddafa
         auto data_ptr = vol.first.get();
         for(auto i = 0u; i < vol.second.depth; ++i)
         {
-            auto slice = data_ptr+ (i * vol.second.width * vol.second.height);
+            auto slice = data_ptr + (i * vol.second.width * vol.second.height);
             auto&& ss = std::stringstream{};
             // the locale will take ownership so plain new is okay here
             auto output_facet = new boost::posix_time::time_facet{"%Y:%m:%d %H:%M:%S"};
@@ -73,7 +73,7 @@ namespace ddafa
 
             auto tifp = tif.get();
             TIFFSetField(tifp, TIFFTAG_IMAGEWIDTH, vol.second.width);
-            TIFFSetField(tifp, TIFFTAG_IMAGELENGTH,vol.second.height);
+            TIFFSetField(tifp, TIFFTAG_IMAGELENGTH, vol.second.height);
             TIFFSetField(tifp, TIFFTAG_BITSPERSAMPLE, bits_per_sample<float>::value);
             TIFFSetField(tifp, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
             TIFFSetField(tifp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
@@ -90,6 +90,9 @@ namespace ddafa
                 TIFFWriteScanline(tifp, reinterpret_cast<void*>(slice_ptr), row);
                 slice_ptr += vol.second.width;
             }
+
+            if(TIFFWriteDirectory(tifp) != 1)
+                throw std::runtime_error{"tiff_saver::save() encountered an I/O error while writing to " + full_path};
         }
     }
 }

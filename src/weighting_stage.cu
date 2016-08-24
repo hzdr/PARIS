@@ -125,46 +125,46 @@ namespace ddafa
 
     auto weighting_stage::run() -> void
     {
-        BOOST_LOG_TRIVIAL(debug) << "Called weighting_stage::run()";
-        BOOST_LOG_TRIVIAL(debug) << "Devices: " << devices_;
-
-        auto futures = std::vector<std::future<void>>{};
-        for(auto i = 0; i < devices_; ++i)
-            futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
-
-        while(true)
-        {
-            auto proj = input_();
-            auto valid = proj.second.valid;
-            while(lock_.test_and_set(std::memory_order_acquire))
-                std::this_thread::yield();
-
-            if(valid)
-                input_vec_[proj.second.device].push(std::move(proj));
-            else
-            {
-                for(auto i = 0; i < devices_; ++i)
-                    input_vec_[i].push(input_type());
-            }
-
-            lock_.clear(std::memory_order_release);
-            if(!valid)
-                break;
-        }
-
         try
         {
+            BOOST_LOG_TRIVIAL(debug) << "Called weighting_stage::run()";
+            BOOST_LOG_TRIVIAL(debug) << "Devices: " << devices_;
+
+            auto futures = std::vector<std::future<void>>{};
+            for(auto i = 0; i < devices_; ++i)
+                futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
+
+            while(true)
+            {
+                auto proj = input_();
+                auto valid = proj.second.valid;
+                while(lock_.test_and_set(std::memory_order_acquire))
+                    std::this_thread::yield();
+
+                if(valid)
+                    input_vec_[proj.second.device].push(std::move(proj));
+                else
+                {
+                    for(auto i = 0; i < devices_; ++i)
+                        input_vec_[i].push(input_type());
+                }
+
+                lock_.clear(std::memory_order_release);
+                if(!valid)
+                    break;
+            }
+
             for(auto&& f : futures)
                 f.get();
+
+            output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
+            BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
         }
         catch(const stage_runtime_error& sre)
         {
             BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() failed to execute: " << sre.what();
             throw stage_runtime_error{"weighting_stage::run() failed"};
         }
-
-        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
-        BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
     }
 
     auto weighting_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void
@@ -186,31 +186,31 @@ namespace ddafa
             throw stage_runtime_error{"weighting_stage::process() failed to initialize"};
         }
 
-        while(true)
+        try
         {
-            while(input_vec_.empty())
-                std::this_thread::yield();
-
-            while(lock_.test_and_set(std::memory_order_acquire))
-                std::this_thread::yield();
-
-            auto& queue = input_vec_.at(device);
-            if(queue.empty())
+            while(true)
             {
+                while(input_vec_.empty())
+                    std::this_thread::yield();
+
+                while(lock_.test_and_set(std::memory_order_acquire))
+                    std::this_thread::yield();
+
+                auto& queue = input_vec_.at(device);
+                if(queue.empty())
+                {
+                    lock_.clear(std::memory_order_release);
+                    continue;
+                }
+
+                auto proj = std::move(queue.front());
+                queue.pop();
+
                 lock_.clear(std::memory_order_release);
-                continue;
-            }
 
-            auto proj = std::move(queue.front());
-            queue.pop();
+                if(!proj.second.valid)
+                    break;
 
-            lock_.clear(std::memory_order_release);
-
-            if(!proj.second.valid)
-                break;
-
-            try
-            {
                 ddrf::cuda::launch(proj.second.width, proj.second.height,
                                     weight,
                                     proj.first.get(), static_cast<const float*>(proj.first.get()),
@@ -218,24 +218,26 @@ namespace ddafa
                                     h_min_, v_min_,
                                     d_sd_,
                                     l_px_row_, l_px_col_);
-            }
-            catch(const ddrf::cuda::bad_alloc& ba)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered bad_alloc while invoking kernel: " << ba.what();
-                throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
-            }
-            catch(const ddrf::cuda::runtime_error& re)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered runtime_error while invoking kernel: " << re.what();
-                throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
-            }
-            catch(const ddrf::cuda::invalid_argument& ia)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered invalid_argument while invoking kernel: " << ia.what();
-                throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
-            }
 
-            output_(std::move(proj));
+
+
+                output_(std::move(proj));
+            }
+        }
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered bad_alloc while invoking kernel: " << ba.what();
+            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered runtime_error while invoking kernel: " << re.what();
+            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered invalid_argument while invoking kernel: " << ia.what();
+            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
         }
     }
 }

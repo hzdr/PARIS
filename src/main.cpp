@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -142,6 +143,7 @@ auto main(int argc, char** argv) -> int
     {
         auto predef_phi = angle_path.empty();
         auto geo_calc = ddafa::geometry_calculator{geo};
+        auto input_limit = std::size_t{100};
 
         // set up pipeline
         auto start = std::chrono::high_resolution_clock::now();
@@ -149,10 +151,10 @@ auto main(int argc, char** argv) -> int
         auto pipeline = ddrf::pipeline::pipeline{};
 
         auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
-        auto preloader = pipeline.make_stage<ddafa::preloader_stage>();
-        auto weighting = pipeline.make_stage<ddafa::weighting_stage>(geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
-        auto filter = pipeline.make_stage<ddafa::filter_stage>(geo.n_row, geo.n_col, geo.l_px_row);
-        auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
+        auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit);
+        auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
+        auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
+        auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), predef_phi);
         auto sink = pipeline.make_stage<ddafa::sink_stage>(output_path, prefix);
 
         pipeline.connect(source, preloader);
@@ -171,7 +173,7 @@ auto main(int argc, char** argv) -> int
         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
         auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
 
-        BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: " << minutes.count() << ":" << seconds.count() % 60 << " minutes";
+        BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: " << minutes.count() << ":" << std::setfill('0') << std::setw(2) << seconds.count() % 60 << " minutes";
     }
     catch(const ddafa::stage_construction_error& sce)
     {
