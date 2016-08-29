@@ -49,7 +49,7 @@ namespace ddafa
 {
     namespace
     {
-        __global__ void create_filter_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
+        __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
 
@@ -75,19 +75,21 @@ namespace ddafa
             }
         }
 
-        __global__ void create_k_kernel(cufftComplex* __restrict__ data, std::size_t filter_size, float tau)
+        __global__ void k_creation_kernel(cufftComplex* __restrict__ data, std::size_t filter_size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
             if(x < filter_size)
             {
+
                 auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
+
                 data[x].x = result;
                 data[x].y = result;
             }
         }
 
-        __global__ void apply_filter_kernel(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
-                                        std::size_t filter_size, std::size_t data_height, std::size_t pitch)
+        __global__ void filter_application_kernel(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
+                                                    std::size_t filter_size, std::size_t data_height, std::size_t pitch)
         {
             auto x = ddrf::cuda::coord_x();
             auto y = ddrf::cuda::coord_y();
@@ -272,7 +274,7 @@ namespace ddafa
             // create j on the host and fill it with values from -(filter_size_ - 2) / 2 to filter_size / 2
             auto h_j = ddrf::cuda::make_unique_pinned_host<std::int32_t>(filter_size_);
             auto size = static_cast<std::int32_t>(filter_size_);
-            auto j = (size - 2) / 2;
+            auto j = -(size - 2) / 2;
             std::iota(h_j.get(), h_j.get() + filter_size_, j);
             BOOST_LOG_TRIVIAL(debug) << "Host filter creation succeeded";
 
@@ -283,7 +285,7 @@ namespace ddafa
 
             // create r on the device and calculate the filter values
             auto d_r = ddrf::cuda::make_unique_device<float>(filter_size_);
-            ddrf::cuda::launch(filter_size_, create_filter_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
+            ddrf::cuda::launch(filter_size_, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
             BOOST_LOG_TRIVIAL(debug) << "Device filter creation succeeded";
 
             // move to filter container
@@ -325,8 +327,6 @@ namespace ddafa
             auto transformed_proj = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size, n_col_);
             auto transformed_filter = ddrf::cuda::make_unique_device<cufftComplex>(transformed_filter_size);
 
-            ddrf::cuda::fill(ddrf::cuda::sync, converted_proj, 0, filter_size_, n_col_);
-
             // set up cuFFT
             auto proj_n = static_cast<int>(filter_size_);
             auto proj_dist = static_cast<int>(converted_proj.pitch() / sizeof(float));
@@ -346,6 +346,9 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(debug) << "Executing forward FFT for filter on device #" << device;
             filter_plan.execute(rs_[device].get(), filter_ptr);
 
+            // create K
+            ddrf::cuda::launch(transformed_filter_size, k_creation_kernel, filter_ptr, transformed_filter_size, tau_);
+
             BOOST_LOG_TRIVIAL(debug) << "Filter setup on device #" << device << " completed.";
 
             while(true)
@@ -358,18 +361,17 @@ namespace ddafa
                 auto transformed_ptr = transformed_proj.get();
                 auto const_filter_ptr = static_cast<const cufftComplex*>(filter_ptr);
 
+                ddrf::cuda::fill(ddrf::cuda::sync, converted_proj, 0, filter_size_, n_col_);
+
                 // copy projection to larger projection which has a width of 2^x
                 ddrf::cuda::copy(ddrf::cuda::sync, converted_proj, proj.first, proj.second.width, proj.second.height);
 
-                // execute the FFT for the projection and the filter
+                // execute the FFT for the projection
                 converted_proj_plan.execute(converted_ptr, transformed_ptr);
-
-                // create K
-                ddrf::cuda::launch(transformed_filter_size, create_k_kernel, filter_ptr, transformed_filter_size, tau_);
 
                 // apply the transformed filter to the transformed projection
                 ddrf::cuda::launch(transformed_filter_size, n_col_,
-                                    apply_filter_kernel,
+                                    filter_application_kernel,
                                     transformed_ptr, const_filter_ptr, transformed_filter_size, n_col_, transformed_proj.pitch());
 
                 // run inverse FFT on the transformed projection

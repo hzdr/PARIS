@@ -61,12 +61,34 @@ namespace ddafa
         }
     }
 
+    sink_stage_single::sink_stage_single(sink_stage_single&& other) noexcept
+    : input_{std::move(other.input_)}, devices_{std::move(other.devices_)}
+    , path_{std::move(other.path_)}, prefix_{std::move(other.prefix_)}
+    {
+        other.moved_ = true;
+    }
+
+    auto sink_stage_single::operator=(sink_stage_single&& other) noexcept -> sink_stage_single&
+    {
+        input_ = std::move(other.input_);
+        devices_ = std::move(other.devices_);
+        path_ = std::move(other.path_);
+        prefix_ = std::move(other.prefix_);
+
+        other.moved_ = true;
+
+        return *this;
+    }
+
     sink_stage_single::~sink_stage_single()
     {
-        for(auto i = 0; i < devices_; ++i)
+        if(!moved_)
         {
-            cudaSetDevice(i);
-            cudaDeviceReset();
+            for(auto i = 0; i < devices_; ++i)
+            {
+                cudaSetDevice(i);
+                cudaDeviceReset();
+            }
         }
     }
 
