@@ -51,13 +51,6 @@ namespace ddafa
             return -(dim * size2) + size2 + coord * size;
         }
 
-        inline __device__ auto proj_centered_coordinate(unsigned int coord, std::size_t dim, float size, float offset) -> float
-        {
-            auto size2 = size / 2.f;
-            auto min = -(dim * size2) - offset;
-            return size2 + ((static_cast<float>(coord) + 1.f / 2.f)) * size + min;
-        }
-
         // round and cast as needed
         inline __device__ auto proj_real_coordinate(float coord, std::size_t dim, float size, float offset) -> float
         {
@@ -195,6 +188,8 @@ namespace ddafa
             input_vec_ = decltype(input_vec_){d_iv};
 
             vol_out_.first = ddrf::cuda::make_unique_pinned_host<float>(vol_geo_.width, vol_geo_.height, vol_geo_.depth);
+            ddrf::cuda::fill(ddrf::cuda::async, vol_out_.first, 0, vol_geo_.width, vol_geo_.height, vol_geo_.depth);
+
             vol_out_.second = vol_geo;
             vol_out_.second.valid = true;
 
@@ -211,8 +206,11 @@ namespace ddafa
                 {
                     if(g.device == i)
                     {
+                        auto ptr = ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder);
+                        ddrf::cuda::fill(ddrf::cuda::async, ptr, 0, g.width, g.height, g.depth + g.remainder);
+
                         d_sv = static_cast<sv_size_type>(g.device);
-                        subvol_vec_[d_sv] = std::make_pair(ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder), g);
+                        subvol_vec_[d_sv] = std::make_pair(std::move(ptr), g);
 
                         d_svg = static_cast<svg_size_type>(g.device);
                         subvol_geo_vec_[d_svg] = g;
@@ -357,14 +355,18 @@ namespace ddafa
         {
             auto vol_count = typename decltype(subvol_geo_vec_)::size_type{0};
             auto first = true;
+
+            auto delta_s = det_geo_.delta_s * det_geo_.l_px_row;
+            auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
             while(true)
             {
-                auto delta_s = det_geo_.delta_s * det_geo_.l_px_row;
-                auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
-
                 using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
                 auto d_svg = static_cast<svg_size_type>(device);
                 auto v_geo = subvol_geo_vec_.at(d_svg);
+
+                using sv_size_type = typename decltype(subvol_vec_)::size_type;
+                auto d_sv = static_cast<sv_size_type>(device);
+                auto& v = subvol_vec_[d_sv];
 
                 auto p = safe_pop(device);
                 if(!p.second.valid)
@@ -387,10 +389,6 @@ namespace ddafa
                 if(p.second.index % 10 == 0)
                     BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.second.index << " on device #" << device;
 
-                using sv_size_type = typename decltype(subvol_vec_)::size_type;
-                auto d_sv = static_cast<sv_size_type>(device);
-                auto& v = subvol_vec_[d_sv];
-
                 auto phi = 0.f;
                 if(predefined_angles_)
                     phi = p.second.phi;
@@ -400,11 +398,13 @@ namespace ddafa
                 auto sin = static_cast<float>(std::sin(phi_rad));
                 auto cos = static_cast<float>(std::cos(phi_rad));
 
+                auto offset = v_geo.offset * vol_count;
+
                 auto v_ptr = v.first.get();
                 auto p_ptr = static_cast<const float*>(p.first.get());
                 ddrf::cuda::launch(v.second.width, v.second.height, v.second.depth,
                                     backproject,
-                                    v_ptr, v.second.width, v.second.height, v.second.depth, v.first.pitch(), v_geo.offset, vol_geo_.depth,
+                                    v_ptr, v.second.width, v.second.height, v.second.depth, v.first.pitch(), offset, vol_geo_.depth,
                                         v.second.vx_size_x, v.second.vx_size_y, v.second.vx_size_z,
                                     p_ptr, p.second.width, p.second.height, p.first.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
                                         delta_s, delta_t,
@@ -448,8 +448,6 @@ namespace ddafa
         catch(const ddrf::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::download_and_reset() passed an invalid argument to the CUDA runtime: " << ia.what();
-            BOOST_LOG_TRIVIAL(fatal) << "Arguments source: " << v.second.width << " x " << v.second.height << " x " << v.second.depth;
-            BOOST_LOG_TRIVIAL(fatal) << "Arguments dest: " << vol_out_.second.width << " x " << vol_out_.second.height << " x " << vol_out_.second.depth;
             throw stage_runtime_error{"reconstruction_stage::download_and_reset() failed"};
         }
     }

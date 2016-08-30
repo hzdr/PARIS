@@ -143,7 +143,7 @@ auto main(int argc, char** argv) -> int
 
     try
     {
-        auto predef_phi = angle_path.empty();
+        auto predef_phi = !angle_path.empty();
         auto geo_calc = ddafa::geometry_calculator{geo};
         auto input_limit = std::size_t{100};
 
@@ -152,7 +152,8 @@ auto main(int argc, char** argv) -> int
 
         auto pipeline = ddrf::pipeline::pipeline{};
 
-        /*auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
+        // uncomment the following when individual projections from the intermediate stages are needed for debugging
+        auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
@@ -165,9 +166,9 @@ auto main(int argc, char** argv) -> int
         pipeline.connect(filter, device_to_host);
         pipeline.connect(device_to_host, sink);
 
-        pipeline.run(source, preloader, weighting, filter, device_to_host, sink);*/
+        pipeline.run(source, preloader, weighting, filter, device_to_host, sink);
 
-        auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
+        /*auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
@@ -180,7 +181,7 @@ auto main(int argc, char** argv) -> int
         pipeline.connect(filter, reconstruction);
         pipeline.connect(reconstruction, sink);
 
-        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);*/
 
         pipeline.wait();
 

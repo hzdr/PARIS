@@ -41,9 +41,6 @@ namespace ddafa
 
         public:
             sink_stage(const std::string& path, const std::string& prefix);
-            sink_stage(sink_stage&& other) noexcept;
-            auto operator=(sink_stage&& other) noexcept -> sink_stage&;
-            ~sink_stage();
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
@@ -54,7 +51,6 @@ namespace ddafa
 
             std::string path_;
             std::string prefix_;
-            bool moved_ = false;
     };
 }
 
