@@ -58,7 +58,9 @@ namespace ddafa
         for(auto i = 0; i < devices_; ++i)
         {
             cudaSetDevice(i);
-            pools_[i].release();
+            using size_type = typename decltype(pools_)::size_type;
+            auto d = static_cast<size_type>(i);
+            pools_[d].release();
         }
 }
 
@@ -87,6 +89,7 @@ namespace ddafa
                     auto d_v = static_cast<size_type>(i);
                     auto& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
+                    ddrf::cuda::fill(ddrf::cuda::sync, dev_proj, 1, proj.second.width, proj.second.height);
                     ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.first, proj.second.width, proj.second.height);
 
                     auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};

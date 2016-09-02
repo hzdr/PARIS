@@ -80,7 +80,6 @@ namespace ddafa
             auto x = ddrf::cuda::coord_x();
             if(x < filter_size)
             {
-
                 auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
 
                 data[x].x = result;
@@ -287,6 +286,8 @@ namespace ddafa
             auto d_r = ddrf::cuda::make_unique_device<float>(filter_size_);
             ddrf::cuda::launch(filter_size_, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
             BOOST_LOG_TRIVIAL(debug) << "Device filter creation succeeded";
+
+            cudaStreamSynchronize(0);
 
             // move to filter container
             rs_[device] = std::move(d_r);

@@ -219,8 +219,6 @@ namespace ddafa
                                     d_sd_,
                                     l_px_row_, l_px_col_);
 
-
-
                 output_(std::move(proj));
             }
         }
