@@ -205,7 +205,7 @@ namespace ddafa
             file.seekg(0, std::ios_base::beg);
             file.imbue(loc);
 
-            while(file.tellg() != std::ios_base::end)
+            while(!file.eof())
             {
                 auto angle = 0.f;
                 file >> angle;
