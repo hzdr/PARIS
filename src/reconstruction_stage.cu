@@ -416,7 +416,7 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() encountered a bad_alloc: " << ba.what();
             throw stage_runtime_error{"reconstruction_stage::process() failed"};
         }
-        catch(const ddrf::cuda::invalid_argument ia)
+        catch(const ddrf::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::process() passed an invalid argument to the CUDA runtime: " << ia.what();
             throw stage_runtime_error{"reconstruction_stage::process() failed"};

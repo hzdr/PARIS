@@ -28,6 +28,8 @@
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/algorithm.h>
+#include <ddrf/cuda/coordinates.h>
+#include <ddrf/cuda/launch.h>
 #include <ddrf/cuda/sync_policy.h>
 
 #include "exception.h"
@@ -36,6 +38,22 @@
 
 namespace ddafa
 {
+    namespace
+    {
+        __global__ void init_kernel(float* dst, std::size_t w, std::size_t h, std::size_t p)
+        {
+            auto x = ddrf::cuda::coord_x();
+            auto y = ddrf::cuda::coord_y();
+
+            if((x < w) && (y < h))
+            {
+                auto dst_row = reinterpret_cast<float*>(reinterpret_cast<char*>(dst) + p * y);
+
+                dst_row[x] = 1.f;
+            }
+        }
+    }
+
     preloader_stage::preloader_stage(std::size_t pool_limit)
     : pools_{}, moved_{false}
     {
@@ -87,9 +105,13 @@ namespace ddafa
 
                     using size_type = typename decltype(pools_)::size_type;
                     auto d_v = static_cast<size_type>(i);
-                    auto& alloc = pools_[d_v];
+                    auto&& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
-                    ddrf::cuda::fill(ddrf::cuda::sync, dev_proj, 1, proj.second.width, proj.second.height);
+
+                    // we have to initialize the destination data before copying because of reasons
+                    ddrf::cuda::launch(proj.second.width, proj.second.height, init_kernel,
+                            dev_proj.get(), proj.second.width, proj.second.height, dev_proj.pitch());
+
                     ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.first, proj.second.width, proj.second.height);
 
                     auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};

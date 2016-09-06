@@ -158,27 +158,29 @@ namespace ddafa
 
             auto img_buffer = alloc_.allocate_smart(width, height);
 
+            auto w16 = static_cast<std::uint16_t>(width);
+            auto h16 = static_cast<std::uint16_t>(height);
             using num_type = decltype(header.number_type);
             switch(header.number_type)
             {
                 case static_cast<num_type>(data::type_uchar):
-                    copy_to_buf<std::uint8_t>(file, img_buffer.get(), width, height);
+                    copy_to_buf<std::uint8_t>(file, img_buffer.get(), w16, h16);
                     break;
 
                 case static_cast<num_type>(data::type_ushort):
-                    copy_to_buf<std::uint16_t>(file, img_buffer.get(), width, height);
+                    copy_to_buf<std::uint16_t>(file, img_buffer.get(), w16, h16);
                     break;
 
                 case static_cast<num_type>(data::type_dword):
-                    copy_to_buf<std::uint32_t>(file, img_buffer.get(), width, height);
+                    copy_to_buf<std::uint32_t>(file, img_buffer.get(), w16, h16);
                     break;
 
                 case static_cast<num_type>(data::type_double):
-                    copy_to_buf<double>(file, img_buffer.get(), width, height);
+                    copy_to_buf<double>(file, img_buffer.get(), w16, h16);
                     break;
 
                 case static_cast<num_type>(data::type_float):
-                    copy_to_buf<float>(file, img_buffer.get(), width, height);
+                    copy_to_buf<float>(file, img_buffer.get(), w16, h16);
                     break;
 
                 default:
@@ -186,7 +188,9 @@ namespace ddafa
                     throw std::runtime_error{"File with unsupported data type"};
             }
 
-            vec.emplace_back(std::make_pair(std::move(img_buffer), projection_metadata{width, height, 0, 0, true, 0}));
+            auto w = static_cast<std::size_t>(width);
+            auto h = static_cast<std::size_t>(height);
+            vec.emplace_back(std::make_pair(std::move(img_buffer), projection_metadata{w, h, 0, 0, true, 0}));
         }
         return vec;
     }

@@ -162,11 +162,12 @@ auto main(int argc, char** argv) -> int
 
         pipeline.connect(source, preloader);
         pipeline.connect(preloader, weighting);
-        pipeline.connect(weighting, filter);
-        pipeline.connect(filter, device_to_host);
+        pipeline.connect(weighting, device_to_host);
+/*        pipeline.connect(weighting, filter);
+        pipeline.connect(filter, device_to_host);*/
         pipeline.connect(device_to_host, sink);
 
-        pipeline.run(source, preloader, weighting, filter, device_to_host, sink);
+        pipeline.run(source, preloader, weighting, device_to_host, sink);
 
         /*auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);

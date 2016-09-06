@@ -17,12 +17,12 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="x86_64" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.debug.1467660151" name="Debug" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generating build version information" prebuildStep="../gen_version.sh">
+				<configuration artifactExtension="x86_64" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.debug.1467660151" name="Debug" parent="com.nvidia.cuda.ide.configuration.debug.1467660151" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generating build version information" prebuildStep="../gen_version.sh">
 					<folderInfo id="com.nvidia.cuda.ide.configuration.debug.1467660151." name="/" resourcePath="">
-						<toolChain id="com.nvidia.cuda.ide.toolchain.seven_five.27534242" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
+						<toolChain errorParsers="" id="com.nvidia.cuda.ide.toolchain.seven_five.27534242" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.1121371478" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/ddafa}/Debug" id="com.nvidia.cuda.ide.builder.944456379" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 8.0 Builder" superClass="com.nvidia.cuda.ide.builder"/>
-							<tool id="nvcc.compiler.base.321879615" name="NVCC Compiler" superClass="nvcc.compiler.base">
+							<builder buildPath="${workspace_loc:/ddafa}/Debug" errorParsers="org.eclipse.cdt.core.GmakeErrorParser" id="com.nvidia.cuda.ide.builder.944456379" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 8.0 Builder" superClass="com.nvidia.cuda.ide.builder"/>
+							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GCCErrorParser" id="nvcc.compiler.base.321879615" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.def.symbols.1177807439" name="Defined symbols (-D)" superClass="nvcc.compiler.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="DDAFA_DEBUG"/>
 									<listOptionValue builtIn="false" value="BOOST_ALL_DYN_LINK"/>
@@ -72,13 +72,15 @@
 								<option id="nvcc.compiler.ptxasoptions.853210191" name="ptaxas options (-Xptxas)" superClass="nvcc.compiler.ptxasoptions" valueType="stringList">
 									<listOptionValue builtIn="false" value="-v"/>
 								</option>
-								<option id="nvcc.compiler.maxregcount.1994483671" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="63" valueType="string"/>
+								<option id="nvcc.compiler.maxregcount.1994483671" name="Maximum number of registers (-maxrregcount)" superClass="nvcc.compiler.maxregcount" value="" valueType="string"/>
 								<option id="com.nvidia.cuda.ide.build.option1.55180407" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.option1" value="" valueType="string"/>
+								<option id="nvcc.compiler.option.lineinfo.93813252" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.dontuseprofile.1395609836" name="Do not use profile (-noprof)" superClass="nvcc.compiler.dontuseprofile" value="false" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.417023369" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.2040295795" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1956074200" superClass="nvcc.compiler.input.c"/>
 							</tool>
-							<tool id="nvcc.linker.base.1531516430" name="NVCC Linker" superClass="nvcc.linker.base">
+							<tool command="nvcc" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX} ${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GLDErrorParser;nvcc.errorParser" id="nvcc.linker.base.1531516430" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="nvcc.linker.option.libs.461335643" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="tiff"/>
 									<listOptionValue builtIn="false" value="cufft"/>
@@ -92,8 +94,8 @@
 								<option id="nvcc.linker.option.cudart.250761945" name="CUDA Runtime Library:" superClass="nvcc.linker.option.cudart" value="nvcc.linker.option.cudart.shared" valueType="enumerated"/>
 								<option id="nvcc.linker.option.paths.479412220" name="Library search path (-L)" superClass="nvcc.linker.option.paths"/>
 								<option id="nvcc.linker.option.other.1554337911" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList">
-									<listOptionValue builtIn="false" value="--export-dynamic"/>
 									<listOptionValue builtIn="false" value="--rpath=."/>
+									<listOptionValue builtIn="false" value="--export-dynamic"/>
 								</option>
 								<option id="com.nvidia.cuda.ide.build.linker.ccbin.761105897" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.linker.ccbin" value="" valueType="string"/>
 								<inputType id="nvcc.linker.input.495995248" superClass="nvcc.linker.input">
@@ -103,7 +105,7 @@
 								<outputType id="nvcc.linker.output.779832618" outputPrefix="D-" superClass="nvcc.linker.output"/>
 							</tool>
 							<tool id="nvcc.archiver.base.1354402358" name="NVCC Archiver" superClass="nvcc.archiver.base"/>
-							<tool id="com.nvidia.host.assembler.788949384" name="Host Assembler" superClass="com.nvidia.host.assembler">
+							<tool command="as" commandLinePattern="${COMMAND} ${FLAGS} ${OUTPUT_FLAG} ${OUTPUT_PREFIX}${OUTPUT} ${INPUTS}" errorParsers="org.eclipse.cdt.core.GASErrorParser" id="com.nvidia.host.assembler.788949384" name="Host Assembler" superClass="com.nvidia.host.assembler">
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.894433480" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>
 						</toolChain>
@@ -118,8 +120,8 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
-					<sass major="6" minor="0"/>
-					<ptx major="6" minor="0"/>
+					<sass major="5" minor="3"/>
+					<ptx major="5" minor="3"/>
 				</executable>
 				<editor-arch major="3" minor="5"/>
 			</storageModule>
@@ -141,7 +143,7 @@
 				</extensions>
 			</storageModule>
 			<storageModule moduleId="cdtBuildSystem" version="4.0.0">
-				<configuration artifactExtension="x86_64" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.release.1735503515" name="Release" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generating build version information" prebuildStep="../gen_version.sh">
+				<configuration artifactExtension="x86_64" artifactName="${ProjName}" buildArtefactType="org.eclipse.cdt.build.core.buildArtefactType.exe" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=org.eclipse.cdt.build.core.buildArtefactType.exe,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.release" cleanCommand="rm -rf" description="" errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GmakeErrorParser;org.eclipse.cdt.core.GCCErrorParser;org.eclipse.cdt.core.GASErrorParser;org.eclipse.cdt.core.GLDErrorParser" id="com.nvidia.cuda.ide.configuration.release.1735503515" name="Release" parent="com.nvidia.cuda.ide.configuration.release.1735503515" postannouncebuildStep="" postbuildStep="" preannouncebuildStep="Generating build version information" prebuildStep="../gen_version.sh">
 					<folderInfo id="com.nvidia.cuda.ide.configuration.release.1735503515." name="/" resourcePath="">
 						<toolChain errorParsers="" id="com.nvidia.cuda.ide.toolchain.seven_five.148320630" name="CUDA Toolkit 7.5" superClass="com.nvidia.cuda.ide.toolchain.seven_five">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.197697805" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
@@ -156,7 +158,7 @@
 								<option id="nvcc.compiler.deviceDebug.1687733503" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug" useByScannerDiscovery="false"/>
 								<option id="nvcc.compiler.option.level.2059747022" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" useByScannerDiscovery="false"/>
 								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.2025410827" name="Optimization Level" superClass="nvcc.compiler.optimization.level" useByScannerDiscovery="false" valueType="enumerated"/>
-								<option id="nvcc.compiler.pic.1838937582" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" useByScannerDiscovery="false" value="true" valueType="boolean"/>
+								<option id="nvcc.compiler.pic.1838937582" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic" useByScannerDiscovery="false" value="false" valueType="boolean"/>
 								<option id="nvcc.compiler.option.lineinfo.1645795768" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.option.gprof.1885425226" name="Generate gprof information (-pg)" superClass="nvcc.compiler.option.gprof" useByScannerDiscovery="false" value="true" valueType="boolean"/>
 								<option id="nvcc.compiler.cpp11option.2079131615" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" useByScannerDiscovery="false" value="true" valueType="boolean"/>
@@ -209,11 +211,11 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
+					<sass major="2" minor="1"/>
 					<ptx major="6" minor="0"/>
 					<sass major="6" minor="0"/>
-					<sass major="2" minor="1"/>
 				</executable>
-				<editor-arch major="6" minor="0"/>
+				<editor-arch major="2" minor="1"/>
 			</storageModule>
 		</cconfiguration>
 	</storageModule>

@@ -62,7 +62,8 @@ namespace ddafa
                 auto w_st = d_sd * rsqrtf(powf(d_sd, 2) + powf(h_s, 2) + powf(v_t, 2));
 
                 // write value
-                output_row[s] = input_row[s] * w_st;
+                auto val = input_row[s] * w_st;
+                output_row[s] = val;
             }
         }
     }
@@ -73,8 +74,10 @@ namespace ddafa
                                      float d_so, float d_od)
     : l_px_row_{l_px_row_}, l_px_col_{l_px_col_}
     {
-        h_min_ = delta_s * l_px_row - n_row * l_px_row / 2;
-        v_min_ = delta_t * l_px_col - n_col * l_px_col / 2;
+        auto n_row_f = static_cast<float>(n_row);
+        auto n_col_f = static_cast<float>(n_col);
+        h_min_ = delta_s * l_px_row - n_row_f * l_px_row / 2;
+        v_min_ = delta_t * l_px_col - n_col_f * l_px_col / 2;
         d_sd_ = std::abs(d_so) + std::abs(d_od);
 
         auto err = cudaGetDeviceCount(&devices_);
@@ -142,11 +145,20 @@ namespace ddafa
                     std::this_thread::yield();
 
                 if(valid)
-                    input_vec_[proj.second.device].push(std::move(proj));
+                {
+                    using size_type = typename decltype(input_vec_)::size_type;
+                    auto d = static_cast<size_type>(proj.second.device);
+                    input_vec_[d].push(std::move(proj));
+                }
+
                 else
                 {
                     for(auto i = 0; i < devices_; ++i)
-                        input_vec_[i].push(input_type());
+                    {
+                        using size_type = typename decltype(input_vec_)::size_type;
+                        auto d = static_cast<size_type>(i);
+                        input_vec_[d].push(input_type());
+                    }
                 }
 
                 lock_.clear(std::memory_order_release);
@@ -196,7 +208,9 @@ namespace ddafa
                 while(lock_.test_and_set(std::memory_order_acquire))
                     std::this_thread::yield();
 
-                auto& queue = input_vec_.at(device);
+                using size_type = typename decltype(input_vec_)::size_type;
+                auto d = static_cast<size_type>(device);
+                auto& queue = input_vec_.at(d);
                 if(queue.empty())
                 {
                     lock_.clear(std::memory_order_release);
