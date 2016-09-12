@@ -76,7 +76,7 @@ namespace ddafa
                                      float l_px_row, float l_px_col,
                                      float delta_s, float delta_t,
                                      float d_so, float d_od)
-    : l_px_row_{l_px_row_}, l_px_col_{l_px_col_}
+    : l_px_row_{l_px_row}, l_px_col_{l_px_col}
     {
         auto sce = stage_construction_error{"weighting_stage::weighting_stage() failed"};
 
