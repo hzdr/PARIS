@@ -23,7 +23,6 @@
 #ifndef DDAFA_RECONSTRUCTION_STAGE_H_
 #define DDAFA_RECONSTRUCTION_STAGE_H_
 
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <queue>
@@ -34,7 +33,8 @@
 #include <ddrf/memory.h>
 
 #include "geometry.h"
-#include "metadata.h"
+#include "projection.h"
+#include "volume.h"
 
 namespace ddafa
 {
@@ -44,17 +44,17 @@ namespace ddafa
             using device_allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
             using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, device_allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
-            using volume_type = std::pair<ddrf::cuda::pitched_device_ptr<float>, volume_metadata>;
 
         public:
-            using input_type = std::pair<smart_pointer, projection_metadata>;
-            using output_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata>;
+            using input_type = projection<smart_pointer>;
+            using output_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
+            using volume_type = volume<ddrf::cuda::pitched_device_ptr<float>>;
 
         public:
-            reconstruction_stage(const geometry& det_geo, const volume_metadata& vol_geo, const std::vector<volume_metadata>& subvol_geos, bool predefined_angles);
-            reconstruction_stage(reconstruction_stage&& other) noexcept;
+            reconstruction_stage(const geometry& det_geo, const volume_type& vol_geo, const std::vector<volume_type>& subvol_geos, bool predefined_angles);
             ~reconstruction_stage();
-            auto operator=(reconstruction_stage&& other) noexcept -> reconstruction_stage&;
+            reconstruction_stage(reconstruction_stage&& other) = default;
+            auto operator=(reconstruction_stage&& other) -> reconstruction_stage& = default;
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
@@ -71,15 +71,20 @@ namespace ddafa
             std::function<void(output_type)> output_;
 
             geometry det_geo_;
-            volume_metadata vol_geo_;
+            volume_type vol_geo_;
             bool predefined_angles_;
             output_type vol_out_;
 
             int devices_;
+
             std::vector<volume_type> subvol_vec_;
-            std::vector<volume_metadata> subvol_geo_vec_;
+            using svv_size_type = typename decltype(subvol_vec_)::size_type;
+
+            std::vector<volume_type> subvol_geo_vec_;
+            using svgv_size_type = typename decltype(subvol_geo_vec_)::size_type;
+
             std::vector<std::queue<input_type>> input_vec_;
-            std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
+            using iv_size_type = typename decltype(input_vec_)::size_type;
     };
 }
 

@@ -21,12 +21,12 @@
  */
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <future>
 #include <iterator>
+#include <mutex>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -40,6 +40,7 @@
 #include <ddrf/cuda/launch.h>
 #include <ddrf/cuda/memory.h>
 #include <ddrf/cuda/sync_policy.h>
+#include <ddrf/cuda/utility.h>
 #include <ddrf/cufft/plan.h>
 
 #include "exception.h"
@@ -49,6 +50,8 @@ namespace ddafa
 {
     namespace
     {
+        std::mutex mutex__;
+
         __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
@@ -108,15 +111,12 @@ namespace ddafa
     , n_col_{n_col}
     , tau_{l_px_row}
     {
-        auto err = cudaGetDeviceCount(&devices_);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_construction_error{"filter_stage::filter_stage() failed"};
-        }
+        auto sce = stage_construction_error{"filter_stage::filter_stage() failed"};
 
         try
         {
+            devices_ = ddrf::cuda::get_device_count();
+
             auto filter_futures = std::vector<std::future<void>>{};
             for(auto i = 0; i < devices_; ++i)
                 filter_futures.emplace_back(std::async(std::launch::async, &filter_stage::create_filter, this, i));
@@ -124,78 +124,46 @@ namespace ddafa
             for(auto&& f : filter_futures)
                 f.get();
 
-            using vec_type = decltype(input_vec_);
-            using size_type = typename vec_type::size_type;
-            auto d = static_cast<size_type>(devices_);
-            input_vec_ = vec_type{d};
+            auto d = static_cast<iv_size_type>(devices_);
+            input_vec_ = decltype(input_vec_){d};
         }
-        catch(const stage_construction_error& sce)
+        catch(const ddrf::cuda::bad_alloc& ba)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() could not create filters: " << sce.what();
-            throw stage_construction_error{"filter_stage::filter_stage() failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() encountered a bad_alloc: " << ba.what();
+            throw sce;
         }
-    }
-
-    filter_stage::filter_stage(filter_stage&& other) noexcept
-    : input_{std::move(other.input_)}, output_{std::move(other.output_)}
-    , devices_{other.devices_}
-    , filter_size_{other.filter_size_}, n_col_{other.n_col_}, tau_{other.tau_}, rs_{std::move(other.rs_)}
-    , input_vec_{std::move(other.input_vec_)}
-    {
-        if(other.lock_.test_and_set())
-            lock_.test_and_set();
-        else
-            lock_.clear();
-    }
-
-    auto filter_stage::operator=(filter_stage&& other) noexcept -> filter_stage&
-    {
-        input_ = std::move(other.input_);
-        output_ = std::move(other.output_);
-        devices_ = other.devices_;
-        filter_size_ = other.filter_size_;
-        n_col_ = other.n_col_;
-        tau_ = other.tau_;
-        rs_ = std::move(other.rs_);
-        input_vec_ = std::move(other.input_vec_);
-
-        if(other.lock_.test_and_set())
-            lock_.test_and_set();
-        else
-            lock_.clear();
-
-        return *this;
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::filter_stage() caused a CUDA runtime error: " << re.what();
+            throw sce;
+        }
     }
 
     auto filter_stage::run() -> void
     {
-        try
+        auto futures = std::vector<std::future<void>>{};
+        for(int i = 0; i < devices_; ++i)
+            futures.emplace_back(std::async(std::launch::async, &filter_stage::process, this, i));
+
+        while(true)
         {
-            BOOST_LOG_TRIVIAL(debug) << "Called filter_stage::run()";
-            auto futures = std::vector<std::future<void>>{};
-            for(int i = 0; i < devices_; ++i)
-                futures.emplace_back(std::async(std::launch::async, &filter_stage::process, this, i));
-
-            while(true)
-            {
-                auto proj = input_();
-                auto valid = proj.second.valid;
-                safe_push(std::move(proj));
-                if(!valid)
-                    break;
-            }
-
-            for(auto&& f : futures)
-                f.get();
-
-            output_(output_type());
-            BOOST_LOG_TRIVIAL(info) << "All projections have been filtered.";
+            auto proj = input_();
+            auto valid = proj.valid;
+            safe_push(std::move(proj));
+            if(!valid)
+                break;
         }
-        catch(const stage_runtime_error& sre)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() failed to execute: " << sre.what();
-            throw stage_runtime_error{"filter_stage::run() failed"};
-        }
+
+        for(auto&& f : futures)
+            f.get();
+
+        output_(output_type{});
+        BOOST_LOG_TRIVIAL(info) << "All projections have been filtered.";
     }
 
     auto filter_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void
@@ -210,27 +178,21 @@ namespace ddafa
 
     auto filter_stage::safe_push(input_type proj) -> void
     {
-        while(lock_.test_and_set(std::memory_order_acquire))
-            std::this_thread::yield();
+        auto&& lock = std::lock_guard<std::mutex>{mutex__};
 
-        using vec_type = decltype(input_vec_);
-        using size_type = typename vec_type::size_type;
-
-        if(proj.second.valid)
+        if(proj.valid)
         {
-            auto d = static_cast<size_type>(proj.second.device);
-            input_vec_[d].push(std::move(proj));
+            auto d = static_cast<iv_size_type>(proj.device);
+            input_vec_.at(d).push(std::move(proj));
         }
         else
         {
             for(auto i = 0; i < devices_; ++i)
             {
-                auto d = static_cast<size_type>(i);
-                input_vec_[d].push(input_type());
+                auto d = static_cast<iv_size_type>(i);
+                input_vec_.at(d).push(input_type{});
             }
         }
-
-        lock_.clear(std::memory_order_release);
     }
 
     auto filter_stage::safe_pop(int device) -> input_type
@@ -238,35 +200,26 @@ namespace ddafa
         while(input_vec_.empty())
             std::this_thread::yield();
 
-        using vec_type = decltype(input_vec_);
-        using size_type = typename vec_type::size_type;
-        auto d = static_cast<size_type>(device);
-        auto& queue = input_vec_[d];
+        auto d = static_cast<iv_size_type>(device);
+        auto&& queue = input_vec_.at(d);
         while(queue.empty())
             std::this_thread::yield();
 
-        while(lock_.test_and_set(std::memory_order_acquire))
-            std::this_thread::yield();
+        auto&& lock = std::lock_guard<std::mutex>{mutex__};
 
         auto proj = std::move(queue.front());
         queue.pop();
 
-        lock_.clear(std::memory_order_release);
         return proj;
     }
 
     auto filter_stage::create_filter(int device) -> void
     {
-        BOOST_LOG_TRIVIAL(debug) << "Creating filter";
-        auto err = cudaSetDevice(device);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() could not set CUDA device: " << cudaGetErrorString(err);
-            throw stage_construction_error{"filter_stage::create_filter() failed"};
-        }
+        auto sce = stage_construction_error{"filter_stage::create_filter() failed"};
 
         try
         {
+            ddrf::cuda::set_device(device);
             /*
              * for a more detailed description see kernel::create_filter()
              */
@@ -282,12 +235,14 @@ namespace ddafa
             ddrf::cuda::copy(ddrf::cuda::sync, d_j, h_j, filter_size_);
             BOOST_LOG_TRIVIAL(debug) << "Copied filter from host to device";
 
-            // create r on the device and calculate the filter values
+            // create r on the device
             auto d_r = ddrf::cuda::make_unique_device<float>(filter_size_);
+
+            // calculate the filter values
             ddrf::cuda::launch(filter_size_, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size_, tau_);
             BOOST_LOG_TRIVIAL(debug) << "Device filter creation succeeded";
 
-            cudaStreamSynchronize(0);
+            ddrf::cuda::synchronize_stream();
 
             // move to filter container
             rs_[device] = std::move(d_r);
@@ -295,32 +250,29 @@ namespace ddafa
         }
         catch(const ddrf::cuda::bad_alloc& ba)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() encountered bad_alloc: " << ba.what();
-            throw stage_construction_error{"filter_stage::create_filter() failed"};
-        }
-        catch(const ddrf::cuda::runtime_error& re)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() encountered runtime_error: " << re.what();
-            throw stage_construction_error{"filter_stage::create_filter() failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() encountered a bad_alloc: " << ba.what();
+            throw sce;
         }
         catch(const ddrf::cuda::invalid_argument& ia)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() encountered invalid_argument: " << ia.what();
-            throw stage_construction_error{"filter_stage::create_filter() failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::create_filter() caused a CUDA runtime error: " << re.what();
+            throw sce;
         }
     }
 
     auto filter_stage::process(int device) -> void
     {
-        auto err = cudaSetDevice(device);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() could not set CUDA device: " << cudaGetErrorString(err);
-            throw stage_runtime_error{"filter_stage::process() failed"};
-        }
+        auto sre = stage_runtime_error{"filter_stage::process() failed"};
 
         try
         {
+            ddrf::cuda::set_device(device);
+
             // allocate memory for projection conversion and transformation
             auto converted_proj = ddrf::cuda::make_unique_device<float>(filter_size_, n_col_);
 
@@ -355,7 +307,7 @@ namespace ddafa
             while(true)
             {
                 auto proj = safe_pop(device);
-                if(!proj.second.valid)
+                if(!proj.valid)
                     break;
 
                 auto converted_ptr = converted_proj.get();
@@ -365,7 +317,7 @@ namespace ddafa
                 ddrf::cuda::fill(ddrf::cuda::sync, converted_proj, 0, filter_size_, n_col_);
 
                 // copy projection to larger projection which has a width of 2^x
-                ddrf::cuda::copy(ddrf::cuda::sync, converted_proj, proj.first, proj.second.width, proj.second.height);
+                ddrf::cuda::copy(ddrf::cuda::sync, converted_proj, proj.ptr, proj.width, proj.height);
 
                 // execute the FFT for the projection
                 converted_proj_plan.execute(converted_ptr, transformed_ptr);
@@ -379,35 +331,40 @@ namespace ddafa
                 inverse_plan.execute(transformed_ptr, converted_ptr);
 
                 // copy back to original projection dimensions
-                ddrf::cuda::copy(ddrf::cuda::sync, proj.first, converted_proj, proj.second.width, proj.second.height);
+                ddrf::cuda::copy(ddrf::cuda::sync, proj.ptr, converted_proj, proj.width, proj.height);
 
                 output_(std::move(proj));
             }
         }
-        catch(const ddrf::cufft::bad_alloc& ba)
+        catch(const ddrf::cuda::bad_alloc& ba)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered a bad allocation in cuFFT: " << ba.what();
-            throw stage_runtime_error{"filter_stage::process() failed"};
-        }
-        catch(const ddrf::cufft::invalid_argument& ia)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() passed an invalid argument to cuFFT: " << ia.what();
-            throw stage_runtime_error{"filter_stage::process() failed"};
-        }
-        catch(const ddrf::cufft::runtime_error& re)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered a cuFFT runtime error: " << re.what();
-            throw stage_runtime_error{"filter_stage::process() failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered bad_alloc: " << ba.what();
+            throw sre;
         }
         catch(const ddrf::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() passed an invalid argument to the CUDA runtime: " << ia.what();
-            throw stage_runtime_error{"filter_stage::process() failed"};
+            throw sre;
         }
-        catch(const ddrf::cuda::bad_alloc& ba)
+        catch(const ddrf::cuda::runtime_error& re)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered bad_alloc: " << ba.what();
-            throw stage_runtime_error{"filter_stage::process() failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() caused a CUDA runtime error: " << re.what();
+            throw sre;
+        }
+        catch(const ddrf::cufft::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered a bad allocation in cuFFT: " << ba.what();
+            throw sre;
+        }
+        catch(const ddrf::cufft::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() passed an invalid argument to cuFFT: " << ia.what();
+            throw sre;
+        }
+        catch(const ddrf::cufft::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "filter_stage::process() encountered a cuFFT runtime error: " << re.what();
+            throw sre;
         }
     }
 }

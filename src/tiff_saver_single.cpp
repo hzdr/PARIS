@@ -35,7 +35,7 @@
 
 #include <ddrf/cuda/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 #include "tiff_saver_single.h"
 
 namespace ddafa
@@ -48,7 +48,7 @@ namespace ddafa
 
     template <class T> struct bits_per_sample { static constexpr auto value = (sizeof(T) * 8); };
 
-    auto tiff_saver_single::save(std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata> proj, const std::string& path) const -> void
+    auto tiff_saver_single::save(projection<ddrf::cuda::pinned_host_ptr<float>> proj, const std::string& path) const -> void
     {
         auto full_path = path;
         full_path.append(".tif");
@@ -68,8 +68,8 @@ namespace ddafa
         ss << now;
 
         auto tifp = tif.get();
-        TIFFSetField(tifp, TIFFTAG_IMAGEWIDTH, proj.second.width);
-        TIFFSetField(tifp, TIFFTAG_IMAGELENGTH, proj.second.height);
+        TIFFSetField(tifp, TIFFTAG_IMAGEWIDTH, proj.width);
+        TIFFSetField(tifp, TIFFTAG_IMAGELENGTH, proj.height);
         TIFFSetField(tifp, TIFFTAG_BITSPERSAMPLE, bits_per_sample<float>::value);
         TIFFSetField(tifp, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
         TIFFSetField(tifp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
@@ -80,11 +80,11 @@ namespace ddafa
 
         TIFFSetField(tifp, TIFFTAG_SAMPLEFORMAT, sample_format<float>::value);
 
-        auto data_ptr = proj.first.get();
-        for(auto row = 0u; row < proj.second.height; ++row)
+        auto data_ptr = proj.ptr.get();
+        for(auto row = 0u; row < proj.height; ++row)
         {
             TIFFWriteScanline(tifp, reinterpret_cast<void*>(data_ptr), row);
-            data_ptr += proj.second.width;
+            data_ptr += proj.width;
         }
     }
 }

@@ -26,7 +26,7 @@
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
@@ -38,8 +38,8 @@ namespace ddafa
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
-            using input_type = std::pair<smart_pointer, projection_metadata>;
-            using output_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata>;
+            using input_type = projection<smart_pointer>;
+            using output_type = projection<ddrf::cuda::pinned_host_ptr<float>>;
 
         public:
             auto run() -> void;

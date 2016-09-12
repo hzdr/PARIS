@@ -32,14 +32,14 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <cuda_runtime.h>
-
+#include <ddrf/cuda/exception.h>
 #include <ddrf/cuda/memory.h>
+#include <ddrf/cuda/utility.h>
 
 #include "exception.h"
 #include "geometry.h"
 #include "geometry_calculator.h"
-#include "metadata.h"
+#include "volume.h"
 
 namespace ddafa
 {
@@ -49,19 +49,34 @@ namespace ddafa
     , d_sd_{std::abs(det_geo_.d_od) + std::abs(det_geo_.d_so)}
     , vol_count_{0u}
     {
-        auto err = cudaGetDeviceCount(&devices_);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::geometry_calculator() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_construction_error{"geometry_calculator::geometry_calculator() failed"};
-        }
+        auto sce = stage_construction_error{"geometry_calculator::geometry_calculator() failed"};
 
-        calculate_volume_width_height_vx();
-        calculate_volume_depth_vx();
-        calculate_volume_height_mm();
-        calculate_memory_footprint();
-        calculate_volume_partition();
-        calculate_subvolume_offsets();
+        try
+        {
+            devices_ = ddrf::cuda::get_device_count();
+
+            calculate_volume_width_height_vx();
+            calculate_volume_depth_vx();
+            calculate_volume_height_mm();
+            calculate_memory_footprint();
+            calculate_volume_partition();
+            calculate_subvolume_offsets();
+        }
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::geometry_calculator() encountered a bad_alloc: " << ba.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::geometry_calculator() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::geometry_calculator() caused a CUDA runtime error: " << re.what();
+            throw sce;
+        }
     }
 
     auto geometry_calculator::get_projection_iteration_num() const noexcept -> std::uint32_t
@@ -72,16 +87,18 @@ namespace ddafa
         return p->second;
     }
 
-    auto geometry_calculator::get_volume_metadata() const noexcept -> volume_metadata
+    auto geometry_calculator::get_volume_metadata() const noexcept -> volume_type
     {
-        return vol_geo_;
+        return volume_type{nullptr, vol_geo_.width, vol_geo_.height, vol_geo_.depth, vol_geo_.remainder, vol_geo_.offset, vol_geo_.valid, vol_geo_.device,
+                            vol_geo_.vx_size_x, vol_geo_.vx_size_y, vol_geo_.vx_size_z};
     }
 
-    auto geometry_calculator::get_subvolume_metadata() const noexcept -> std::vector<volume_metadata>
+    auto geometry_calculator::get_subvolume_metadata() const noexcept -> std::vector<volume_type>
     {
-        auto vec = std::vector<volume_metadata>{};
+        auto vec = std::vector<volume_type>{};
         for(const auto& p : vol_geo_per_dev_)
-            vec.push_back(p.second);
+            vec.emplace_back(nullptr, p.second.width, p.second.height, p.second.depth, p.second.remainder, p.second.offset, p.second.valid, p.second.device,
+                            p.second.vx_size_x, p.second.vx_size_y, p.second.vx_size_z);
 
         return vec;
     }
@@ -141,21 +158,12 @@ namespace ddafa
             auto vol_mem_dev = vol_mem_;
             auto required_mem = vol_mem_dev + 32 * proj_mem_;
             auto vol_count_dev = 1u;
-            auto err = cudaSetDevice(i);
-            if(err != cudaSuccess)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::calculate_volume_partition() could not set CUDA device: " << cudaGetErrorString(err);
-                throw stage_construction_error{"geometry_calculator::calculate_volume_partition() failed"};
-            }
+
+            ddrf::cuda::set_device(i);
 
             auto free_mem = std::size_t{};
             auto total_mem = std::size_t{};
-            err = cudaMemGetInfo(&free_mem, &total_mem);
-            if(err != cudaSuccess)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "geometry_calculator::calculate_volume_partition() could not get CUDA memory info: " << cudaGetErrorString(err);
-                throw stage_construction_error{"geometry_calculator::calculate_volume_partition() failed"};
-            }
+            ddrf::cuda::get_memory_info(free_mem, total_mem);
 
             auto calc_volume_size = std::function<std::size_t(std::size_t, std::size_t, std::uint32_t*, std::size_t)>{};
             calc_volume_size = [&calc_volume_size, this](std::size_t req_mem, std::size_t vol_mem, std::uint32_t* vol_count, std::size_t dev_mem)
@@ -191,8 +199,8 @@ namespace ddafa
             BOOST_LOG_TRIVIAL(info) << "The reconstruction requires " << vol_count_dev << " " << chunk_str << " with " << required_mem << " bytes on device " << i;
             vol_per_dev_[i] = vol_count_dev;
 
-            auto vm = volume_metadata{vol_geo_.width, vol_geo_.height, (vol_geo_.depth / d) / vol_count_dev, 0, 0, false, i, vol_geo_.vx_size_x, vol_geo_.vx_size_y, vol_geo_.vx_size_z};
-            vol_geo_per_dev_[i] = vm;
+            vol_geo_per_dev_[i] = volume_type{nullptr, vol_geo_.width, vol_geo_.height, (vol_geo_.depth / d) / vol_count_dev, 0, 0, false, i,
+                                                vol_geo_.vx_size_x, vol_geo_.vx_size_y, vol_geo_.vx_size_z};
         }
     }
 

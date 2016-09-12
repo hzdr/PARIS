@@ -28,7 +28,7 @@
 
 #include <ddrf/cuda/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
@@ -36,7 +36,7 @@ namespace ddafa
     {
         public:
             tiff_saver_single() noexcept = default;
-            auto save(std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata> vol, const std::string& path) const -> void;
+            auto save(projection<ddrf::cuda::pinned_host_ptr<float>> proj, const std::string& path) const -> void;
     };
 }
 

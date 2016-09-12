@@ -35,7 +35,7 @@
 
 #include <ddrf/cuda/memory.h>
 
-#include "metadata.h"
+#include "volume.h"
 #include "tiff_saver.h"
 
 namespace ddafa
@@ -48,7 +48,7 @@ namespace ddafa
 
     template <class T> struct bits_per_sample { static constexpr auto value = (sizeof(T) * 8); };
 
-    auto tiff_saver::save(std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata> vol, const std::string& path) const -> void
+    auto tiff_saver::save(volume<ddrf::cuda::pinned_host_ptr<float>> vol, const std::string& path) const -> void
     {
         auto full_path = path;
         full_path.append(".tif");
@@ -57,10 +57,10 @@ namespace ddafa
         if(tif == nullptr)
             throw std::runtime_error{"tiff_saver::save() failed to open " + full_path + " for writing"};
 
-        auto data_ptr = vol.first.get();
-        for(auto i = 0u; i < vol.second.depth; ++i)
+        auto data_ptr = vol.ptr.get();
+        for(auto i = 0u; i < vol.depth; ++i)
         {
-            auto slice = data_ptr + (i * vol.second.width * vol.second.height);
+            auto slice = data_ptr + (i * vol.width * vol.height);
             auto&& ss = std::stringstream{};
             // the locale will take ownership so plain new is okay here
             auto output_facet = new boost::posix_time::time_facet{"%Y:%m:%d %H:%M:%S"};
@@ -72,8 +72,8 @@ namespace ddafa
             ss << now;
 
             auto tifp = tif.get();
-            TIFFSetField(tifp, TIFFTAG_IMAGEWIDTH, vol.second.width);
-            TIFFSetField(tifp, TIFFTAG_IMAGELENGTH, vol.second.height);
+            TIFFSetField(tifp, TIFFTAG_IMAGEWIDTH, vol.width);
+            TIFFSetField(tifp, TIFFTAG_IMAGELENGTH, vol.height);
             TIFFSetField(tifp, TIFFTAG_BITSPERSAMPLE, bits_per_sample<float>::value);
             TIFFSetField(tifp, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
             TIFFSetField(tifp, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
@@ -85,10 +85,10 @@ namespace ddafa
             TIFFSetField(tifp, TIFFTAG_SAMPLEFORMAT, sample_format<float>::value);
 
             auto slice_ptr = slice;
-            for(auto row = 0u; row < vol.second.height; ++row)
+            for(auto row = 0u; row < vol.height; ++row)
             {
                 TIFFWriteScanline(tifp, reinterpret_cast<void*>(slice_ptr), row);
-                slice_ptr += vol.second.width;
+                slice_ptr += vol.width;
             }
 
             if(TIFFWriteDirectory(tifp) != 1)

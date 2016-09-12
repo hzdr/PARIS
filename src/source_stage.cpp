@@ -31,14 +31,13 @@
 
 #include "exception.h"
 #include "filesystem.h"
-#include "metadata.h"
 #include "source_stage.h"
 
 
 namespace ddafa
 {
     source_stage::source_stage(const std::string& dir)
-    : loader_{}, output_{}
+    : output_{}
     {
         try
         {
@@ -53,15 +52,21 @@ namespace ddafa
 
     auto source_stage::run() -> void
     {
-        BOOST_LOG_TRIVIAL(debug) << "Called source_stage::run()";
+        auto loader = his_loader{};
         auto i = 0u;
+
         for(const auto& s : paths_)
         {
-            auto vec = std::vector<output_type>{};
-
             try
             {
-                vec = loader_.load(s);
+                auto vec = loader.load(s);
+
+                for(auto&& img : vec)
+                {
+                    img.idx = i;
+                    ++i;
+                    output_(std::move(img));
+                }
             }
             catch(const std::system_error& e)
             {
@@ -73,17 +78,10 @@ namespace ddafa
                 BOOST_LOG_TRIVIAL(warning) << "source_stage::run(): Skipping invalid HIS file at " << s << " : " << e.what();
                 continue;
             }
-
-            for(auto&& img : vec)
-            {
-                img.second.index = i;
-                ++i;
-                output_(std::move(img));
-            }
         }
 
         // all frames loaded, send empty image
-        output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
+        output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
         BOOST_LOG_TRIVIAL(info) << "All projections loaded.";
     }
 

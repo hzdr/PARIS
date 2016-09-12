@@ -32,7 +32,7 @@
 
 #include "exception.h"
 #include "filesystem.h"
-#include "metadata.h"
+#include "projection.h"
 #include "sink_stage_single.h"
 #include "tiff_saver_single.h"
 
@@ -70,7 +70,7 @@ namespace ddafa
             while(true)
             {
                 auto proj = input_();
-                if(!proj.second.valid)
+                if(!proj.valid)
                     break;
 
                 auto proj_path = path_ + std::to_string(i);

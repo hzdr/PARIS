@@ -21,6 +21,7 @@
  */
 
 #include <cstddef>
+#include <cstdlib>
 #include <functional>
 #include <utility>
 #include <vector>
@@ -31,9 +32,10 @@
 #include <ddrf/cuda/coordinates.h>
 #include <ddrf/cuda/launch.h>
 #include <ddrf/cuda/sync_policy.h>
+#include <ddrf/cuda/utility.h>
 
 #include "exception.h"
-#include "metadata.h"
+#include "projection.h"
 #include "preloader_stage.h"
 
 namespace ddafa
@@ -55,17 +57,31 @@ namespace ddafa
     }
 
     preloader_stage::preloader_stage(std::size_t pool_limit)
-    : pools_{}, moved_{false}
+    : pools_{}
     {
-        auto err = cudaGetDeviceCount(&devices_);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_construction_error{"preloader_stage::preloader_stage() failed"};
-        }
+        auto sce = stage_construction_error{"preloader_stage::preloader_stage() failed"};
 
-        for(auto i = 0; i < devices_; ++i)
-            pools_.emplace_back(pool_limit);
+        try
+        {
+            devices_ = ddrf::cuda::get_device_count();
+            for(auto i = 0; i < devices_; ++i)
+                pools_.emplace_back(pool_limit);
+        }
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() encountered a bad_alloc: " << ba.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() encountered an invalid argument error: " << ia.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() caused a runtime error: " << re.what();
+            throw sce;
+        }
     }
 
     preloader_stage::~preloader_stage()
@@ -75,63 +91,66 @@ namespace ddafa
 
         for(auto i = 0; i < devices_; ++i)
         {
-            cudaSetDevice(i);
-            using size_type = typename decltype(pools_)::size_type;
-            auto d = static_cast<size_type>(i);
-            pools_[d].release();
+            auto err = cudaSetDevice(i); // ddrf::cuda::set_device() can throw, cudaSetDevice() does not
+            if(err != cudaSuccess)
+            {
+                BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::~preloader_stage() encountered error: " << cudaGetErrorString(err);
+                std::exit(err);
+            }
+
+            auto d = static_cast<p_size_type>(i);
+            pools_.at(d).release();
         }
 }
 
     auto preloader_stage::run() -> void
     {
+        auto sre = stage_runtime_error{"preloader_stage::run() failed"};
         try
         {
-            BOOST_LOG_TRIVIAL(debug) << "Called preloader_stage::run()";
             while(true)
             {
                 auto proj = input_();
 
-                if(!proj.second.valid)
+                if(!proj.valid)
                     break;
 
                 for(auto i = 0; i < devices_; ++i)
                 {
-                    auto err = cudaSetDevice(i);
-                    if(err != cudaSuccess)
-                    {
-                        BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not set CUDA device: " << cudaGetErrorString(err);
-                        throw stage_runtime_error{"preloader_stage::run() failed to initialize"};
-                    }
+                    ddrf::cuda::set_device(i);
 
-                    using size_type = typename decltype(pools_)::size_type;
-                    auto d_v = static_cast<size_type>(i);
+                    auto d_v = static_cast<p_size_type>(i);
                     auto&& alloc = pools_[d_v];
-                    auto dev_proj = alloc.allocate_smart(proj.second.width, proj.second.height);
+                    auto dev_proj = alloc.allocate_smart(proj.width, proj.height);
 
                     // we have to initialize the destination data before copying because of reasons
-                    ddrf::cuda::launch(proj.second.width, proj.second.height, init_kernel,
-                            dev_proj.get(), proj.second.width, proj.second.height, dev_proj.pitch());
+                    ddrf::cuda::launch(proj.width, proj.height, init_kernel,
+                            dev_proj.get(), proj.width, proj.height, dev_proj.pitch());
 
-                    ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.first, proj.second.width, proj.second.height);
+                    ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.ptr, proj.width, proj.height);
 
-                    auto meta = projection_metadata{proj.second.width, proj.second.height, proj.second.index, proj.second.phi, true, i};
-                    output_(std::make_pair(std::move(dev_proj), meta));
+                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i});
                 }
             }
 
             // Uploaded all projections to the GPU, notify the next stage that we are done here
-            output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
+            output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
             BOOST_LOG_TRIVIAL(info) << "Uploaded all projections to the device(s)";
-        }
-        catch(const ddrf::cuda::invalid_argument& ia)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() could not copy to CUDA device: " << ia.what();
-            throw stage_runtime_error{"preloader_stage::run() failed to copy projection"};
         }
         catch(const ddrf::cuda::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() encountered a bad_alloc: " << ba.what();
-            throw stage_runtime_error{"preloader_stage::run() failed"};
+            throw sre;
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sre;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::run() caused a CUDA runtime error: " << re.what();
+            throw sre;
         }
     }
 

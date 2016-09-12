@@ -29,14 +29,14 @@
 
 #include <ddrf/cuda/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
     class sink_stage_single
     {
         public:
-            using input_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, projection_metadata>;
+            using input_type = projection<ddrf::cuda::pinned_host_ptr<float>>;
             using output_type = void;
 
         public:

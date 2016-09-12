@@ -34,6 +34,7 @@
 #include <boost/log/trivial.hpp>
 
 #include "his_loader.h"
+#include "projection.h"
 
 namespace ddafa
 {
@@ -95,15 +96,6 @@ namespace ddafa
         }
     }
 
-    his_loader::his_loader()
-    : alloc_{std::size_t{100}}
-    {}
-
-    his_loader::~his_loader()
-    {
-        alloc_.release();
-    }
-
     auto his_loader::load(const std::string& path) -> std::vector<image_type>
     {
         auto vec = std::vector<image_type>{};
@@ -148,15 +140,15 @@ namespace ddafa
             throw std::runtime_error{"File with unsupported data type"};
         }
 
-        auto width = header.brx - header.ulx + 1;
-        auto height = header.bry - header.uly + 1;
+        auto width = header.brx - header.ulx + 1u;
+        auto height = header.bry - header.uly + 1u;
         for(auto i = 0u; i < header.frame_number; ++i)
         {
             // skip image header
             auto img_header = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[header.image_header_size]};
             read_entry(file, img_header.get(), header.image_header_size);
 
-            auto img_buffer = alloc_.allocate_smart(width, height);
+            auto img_buffer = ddrf::cuda::make_unique_pinned_host<float>(width, height);
 
             auto w16 = static_cast<std::uint16_t>(width);
             auto h16 = static_cast<std::uint16_t>(height);
@@ -190,7 +182,7 @@ namespace ddafa
 
             auto w = static_cast<std::size_t>(width);
             auto h = static_cast<std::size_t>(height);
-            vec.emplace_back(std::make_pair(std::move(img_buffer), projection_metadata{w, h, 0, 0, true, 0}));
+            vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, 0);
         }
         return vec;
     }

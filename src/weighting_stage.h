@@ -23,19 +23,15 @@
 #ifndef DDAFA_WEIGHTING_STAGE_H_
 #define DDAFA_WEIGHTING_STAGE_H_
 
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <queue>
-#include <utility>
 #include <vector>
-
-#include <boost/lockfree/spsc_queue.hpp>
 
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
@@ -47,8 +43,8 @@ namespace ddafa
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
-            using input_type = std::pair<smart_pointer, projection_metadata>;
-            using output_type = std::pair<smart_pointer, projection_metadata>;
+            using input_type = projection<smart_pointer>;
+            using output_type = projection<smart_pointer>;
 
         public:
             weighting_stage(std::uint32_t n_row, std::uint32_t n_col,
@@ -56,8 +52,8 @@ namespace ddafa
                             float delta_s, float delta_t,
                             float d_so, float d_od);
 
-            weighting_stage(weighting_stage&& other) noexcept;
-            auto operator=(weighting_stage&& other) noexcept -> weighting_stage&;
+            weighting_stage(weighting_stage&& other) = default;
+            auto operator=(weighting_stage&& other) -> weighting_stage& = default;
 
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
@@ -78,7 +74,7 @@ namespace ddafa
 
             int devices_;
             std::vector<std::queue<input_type>> input_vec_;
-            std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
+            using iv_size_type = typename decltype(input_vec_)::size_type;
     };
 }
 

@@ -20,26 +20,30 @@
  * Authors: Jan Stephan
  */
 
-#include <atomic>
 #include <cmath>
 #include <functional>
 #include <future>
+#include <mutex>
 #include <thread>
 #include <utility>
 
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/coordinates.h>
+#include <ddrf/cuda/exception.h>
 #include <ddrf/cuda/launch.h>
+#include <ddrf/cuda/utility.h>
 
 #include "exception.h"
-#include "metadata.h"
+#include "projection.h"
 #include "weighting_stage.h"
 
 namespace ddafa
 {
     namespace
     {
+        std::mutex mutex__;
+
         __global__ void weight(float* output, const float* input,
                                 std::size_t n_row, std::size_t n_col, std::size_t pitch,
                                 float h_min, float v_min,
@@ -74,109 +78,79 @@ namespace ddafa
                                      float d_so, float d_od)
     : l_px_row_{l_px_row_}, l_px_col_{l_px_col_}
     {
-        auto n_row_f = static_cast<float>(n_row);
-        auto n_col_f = static_cast<float>(n_col);
-        h_min_ = delta_s * l_px_row - n_row_f * l_px_row / 2;
-        v_min_ = delta_t * l_px_col - n_col_f * l_px_col / 2;
-        d_sd_ = std::abs(d_so) + std::abs(d_od);
+        auto sce = stage_construction_error{"weighting_stage::weighting_stage() failed"};
 
-        auto err = cudaGetDeviceCount(&devices_);
-        if(err != cudaSuccess)
+        try
         {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::weighting_stage() could not obtain CUDA devices: " << cudaGetErrorString(err);
-            throw stage_construction_error{"weighting_stage::weigthing_stage() failed to initialize"};
+            auto n_row_f = static_cast<float>(n_row);
+            auto n_col_f = static_cast<float>(n_col);
+            h_min_ = delta_s * l_px_row - n_row_f * l_px_row / 2;
+            v_min_ = delta_t * l_px_col - n_col_f * l_px_col / 2;
+            d_sd_ = std::abs(d_so) + std::abs(d_od);
+
+            devices_ = ddrf::cuda::get_device_count();
+
+            auto d = static_cast<iv_size_type>(devices_);
+            input_vec_ = decltype(input_vec_){d};
         }
-
-        BOOST_LOG_TRIVIAL(debug) << "weighting_stage found " << devices_ << " CUDA devices";
-
-        using vec_type = decltype(input_vec_);
-        using size_type = typename vec_type::size_type;
-        auto d = static_cast<size_type>(devices_);
-        input_vec_ = vec_type{d};
-    }
-
-    weighting_stage::weighting_stage(weighting_stage&& other) noexcept
-    : input_{std::move(other.input_)}, output_{std::move(other.output_)}
-    , l_px_row_{other.l_px_row_}, l_px_col_{other.l_px_col_}, h_min_{other.h_min_}, v_min_{other.v_min_}, d_sd_{other.d_sd_}
-    , devices_{other.devices_}, input_vec_{std::move(other.input_vec_)}
-    {
-        if(other.lock_.test_and_set())
-            lock_.test_and_set();
-        else
-            lock_.clear();
-    }
-
-    auto weighting_stage::operator=(weighting_stage&& other) noexcept -> weighting_stage&
-    {
-        input_ = std::move(other.input_);
-        output_ = std::move(other.output_);
-        l_px_row_ = other.l_px_row_;
-        l_px_col_ = other.l_px_col_;
-        h_min_ = other.h_min_;
-        v_min_ = other.v_min_;
-        d_sd_ = other.d_sd_;
-        devices_ = other.devices_;
-        input_vec_ = std::move(other.input_vec_);
-
-        if(other.lock_.test_and_set())
-            lock_.test_and_set();
-        else
-            lock_.clear();
-
-        return *this;
+        catch(const ddrf::cuda::bad_alloc& ba)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::weighting_stage() encountered a bad_alloc: " << ba.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::invalid_argument& ia)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::weighting_stage() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sce;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::weighting_stage() caused a CUDA runtime error: " << re.what();
+            throw sce;
+        }
     }
 
     auto weighting_stage::run() -> void
     {
-        try
+        auto futures = std::vector<std::future<void>>{};
+        for(auto i = 0; i < devices_; ++i)
+            futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
+
+        auto l = std::unique_lock<std::mutex>{mutex__, std::defer_lock};
+
+        while(true)
         {
-            BOOST_LOG_TRIVIAL(debug) << "Called weighting_stage::run()";
-            BOOST_LOG_TRIVIAL(debug) << "Devices: " << devices_;
+            auto proj = input_();
+            auto valid = proj.valid;
 
-            auto futures = std::vector<std::future<void>>{};
-            for(auto i = 0; i < devices_; ++i)
-                futures.emplace_back(std::async(std::launch::async, &weighting_stage::process, this, i));
+            l.lock();
 
-            while(true)
+            if(valid)
             {
-                auto proj = input_();
-                auto valid = proj.second.valid;
-                while(lock_.test_and_set(std::memory_order_acquire))
-                    std::this_thread::yield();
-
-                if(valid)
-                {
-                    using size_type = typename decltype(input_vec_)::size_type;
-                    auto d = static_cast<size_type>(proj.second.device);
-                    input_vec_[d].push(std::move(proj));
-                }
-
-                else
-                {
-                    for(auto i = 0; i < devices_; ++i)
-                    {
-                        using size_type = typename decltype(input_vec_)::size_type;
-                        auto d = static_cast<size_type>(i);
-                        input_vec_[d].push(input_type());
-                    }
-                }
-
-                lock_.clear(std::memory_order_release);
-                if(!valid)
-                    break;
+                auto d = static_cast<iv_size_type>(proj.device);
+                input_vec_.at(d).push(std::move(proj));
             }
 
-            for(auto&& f : futures)
-                f.get();
+            else
+            {
+                for(auto i = 0; i < devices_; ++i)
+                {
+                    auto d = static_cast<iv_size_type>(i);
+                    input_vec_.at(d).push(input_type{});
+                }
+            }
 
-            output_(std::make_pair(nullptr, projection_metadata{0, 0, 0, 0.f, false, 0}));
-            BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
+            l.unlock();
+
+            if(!valid)
+                break;
         }
-        catch(const stage_runtime_error& sre)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() failed to execute: " << sre.what();
-            throw stage_runtime_error{"weighting_stage::run() failed"};
-        }
+
+        for(auto&& f : futures)
+            f.get();
+
+        output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
+        BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
     }
 
     auto weighting_stage::set_input_function(std::function<input_type(void)> input) noexcept -> void
@@ -191,44 +165,42 @@ namespace ddafa
 
     auto weighting_stage::process(int device) -> void
     {
-        auto err = cudaSetDevice(device);
-        if(err != cudaSuccess)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() could not set device: " << cudaGetErrorString(err);
-            throw stage_runtime_error{"weighting_stage::process() failed to initialize"};
-        }
+        auto sre = stage_runtime_error{"weighting_stage::process() failed"};
 
         try
         {
+            ddrf::cuda::set_device(device);
+
+            auto l = std::unique_lock<std::mutex>{mutex__, std::defer_lock};
+
+            while(input_vec_.empty())
+                std::this_thread::yield();
+
+            auto d = static_cast<iv_size_type>(device);
+            auto&& queue = input_vec_.at(d);
+
             while(true)
             {
-                while(input_vec_.empty())
-                    std::this_thread::yield();
+                l.lock();
 
-                while(lock_.test_and_set(std::memory_order_acquire))
-                    std::this_thread::yield();
-
-                using size_type = typename decltype(input_vec_)::size_type;
-                auto d = static_cast<size_type>(device);
-                auto& queue = input_vec_.at(d);
                 if(queue.empty())
                 {
-                    lock_.clear(std::memory_order_release);
+                    l.unlock();
                     continue;
                 }
 
                 auto proj = std::move(queue.front());
                 queue.pop();
 
-                lock_.clear(std::memory_order_release);
+                l.unlock();
 
-                if(!proj.second.valid)
+                if(!proj.valid)
                     break;
 
-                ddrf::cuda::launch(proj.second.width, proj.second.height,
+                ddrf::cuda::launch(proj.width, proj.height,
                                     weight,
-                                    proj.first.get(), static_cast<const float*>(proj.first.get()),
-                                    proj.second.width, proj.second.height, proj.first.pitch(),
+                                    proj.ptr.get(), static_cast<const float*>(proj.ptr.get()),
+                                    proj.width, proj.height, proj.ptr.pitch(),
                                     h_min_, v_min_,
                                     d_sd_,
                                     l_px_row_, l_px_col_);
@@ -238,18 +210,18 @@ namespace ddafa
         }
         catch(const ddrf::cuda::bad_alloc& ba)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered bad_alloc while invoking kernel: " << ba.what();
-            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
-        }
-        catch(const ddrf::cuda::runtime_error& re)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered runtime_error while invoking kernel: " << re.what();
-            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered a bad_alloc: " << ba.what();
+            throw sre;
         }
         catch(const ddrf::cuda::invalid_argument& ia)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() encountered invalid_argument while invoking kernel: " << ia.what();
-            throw stage_runtime_error{"weighting_stage::process(): weighting kernel failed"};
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() passed an invalid argument to the CUDA runtime: " << ia.what();
+            throw sre;
+        }
+        catch(const ddrf::cuda::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::process() caused a CUDA runtime error: " << re.what();
+            throw sre;
         }
     }
 }

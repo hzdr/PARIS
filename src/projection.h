@@ -16,38 +16,36 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 18 August 2016
+ * Date: 09 September 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_SOURCE_STAGE_H_
-#define DDAFA_SOURCE_STAGE_H_
+#ifndef DDAFA_PROJECTION_H_
+#define DDAFA_PROJECTION_H_
 
-#include <functional>
-#include <string>
-#include <vector>
-
-#include "his_loader.h"
+#include <cstddef>
+#include <cstdint>
+#include <utility>
 
 namespace ddafa
 {
-    class source_stage
+    template <class Ptr>
+    struct projection
     {
-        public:
-            using input_type = void;
-            using output_type = typename his_loader::image_type;
+        projection() noexcept = default;
 
-        public:
-            source_stage(const std::string& dir);
-            auto run() -> void;
-            auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
+        projection(Ptr p, std::size_t w, std::size_t h, std::uint32_t i, float ph, bool v, int dev) noexcept
+        : ptr{std::move(p)}, width{w}, height{h}, idx{i}, phi{ph}, valid{v}, device{dev}
+        {}
 
-        private:
-            std::function<void(output_type)> output_;
-            std::vector<std::string> paths_;
+        Ptr ptr = nullptr;
+        std::size_t width = 0;
+        std::size_t height = 0;
+        std::uint32_t idx = 0;
+        float phi = 0.f;
+        bool valid = false;
+        int device = 0;
     };
 }
 
-
-
-#endif /* DDAFA_SOURCE_STAGE_H_ */
+#endif /* DDAFA_PROJECTION_H_ */

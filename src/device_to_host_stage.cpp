@@ -32,7 +32,7 @@
 
 #include "device_to_host_stage.h"
 #include "exception.h"
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
@@ -43,14 +43,14 @@ namespace ddafa
             while(true)
             {
                 auto d_proj = input_();
-                if(!d_proj.second.valid)
+                if(!d_proj.valid)
                     break;
 
-                auto h_proj = ddrf::cuda::make_unique_pinned_host<float>(d_proj.second.width, d_proj.second.height);
-                ddrf::cuda::copy(ddrf::cuda::sync, h_proj, d_proj.first, d_proj.second.width, d_proj.second.height);
-                output_(std::make_pair(std::move(h_proj), d_proj.second));
+                auto h_proj = ddrf::cuda::make_unique_pinned_host<float>(d_proj.width, d_proj.height);
+                ddrf::cuda::copy(ddrf::cuda::sync, h_proj, d_proj.ptr, d_proj.width, d_proj.height);
+                output_(output_type{std::move(h_proj), d_proj.width, d_proj.height, d_proj.idx, d_proj.phi, true, d_proj.device});
             }
-            output_(output_type());
+            output_(output_type{});
         }
         catch(const ddrf::cuda::bad_alloc& ba)
         {

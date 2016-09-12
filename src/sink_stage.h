@@ -29,14 +29,14 @@
 
 #include <ddrf/cuda/memory.h>
 
-#include "metadata.h"
+#include "volume.h"
 
 namespace ddafa
 {
     class sink_stage
     {
         public:
-            using input_type = std::pair<ddrf::cuda::pinned_host_ptr<float>, volume_metadata>;
+            using input_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
             using output_type = void;
 
         public:

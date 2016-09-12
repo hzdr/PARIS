@@ -28,19 +28,24 @@
 #include <map>
 #include <vector>
 
+#include <ddrf/cuda/memory.h>
+
 #include "geometry.h"
-#include "metadata.h"
+#include "volume.h"
 
 namespace ddafa
 {
     class geometry_calculator
     {
         public:
+            using volume_type = volume<ddrf::cuda::pitched_device_ptr<float>>;
+
+        public:
             geometry_calculator(const geometry& geo);
 
             auto get_projection_iteration_num() const noexcept -> std::uint32_t;
-            auto get_volume_metadata() const noexcept -> volume_metadata;
-            auto get_subvolume_metadata() const noexcept -> std::vector<volume_metadata>;
+            auto get_volume_metadata() const noexcept -> volume_type;
+            auto get_subvolume_metadata() const noexcept -> std::vector<volume_type>;
 
         private:
             auto calculate_volume_width_height_vx() noexcept -> void;
@@ -52,7 +57,7 @@ namespace ddafa
 
         private:
             geometry det_geo_;
-            volume_metadata vol_geo_;
+            volume_type vol_geo_;
             float d_sd_;
             int devices_;
             float vol_height_;
@@ -60,7 +65,7 @@ namespace ddafa
             std::size_t proj_mem_;
             std::uint32_t vol_count_;
             std::map<int, std::uint32_t> vol_per_dev_;
-            std::map<int, volume_metadata> vol_geo_per_dev_;
+            std::map<int, volume_type> vol_geo_per_dev_;
     };
 }
 

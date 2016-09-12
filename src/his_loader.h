@@ -30,26 +30,17 @@
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
-#include "metadata.h"
+#include "projection.h"
 
 namespace ddafa
 {
     class his_loader
     {
         public:
-            using cuda_host_allocator = ddrf::cuda::host_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, cuda_host_allocator>;
-            using smart_pointer = typename pool_allocator::smart_pointer;
-            using image_type = std::pair<smart_pointer, projection_metadata>;
+            using smart_pointer = ddrf::cuda::pinned_host_ptr<float>;
+            using image_type = projection<smart_pointer>;
 
-            his_loader();
-            his_loader(his_loader&&) = default;
-            auto operator=(his_loader&&) -> his_loader& = default;
-            ~his_loader();
             auto load(const std::string& path) -> std::vector<image_type>;
-
-        private:
-             pool_allocator alloc_;
     };
 }
 
