@@ -73,6 +73,10 @@ namespace ddafa
                                     float pixel_size_x, float pixel_size_y, float offset_x, float offset_y)
         -> float
         {
+            auto k = ddrf::cuda::coord_x();
+            auto l = ddrf::cuda::coord_y();
+            auto m = ddrf::cuda::coord_z();
+
             auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
             auto v_real = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);
 
@@ -119,6 +123,29 @@ namespace ddafa
                         w_h0    * w_v1  * tr +
                         w_h0    * w_v0  * br;
 
+            if(k == 512 && l == 512 && m == 211)
+            {
+                printf("h_real = %f\n", h_real);
+                printf("v_real = %f\n", v_real);
+                printf("h_j0 = %f\n", h_j0);
+                printf("h_j1 = %f\n", h_j1);
+                printf("v_i0 = %f\n", v_i0);
+                printf("v_i1 = %f\n", v_i1);
+                printf("w_h0 = %f\n", w_h0);
+                printf("w_h1 = %f\n", w_h1);
+                printf("w_v0 = %f\n", w_v0);
+                printf("w_v1 = %f\n", w_v1);
+                printf("h_j0_ui = %u\n", h_j0_ui);
+                printf("h_j1_ui = %u\n", h_j1_ui);
+                printf("v_i0_ui = %u\n", v_i0_ui);
+                printf("v_i1_ui = %u\n", v_i1_ui);
+                printf("tl = %f\n", tl);
+                printf("bl = %f\n", bl);
+                printf("tr = %f\n", tr);
+                printf("br = %f\n", br);
+                printf("val = %f\n", val);
+            }
+
             return val;
         }
 
@@ -160,8 +187,20 @@ namespace ddafa
                 auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
 
                 // backproject
+                if(k == 512 && l == 512 && m == 211)
+                {
+                    printf("bp: before: %f\n", row[k]);
+                    printf("bp: det = %f\n", det);
+                }
+
                 auto u = -(dist_src / (s + dist_src));
                 row[k] += 0.5f * det * powf(u, 2.f);
+
+                if(k == 512 && l == 512 && m == 211)
+                {
+                    printf("bp: after: %f\n", row[k]);
+                    printf("bp: u = %f\n", u);
+                }
             }
         }
     }
@@ -178,22 +217,19 @@ namespace ddafa
         {
             devices_ = ddrf::cuda::get_device_count();
 
-            using sv_size_type = typename decltype(subvol_vec_)::size_type;
-            auto d_sv = static_cast<sv_size_type>(devices_);
+            auto d_sv = static_cast<svv_size_type>(devices_);
             subvol_vec_ = decltype(subvol_vec_){d_sv};
 
-            using svg_size_type = typename decltype(subvol_geo_vec_)::size_type;
-            auto d_svg = static_cast<svg_size_type>(devices_);
+            auto d_svg = static_cast<svgv_size_type>(devices_);
             subvol_geo_vec_ = decltype(subvol_geo_vec_){d_svg};
 
-            using iv_size_type = typename decltype(input_vec_)::size_type;
             auto d_iv = static_cast<iv_size_type>(devices_);
             input_vec_ = decltype(input_vec_){d_iv};
 
             vol_out_ = {ddrf::cuda::make_unique_pinned_host<float>(vol_geo_.width, vol_geo_.height, vol_geo_.depth),
                         vol_geo_.width, vol_geo_.height, vol_geo_.depth, vol_geo_.remainder, vol_geo_.offset, true, 0,
                         vol_geo_.vx_size_x, vol_geo_.vx_size_y, vol_geo_.vx_size_z};
-            ddrf::cuda::fill(ddrf::cuda::async, vol_out_.ptr, 0, vol_out_.width, vol_out_.height, vol_out_.depth);
+            ddrf::cuda::fill(ddrf::cuda::sync, vol_out_.ptr, 0, vol_out_.width, vol_out_.height, vol_out_.depth);
 
             for(auto i = 0; i < devices_; ++i)
             {
@@ -204,13 +240,13 @@ namespace ddafa
                     if(g.device == i)
                     {
                         auto ptr = ddrf::cuda::make_unique_device<float>(g.width, g.height, g.depth + g.remainder);
-                        ddrf::cuda::fill(ddrf::cuda::async, ptr, 0, g.width, g.height, g.depth + g.remainder);
+                        ddrf::cuda::fill(ddrf::cuda::sync, ptr, 0, g.width, g.height, g.depth + g.remainder);
 
-                        d_sv = static_cast<sv_size_type>(g.device);
+                        d_sv = static_cast<svv_size_type>(g.device);
                         subvol_vec_[d_sv] = volume_type{std::move(ptr), g.width, g.height, g.depth, g.remainder, g.offset, true, g.device,
                                                         g.vx_size_x, g.vx_size_y, g.vx_size_z};
 
-                        d_svg = static_cast<svg_size_type>(g.device);
+                        d_svg = static_cast<svgv_size_type>(g.device);
                         subvol_geo_vec_[d_svg] = volume_type{nullptr, g.width, g.height, g.depth, g.remainder, g.offset, true, g.device,
                             g.vx_size_x, g.vx_size_y, g.vx_size_z};
                         break;
@@ -352,7 +388,7 @@ namespace ddafa
                 if(predefined_angles_)
                     phi = p.phi;
                 else
-                    phi = p.idx * det_geo_.delta_phi;
+                    phi = static_cast<float>(p.idx) * det_geo_.delta_phi;
                 auto phi_rad = phi * M_PI / 180.f;
                 auto sin = static_cast<float>(std::sin(phi_rad));
                 auto cos = static_cast<float>(std::cos(phi_rad));
@@ -361,6 +397,12 @@ namespace ddafa
 
                 auto v_ptr = v.ptr.get();
                 auto p_ptr = static_cast<const float*>(p.ptr.get());
+
+                BOOST_LOG_TRIVIAL(info) << "Reco parms: " << vol_geo_.depth << " " << v.vx_size_x << " " << v.vx_size_y << " " << v.vx_size_z
+                                        << " " << p.width << " " << p.height << " " << det_geo_.l_px_row << " " << det_geo_.l_px_col
+                                        << " " << delta_s << " " << delta_t << " " << sin << " " << cos << " " << det_geo_.d_so
+                                        << " " << std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od);
+
                 ddrf::cuda::launch(v.width, v.height, v.depth,
                                     backproject,
                                     v_ptr, v.width, v.height, v.depth, v.ptr.pitch(), offset, vol_geo_.depth,

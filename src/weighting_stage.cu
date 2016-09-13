@@ -205,6 +205,8 @@ namespace ddafa
                                     d_sd_,
                                     l_px_row_, l_px_col_);
 
+                ddrf::cuda::synchronize_stream();
+
                 output_(std::move(proj));
             }
         }
