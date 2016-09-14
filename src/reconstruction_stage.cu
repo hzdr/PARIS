@@ -371,6 +371,8 @@ namespace ddafa
                                     p_ptr, p.width, p.height, p.ptr.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
                                         delta_s, delta_t,
                                     sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
+
+                ddrf::cuda::synchronize_stream();
             }
         }
         catch(const ddrf::cuda::bad_alloc& ba)
