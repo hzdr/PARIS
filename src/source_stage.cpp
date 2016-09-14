@@ -81,7 +81,7 @@ namespace ddafa
         }
 
         // all frames loaded, send empty image
-        output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
+        output_(output_type{});
         BOOST_LOG_TRIVIAL(info) << "All projections loaded.";
     }
 

@@ -149,7 +149,7 @@ namespace ddafa
         for(auto&& f : futures)
             f.get();
 
-        output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
+        output_(output_type{});
         BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
     }
 

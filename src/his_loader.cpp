@@ -33,6 +33,8 @@
 
 #include <boost/log/trivial.hpp>
 
+#include <cuda_runtime.h>
+
 #include "his_loader.h"
 #include "projection.h"
 
@@ -182,7 +184,7 @@ namespace ddafa
 
             auto w = static_cast<std::size_t>(width);
             auto h = static_cast<std::size_t>(height);
-            vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, 0);
+            vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, 0, cudaStream_t{});
         }
         return vec;
     }

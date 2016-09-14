@@ -51,7 +51,7 @@ namespace ddafa
             {
                 auto dst_row = reinterpret_cast<float*>(reinterpret_cast<char*>(dst) + p * y);
 
-                dst_row[x] = 1.f;
+                dst_row[x] = 0.f;
             }
         }
     }
@@ -123,18 +123,20 @@ namespace ddafa
                     auto&& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.width, proj.height);
 
+                    auto stream = ddrf::cuda::create_stream();
+
                     // we have to initialize the destination data before copying because of reasons
                     ddrf::cuda::launch(proj.width, proj.height, init_kernel,
                             dev_proj.get(), proj.width, proj.height, dev_proj.pitch());
 
                     ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.ptr, proj.width, proj.height);
 
-                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i});
+                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i, ddrf::cuda::create_stream()});
                 }
             }
 
             // Uploaded all projections to the GPU, notify the next stage that we are done here
-            output_(output_type{nullptr, 0, 0, 0, 0.f, false, 0});
+            output_(output_type{});
             BOOST_LOG_TRIVIAL(info) << "Uploaded all projections to the device(s)";
         }
         catch(const ddrf::cuda::bad_alloc& ba)

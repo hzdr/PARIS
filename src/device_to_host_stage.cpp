@@ -48,7 +48,7 @@ namespace ddafa
 
                 auto h_proj = ddrf::cuda::make_unique_pinned_host<float>(d_proj.width, d_proj.height);
                 ddrf::cuda::copy(ddrf::cuda::sync, h_proj, d_proj.ptr, d_proj.width, d_proj.height);
-                output_(output_type{std::move(h_proj), d_proj.width, d_proj.height, d_proj.idx, d_proj.phi, true, d_proj.device});
+                output_(output_type{std::move(h_proj), d_proj.width, d_proj.height, d_proj.idx, d_proj.phi, true, d_proj.device, d_proj.stream});
             }
             output_(output_type{});
         }

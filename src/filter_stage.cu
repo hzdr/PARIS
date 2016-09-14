@@ -104,6 +104,22 @@ namespace ddafa
                 row[x].y *= filter[x].y;
             }
         }
+
+        __global__ void normalization_kernel(cufftReal* dst, std::size_t dst_pitch,
+                                             const cufftReal* src, std::size_t src_pitch,
+                                             std::size_t width, std::size_t height, std::size_t filter_size)
+        {
+            auto x = ddrf::cuda::coord_x();
+            auto y = ddrf::cuda::coord_y();
+
+            if((x < width) && (y < height))
+            {
+                auto dst_row = reinterpret_cast<cufftReal*>(reinterpret_cast<char*>(dst) + y * dst_pitch);
+                auto src_row = reinterpret_cast<const cufftReal*>(reinterpret_cast<const char*>(src) + y * src_pitch);
+
+                dst_row[x] = src_row[x] / filter_size;
+            }
+        }
     }
 
     filter_stage::filter_stage(std::uint32_t n_row, std::uint32_t n_col, float l_px_row)
@@ -332,6 +348,15 @@ namespace ddafa
 
                 // copy back to original projection dimensions
                 ddrf::cuda::copy(ddrf::cuda::sync, proj.ptr, converted_proj, proj.width, proj.height);
+
+                // normalize
+                ddrf::cuda::launch(proj.width, proj.height,
+                                   normalization_kernel,
+                                   proj.ptr.get(), proj.ptr.pitch(),
+                                   static_cast<const cufftReal*>(proj.ptr.get()), proj.ptr.pitch(),
+                                   proj.width, proj.height, filter_size_);
+
+                ddrf::cuda::synchronize_stream();
 
                 output_(std::move(proj));
             }

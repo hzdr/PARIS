@@ -123,29 +123,6 @@ namespace ddafa
                         w_h0    * w_v1  * tr +
                         w_h0    * w_v0  * br;
 
-            if(k == 512 && l == 512 && m == 211)
-            {
-                printf("h_real = %f\n", h_real);
-                printf("v_real = %f\n", v_real);
-                printf("h_j0 = %f\n", h_j0);
-                printf("h_j1 = %f\n", h_j1);
-                printf("v_i0 = %f\n", v_i0);
-                printf("v_i1 = %f\n", v_i1);
-                printf("w_h0 = %f\n", w_h0);
-                printf("w_h1 = %f\n", w_h1);
-                printf("w_v0 = %f\n", w_v0);
-                printf("w_v1 = %f\n", w_v1);
-                printf("h_j0_ui = %u\n", h_j0_ui);
-                printf("h_j1_ui = %u\n", h_j1_ui);
-                printf("v_i0_ui = %u\n", v_i0_ui);
-                printf("v_i1_ui = %u\n", v_i1_ui);
-                printf("tl = %f\n", tl);
-                printf("bl = %f\n", bl);
-                printf("tr = %f\n", tr);
-                printf("br = %f\n", br);
-                printf("val = %f\n", val);
-            }
-
             return val;
         }
 
@@ -187,20 +164,8 @@ namespace ddafa
                 auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
 
                 // backproject
-                if(k == 512 && l == 512 && m == 211)
-                {
-                    printf("bp: before: %f\n", row[k]);
-                    printf("bp: det = %f\n", det);
-                }
-
                 auto u = -(dist_src / (s + dist_src));
                 row[k] += 0.5f * det * powf(u, 2.f);
-
-                if(k == 512 && l == 512 && m == 211)
-                {
-                    printf("bp: after: %f\n", row[k]);
-                    printf("bp: u = %f\n", u);
-                }
             }
         }
     }
@@ -398,10 +363,6 @@ namespace ddafa
                 auto v_ptr = v.ptr.get();
                 auto p_ptr = static_cast<const float*>(p.ptr.get());
 
-                BOOST_LOG_TRIVIAL(info) << "Reco parms: " << vol_geo_.depth << " " << v.vx_size_x << " " << v.vx_size_y << " " << v.vx_size_z
-                                        << " " << p.width << " " << p.height << " " << det_geo_.l_px_row << " " << det_geo_.l_px_col
-                                        << " " << delta_s << " " << delta_t << " " << sin << " " << cos << " " << det_geo_.d_so
-                                        << " " << std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od);
 
                 ddrf::cuda::launch(v.width, v.height, v.depth,
                                     backproject,

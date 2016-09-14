@@ -211,11 +211,10 @@
 				<executable devicelink="true">
 					<ptx major="3" minor="5"/>
 					<sass major="3" minor="5"/>
-					<sass major="2" minor="1"/>
 					<ptx major="6" minor="0"/>
 					<sass major="6" minor="0"/>
 				</executable>
-				<editor-arch major="2" minor="1"/>
+				<editor-arch major="6" minor="0"/>
 			</storageModule>
 		</cconfiguration>
 		<cconfiguration id="com.nvidia.cuda.ide.configuration.release.1735503515.973902346">
