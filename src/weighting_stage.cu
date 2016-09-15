@@ -197,7 +197,7 @@ namespace ddafa
                 if(!proj.valid)
                     break;
 
-                ddrf::cuda::launch(proj.width, proj.height,
+                ddrf::cuda::launch_async(proj.stream, proj.width, proj.height,
                                     weight,
                                     proj.ptr.get(), static_cast<const float*>(proj.ptr.get()),
                                     proj.width, proj.height, proj.ptr.pitch(),
@@ -205,7 +205,7 @@ namespace ddafa
                                     d_sd_,
                                     l_px_row_, l_px_col_);
 
-                ddrf::cuda::synchronize_stream();
+                ddrf::cuda::synchronize_stream(proj.stream);
 
                 output_(std::move(proj));
             }

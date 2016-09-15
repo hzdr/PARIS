@@ -347,7 +347,7 @@ namespace ddafa
                 }
 
                 if(p.idx % 10 == 0)
-                    BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.idx << " on device #" << device;
+                    BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.idx << " on device #" << device << " in stream " << p.stream;
 
                 auto phi = 0.f;
                 if(predefined_angles_)
@@ -363,8 +363,7 @@ namespace ddafa
                 auto v_ptr = v.ptr.get();
                 auto p_ptr = static_cast<const float*>(p.ptr.get());
 
-
-                ddrf::cuda::launch(v.width, v.height, v.depth,
+                ddrf::cuda::launch_async(p.stream, v.width, v.height, v.depth,
                                     backproject,
                                     v_ptr, v.width, v.height, v.depth, v.ptr.pitch(), offset, vol_geo_.depth,
                                         v.vx_size_x, v.vx_size_y, v.vx_size_z,
@@ -372,7 +371,7 @@ namespace ddafa
                                         delta_s, delta_t,
                                     sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
 
-                ddrf::cuda::synchronize_stream();
+                ddrf::cuda::synchronize_stream(p.stream);
             }
         }
         catch(const ddrf::cuda::bad_alloc& ba)

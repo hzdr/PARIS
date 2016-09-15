@@ -320,6 +320,8 @@ namespace ddafa
 
             BOOST_LOG_TRIVIAL(debug) << "Filter setup on device #" << device << " completed.";
 
+            ddrf::cuda::synchronize_stream();
+
             while(true)
             {
                 auto proj = safe_pop(device);
@@ -330,33 +332,35 @@ namespace ddafa
                 auto transformed_ptr = transformed_proj.get();
                 auto const_filter_ptr = static_cast<const cufftComplex*>(filter_ptr);
 
-                ddrf::cuda::fill(ddrf::cuda::sync, converted_proj, 0, filter_size_, n_col_);
+                ddrf::cuda::fill(ddrf::cuda::async, converted_proj, 0, proj.stream, filter_size_, n_col_);
 
                 // copy projection to larger projection which has a width of 2^x
-                ddrf::cuda::copy(ddrf::cuda::sync, converted_proj, proj.ptr, proj.width, proj.height);
+                ddrf::cuda::copy(ddrf::cuda::async, converted_proj, proj.ptr, proj.stream, proj.width, proj.height);
 
                 // execute the FFT for the projection
+                converted_proj_plan.set_stream(proj.stream);
                 converted_proj_plan.execute(converted_ptr, transformed_ptr);
 
                 // apply the transformed filter to the transformed projection
-                ddrf::cuda::launch(transformed_filter_size, n_col_,
+                ddrf::cuda::launch_async(proj.stream, transformed_filter_size, n_col_,
                                     filter_application_kernel,
                                     transformed_ptr, const_filter_ptr, transformed_filter_size, n_col_, transformed_proj.pitch());
 
                 // run inverse FFT on the transformed projection
+                inverse_plan.set_stream(proj.stream);
                 inverse_plan.execute(transformed_ptr, converted_ptr);
 
                 // copy back to original projection dimensions
-                ddrf::cuda::copy(ddrf::cuda::sync, proj.ptr, converted_proj, proj.width, proj.height);
+                ddrf::cuda::copy(ddrf::cuda::async, proj.ptr, converted_proj, proj.stream, proj.width, proj.height);
 
                 // normalize
-                ddrf::cuda::launch(proj.width, proj.height,
+                ddrf::cuda::launch_async(proj.stream, proj.width, proj.height,
                                    normalization_kernel,
                                    proj.ptr.get(), proj.ptr.pitch(),
                                    static_cast<const cufftReal*>(proj.ptr.get()), proj.ptr.pitch(),
                                    proj.width, proj.height, filter_size_);
 
-                ddrf::cuda::synchronize_stream();
+                ddrf::cuda::synchronize_stream(proj.stream);
 
                 output_(std::move(proj));
             }

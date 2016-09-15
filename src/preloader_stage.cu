@@ -123,15 +123,15 @@ namespace ddafa
                     auto&& alloc = pools_[d_v];
                     auto dev_proj = alloc.allocate_smart(proj.width, proj.height);
 
-                    auto stream = ddrf::cuda::create_stream();
+                    auto stream = ddrf::cuda::create_concurrent_stream();
 
-                    // we have to initialize the destination data before copying because of reasons
-                    ddrf::cuda::launch(proj.width, proj.height, init_kernel,
-                            dev_proj.get(), proj.width, proj.height, dev_proj.pitch());
+                    // initialize the destination data before copying
+                    ddrf::cuda::fill(ddrf::cuda::async, dev_proj, 0, stream, proj.width, proj.height);
+                    ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.ptr, stream, proj.width, proj.height);
 
-                    ddrf::cuda::copy(ddrf::cuda::sync, dev_proj, proj.ptr, proj.width, proj.height);
+                    ddrf::cuda::synchronize_stream(stream);
 
-                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i, ddrf::cuda::create_stream()});
+                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i, stream});
                 }
             }
 
