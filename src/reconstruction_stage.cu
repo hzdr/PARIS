@@ -69,18 +69,19 @@ namespace ddafa
             return static_cast<unsigned int>(x);
         }
 
-        __device__ auto interpolate(float h, float v, const float* proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
+        __device__ auto interpolate(float h, float v, cudaTextureObject_t proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
                                     float pixel_size_x, float pixel_size_y, float offset_x, float offset_y)
         -> float
         {
-            auto k = ddrf::cuda::coord_x();
-            auto l = ddrf::cuda::coord_y();
-            auto m = ddrf::cuda::coord_z();
+            auto x = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
+            auto y = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);
 
-            auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
-            auto v_real = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);
+            return tex2D<float>(proj, x, y);
 
-            auto h_j0 = floorf(h_real);
+/*            auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
+            auto v_real = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);*/
+
+            /*auto h_j0 = floorf(h_real);
             auto h_j1 = h_j0 + 1.f;
             auto v_i0 = floorf(v_real);
             auto v_i1 = v_i0 + 1.f;
@@ -89,46 +90,57 @@ namespace ddafa
             auto w_v0 = v_real - v_i0;
 
             auto w_h1 = 1.f - w_h0;
-            auto w_v1 = 1.f - w_v0;
+            auto w_v1 = 1.f - w_v0;*/
 
-            auto h_j0_ui = as_unsigned(h_j0);
+            /*auto h_j0_ui = as_unsigned(h_j0);
             auto h_j1_ui = as_unsigned(h_j1);
             auto v_i0_ui = as_unsigned(v_i0);
-            auto v_i1_ui = as_unsigned(v_i1);
+            auto v_i1_ui = as_unsigned(v_i1);*/
 
             // ui coordinates might be invalid due to negative v_i0, thus
             // bounds checking
-            auto h_j0_valid = (h_j0 >= 0.f);
+            /*auto h_j0_valid = (h_j0 >= 0.f);
             auto h_j1_valid = (h_j1 < static_cast<float>(proj_width));
             auto v_i0_valid = (v_i0 >= 0.f);
-            auto v_i1_valid = (v_i1 < static_cast<float>(proj_height));
+            auto v_i1_valid = (v_i1 < static_cast<float>(proj_height));*/
 
-            auto upper_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i0_ui * proj_pitch);
-            auto lower_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i1_ui * proj_pitch);
+            //auto upper_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i0_ui * proj_pitch);
+            //auto lower_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i1_ui * proj_pitch);
 
+            // no bounds checking needed as tex2D automatically clamps to 0 outside of its bounds
+            /*auto tl = tex2D<float>(proj, h_j0, v_i0);
+            auto bl = tex2D<float>(proj, h_j0, v_i1);
+            auto tr = tex2D<float>(proj, h_j1, v_i0);
+            auto br = tex2D<float>(proj, h_j1, v_i1);*/
+
+            /*
             auto tl = 0.f;
             auto bl = 0.f;
             auto tr = 0.f;
             auto br = 0.f;
             if(h_j0_valid && h_j1_valid && v_i0_valid && v_i1_valid)
             {
+
+
                 tl = upper_row[h_j0_ui];
                 bl = lower_row[h_j0_ui];
                 tr = upper_row[h_j1_ui];
                 br = lower_row[h_j1_ui];
-            }
 
-            auto val =  w_h1    * w_v1  * tl +
+            }
+            */
+
+            /*auto val =  w_h1    * w_v1  * tl +
                         w_h1    * w_v0  * bl +
                         w_h0    * w_v1  * tr +
-                        w_h0    * w_v0  * br;
+                        w_h0    * w_v0  * br;*/
 
-            return val;
+            // return val;
         }
 
         __global__ void backproject(float* __restrict__ vol, std::size_t vol_w, std::size_t vol_h, std::size_t vol_d, std::size_t vol_pitch,
                                     std::size_t vol_offset, std::size_t vol_d_full, float voxel_size_x, float voxel_size_y, float voxel_size_z,
-                                    const float* __restrict__ proj, std::size_t proj_w, std::size_t proj_h, std::size_t proj_pitch,
+                                    cudaTextureObject_t proj, std::size_t proj_w, std::size_t proj_h, std::size_t proj_pitch,
                                     float pixel_size_x, float pixel_size_y, float pixel_offset_x, float pixel_offset_y,
                                     float angle_sin, float angle_cos, float dist_src, float dist_sd)
         {
@@ -157,11 +169,16 @@ namespace ddafa
 
                 // project rotated coordinates
                 auto factor = dist_sd / (s + dist_src);
+                // auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x);
+                // auto v = proj_real_coordinate(z * factor, proj_h, pixel_size_y, pixel_offset_y);
                 auto h = t * factor;
                 auto v = z * factor;
 
                 // get projection value by interpolation
                 auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
+                /*auto det = 0.f;
+                if((h < proj_w) && (v < proj_h))
+                    det = tex2D<float>(proj, h, v);*/
 
                 // backproject
                 auto u = -(dist_src / (s + dist_src));
@@ -361,17 +378,49 @@ namespace ddafa
                 auto offset = v_geo.offset * vol_count;
 
                 auto v_ptr = v.ptr.get();
-                auto p_ptr = static_cast<const float*>(p.ptr.get());
+                auto p_ptr = p.ptr.get();
+                auto p_cptr = static_cast<const float*>(p.ptr.get());
+
+                // transform the projection into a texture
+                auto res_desc = cudaResourceDesc{};
+                res_desc.resType = cudaResourceTypePitch2D;
+                res_desc.res.pitch2D.desc = cudaCreateChannelDesc<float>();
+                res_desc.res.pitch2D.devPtr = reinterpret_cast<void*>(p_ptr);
+                res_desc.res.pitch2D.width = p.width;
+                res_desc.res.pitch2D.height = p.height;
+                res_desc.res.pitch2D.pitchInBytes = p.ptr.pitch();
+
+                auto tex_desc = cudaTextureDesc{};
+                tex_desc.addressMode[0] = cudaAddressModeClamp;
+                tex_desc.addressMode[1] = cudaAddressModeClamp;
+                tex_desc.filterMode = cudaFilterModeLinear;
+                tex_desc.readMode = cudaReadModeElementType;
+                tex_desc.normalizedCoords = 0;
+
+                auto tex = cudaTextureObject_t{0};
+                auto err = cudaCreateTextureObject(&tex, &res_desc, &tex_desc, nullptr);
+                if(err != cudaSuccess)
+                {
+                    BOOST_LOG_TRIVIAL(fatal) << "Could not create CUDA texture: " << cudaGetErrorString(err);
+                    throw stage_runtime_error{"reconstruction_stage::process() failed"};
+                }
 
                 ddrf::cuda::launch_async(p.stream, v.width, v.height, v.depth,
                                     backproject,
                                     v_ptr, v.width, v.height, v.depth, v.ptr.pitch(), offset, vol_geo_.depth,
                                         v.vx_size_x, v.vx_size_y, v.vx_size_z,
-                                    p_ptr, p.width, p.height, p.ptr.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
+                                    tex, p.width, p.height, p.ptr.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
                                         delta_s, delta_t,
                                     sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
 
                 ddrf::cuda::synchronize_stream(p.stream);
+
+                err = cudaDestroyTextureObject(tex);
+                if(err != cudaSuccess)
+                {
+                    BOOST_LOG_TRIVIAL(fatal) << "Could not destroy CUDA texture: " << cudaGetErrorString(err);
+                    throw stage_runtime_error{"reconstruction_stage::process() failed"};
+                }
             }
         }
         catch(const ddrf::cuda::bad_alloc& ba)
