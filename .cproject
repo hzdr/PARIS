@@ -165,6 +165,7 @@
 								<option id="nvcc.compiler.optionsfile.273736157" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" useByScannerDiscovery="false" value="" valueType="string"/>
 								<option id="com.nvidia.cuda.ide.build.option1.1511327793" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.option1" value="" valueType="string"/>
 								<option id="nvcc.compiler.compileroptions.1425816964" name="Preprocessor options (-Xcompiler)" superClass="nvcc.compiler.compileroptions"/>
+								<option id="nvcc.compiler.usefastmath.241669819" name="Make use of fast math library (-use_fast_math)" superClass="nvcc.compiler.usefastmath" value="false" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.1834504745" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.173552315" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.1908437339" superClass="nvcc.compiler.input.c"/>

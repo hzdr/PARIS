@@ -63,71 +63,6 @@ namespace ddafa
             return (coord - min) / size - (1.f / 2.f);
         }
 
-        template <class T>
-        inline __device__ auto as_unsigned(T x) -> unsigned int
-        {
-            return static_cast<unsigned int>(x);
-        }
-
-        __device__ auto interpolate(float h, float v, cudaTextureObject_t proj, std::size_t proj_width, std::size_t proj_height, std::size_t proj_pitch,
-                                    float pixel_size_x, float pixel_size_y, float offset_x, float offset_y)
-        -> float
-        {
-            auto h_real = proj_real_coordinate(h, proj_width, pixel_size_x, offset_x);
-            auto v_real = proj_real_coordinate(v, proj_height, pixel_size_y, offset_y);
-
-            auto h_j0 = floorf(h_real);
-            auto h_j1 = h_j0 + 1.f;
-            auto v_i0 = floorf(v_real);
-            auto v_i1 = v_i0 + 1.f;
-
-            auto w_h0 = h_real - h_j0;
-            auto w_v0 = v_real - v_i0;
-
-            auto w_h1 = 1.f - w_h0;
-            auto w_v1 = 1.f - w_v0;
-
-            auto h_j0_ui = as_unsigned(h_j0);
-            auto h_j1_ui = as_unsigned(h_j1);
-            auto v_i0_ui = as_unsigned(v_i0);
-            auto v_i1_ui = as_unsigned(v_i1);
-
-            // ui coordinates might be invalid due to negative v_i0, thus
-            // bounds checking
-            auto h_j0_valid = (h_j0 >= 0.f);
-            auto h_j1_valid = (h_j1 < static_cast<float>(proj_width));
-            auto v_i0_valid = (v_i0 >= 0.f);
-            auto v_i1_valid = (v_i1 < static_cast<float>(proj_height));
-
-            auto upper_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i0_ui * proj_pitch);
-            auto lower_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(proj) + v_i1_ui * proj_pitch);
-
-            // no bounds checking needed as tex2D automatically clamps to 0 outside of its bounds
-            /*auto tl = tex2D<float>(proj, h_j0, v_i0);
-            auto bl = tex2D<float>(proj, h_j0, v_i1);
-            auto tr = tex2D<float>(proj, h_j1, v_i0);
-            auto br = tex2D<float>(proj, h_j1, v_i1);*/
-
-            auto tl = 0.f;
-            auto bl = 0.f;
-            auto tr = 0.f;
-            auto br = 0.f;
-            if(h_j0_valid && h_j1_valid && v_i0_valid && v_i1_valid)
-            {
-                tl = upper_row[h_j0_ui];
-                bl = lower_row[h_j0_ui];
-                tr = upper_row[h_j1_ui];
-                br = lower_row[h_j1_ui];
-            }
-
-            auto val =  w_h1    * w_v1  * tl +
-                        w_h1    * w_v0  * bl +
-                        w_h0    * w_v1  * tr +
-                        w_h0    * w_v0  * br;
-
-            return val;
-        }
-
         __global__ void backproject(float* __restrict__ vol, std::size_t vol_w, std::size_t vol_h, std::size_t vol_d, std::size_t vol_pitch,
                                     std::size_t vol_offset, std::size_t vol_d_full, float voxel_size_x, float voxel_size_y, float voxel_size_z,
                                     cudaTextureObject_t proj, std::size_t proj_w, std::size_t proj_h, std::size_t proj_pitch,
@@ -143,6 +78,9 @@ namespace ddafa
                 auto slice_pitch = vol_pitch * vol_h;
                 auto slice = reinterpret_cast<char*>(vol) + m * slice_pitch;
                 auto row = reinterpret_cast<float*>(slice + l * vol_pitch);
+
+                // optimization hackery: load value from global memory while executing other instructions
+                auto old_val = row[k];
 
                 // add offset for the current subvolume
                 auto m_off = m + vol_offset;
@@ -163,20 +101,13 @@ namespace ddafa
                 // which would result in a wrong output
                 auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x) + 0.5f;
                 auto v = proj_real_coordinate(z * factor, proj_h, pixel_size_y, pixel_offset_y) + 0.5f;
-                //auto h = t * factor;
-                //auto v = z * factor;
 
                 // get projection value by interpolation
-                // auto det = interpolate(h, v, proj, proj_w, proj_h, proj_pitch, pixel_size_x, pixel_size_y, pixel_offset_x, pixel_offset_y);
-                /*auto det = 0.f;
-                if((h < proj_w) && (v < proj_h))
-                    det = tex2D<float>(proj, h, v);*/
-
                 auto det = tex2D<float>(proj, h, v);
 
                 // backproject
                 auto u = -(dist_src / (s + dist_src));
-                row[k] += 0.5f * det * powf(u, 2.f);
+                row[k] = old_val + 0.5f * det * u * u;
             }
         }
     }
