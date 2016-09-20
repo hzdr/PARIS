@@ -55,7 +55,6 @@ namespace ddafa
             return -(dim * size2) + size2 + coord * size;
         }
 
-        // round and cast as needed
         inline __device__ auto proj_real_coordinate(float coord, std::size_t dim, float size, float offset) -> float
         {
             auto size2 = size / 2.f;
@@ -83,26 +82,25 @@ namespace ddafa
                 auto old_val = row[k];
 
                 // add offset for the current subvolume
-                auto m_off = m + vol_offset;
+                m += vol_offset;
 
                 // get centered coordinates -- volume center is at (0, 0, 0) and the top slice is at -(vol_d_off / 2)
                 auto x_k = vol_centered_coordinate(k, vol_w, voxel_size_x);
                 auto y_l = vol_centered_coordinate(l, vol_h, voxel_size_y);
-                auto z_m = vol_centered_coordinate(m_off, vol_d_full, voxel_size_z);
+                auto z_m = vol_centered_coordinate(m, vol_d_full, voxel_size_z);
 
                 // rotate coordinates
                 auto s = x_k * angle_cos + y_l * angle_sin;
                 auto t = -x_k * angle_sin + y_l * angle_cos;
-                auto z = z_m;
 
                 // project rotated coordinates
                 auto factor = dist_sd / (s + dist_src);
                 // add 0.5f to each coordinate as CUDA's filtering mechanism substracts them again
                 // which would result in a wrong output
                 auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x) + 0.5f;
-                auto v = proj_real_coordinate(z * factor, proj_h, pixel_size_y, pixel_offset_y) + 0.5f;
+                auto v = proj_real_coordinate(z_m * factor, proj_h, pixel_size_y, pixel_offset_y) + 0.5f;
 
-                // get projection value by interpolation
+                // get projection value (note the implicit linear interpolation)
                 auto det = tex2D<float>(proj, h, v);
 
                 // backproject
