@@ -20,16 +20,25 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_EXCEPTION_H_
+#define DDAFA_EXCEPTION_H_
 
-#include <string>
+#include <exception>
+#include <stdexcept>
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    class stage_construction_error : public std::runtime_error
+    {
+        public:
+            using std::runtime_error::runtime_error;
+    };
+
+    class stage_runtime_error : public std::runtime_error
+    {
+        public:
+            using std::runtime_error::runtime_error;
+    };
 }
 
-#endif /* DDAFA_VERSION_H_ */
+#endif /* DDAFA_EXCEPTION_H_ */

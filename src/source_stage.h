@@ -20,16 +20,34 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_SOURCE_STAGE_H_
+#define DDAFA_SOURCE_STAGE_H_
 
+#include <functional>
 #include <string>
+#include <vector>
+
+#include "his_loader.h"
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    class source_stage
+    {
+        public:
+            using input_type = void;
+            using output_type = typename his_loader::image_type;
+
+        public:
+            source_stage(const std::string& dir);
+            auto run() -> void;
+            auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
+
+        private:
+            std::function<void(output_type)> output_;
+            std::vector<std::string> paths_;
+    };
 }
 
-#endif /* DDAFA_VERSION_H_ */
+
+
+#endif /* DDAFA_SOURCE_STAGE_H_ */

@@ -20,16 +20,18 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_FILESYSTEM_H_
+#define DDAFA_FILESYSTEM_H_
 
 #include <string>
+#include <vector>
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+	auto read_directory(const std::string&) -> std::vector<std::string>;
+	auto create_directory(const std::string&) -> bool;
 }
 
-#endif /* DDAFA_VERSION_H_ */
+
+
+#endif /* DDAFA_FILESYSTEM_H_ */

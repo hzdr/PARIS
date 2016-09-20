@@ -20,16 +20,26 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_TIFF_SAVER_H_
+#define DDAFA_TIFF_SAVER_H_
 
 #include <string>
+#include <utility>
+
+#include <ddrf/cuda/memory.h>
+
+#include "volume.h"
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    class tiff_saver
+    {
+        public:
+            tiff_saver() noexcept = default;
+            auto save(volume<ddrf::cuda::pinned_host_ptr<float>> vol, const std::string& path) const -> void;
+    };
 }
 
-#endif /* DDAFA_VERSION_H_ */
+
+
+#endif /* DDAFA_TIFF_SAVER_H_ */

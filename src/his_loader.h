@@ -20,16 +20,30 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_HIS_LOADER_H_
+#define DDAFA_HIS_LOADER_H_
 
 #include <string>
+#include <utility>
+#include <vector>
+
+#include <ddrf/cuda/memory.h>
+#include <ddrf/memory.h>
+
+#include "projection.h"
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    class his_loader
+    {
+        public:
+            using smart_pointer = ddrf::cuda::pinned_host_ptr<float>;
+            using image_type = projection<smart_pointer>;
+
+            auto load(const std::string& path) -> std::vector<image_type>;
+    };
 }
 
-#endif /* DDAFA_VERSION_H_ */
+
+
+#endif /* DDAFA_HIS_LOADER_H_ */

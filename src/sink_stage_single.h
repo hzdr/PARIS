@@ -16,20 +16,44 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 18 August 2016
+ * Date: 24 August 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VERSION_H_
-#define DDAFA_VERSION_H_
+#ifndef DDAFA_SINK_STAGE_SINGLE_H_
+#define DDAFA_SINK_STAGE_SINGLE_H_
 
+#include <functional>
 #include <string>
+#include <utility>
+
+#include <ddrf/cuda/memory.h>
+
+#include "projection.h"
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    class sink_stage_single
+    {
+        public:
+            using input_type = projection<ddrf::cuda::pinned_host_ptr<float>>;
+            using output_type = void;
+
+        public:
+            sink_stage_single(const std::string& path, const std::string& prefix);
+
+            auto run() -> void;
+            auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
+
+        private:
+            std::function<input_type(void)> input_;
+            int devices_;
+
+            std::string path_;
+            std::string prefix_;
+    };
 }
 
-#endif /* DDAFA_VERSION_H_ */
+
+
+#endif /* DDAFA_SINK_STAGE_SINGLE_H_ */
