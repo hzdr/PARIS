@@ -159,8 +159,10 @@ namespace ddafa
 
                 // project rotated coordinates
                 auto factor = dist_sd / (s + dist_src);
-                auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x);
-                auto v = proj_real_coordinate(z * factor, proj_h, pixel_size_y, pixel_offset_y);
+                // add 0.5f to each coordinate as CUDA's filtering mechanism substracts them again
+                // which would result in a wrong output
+                auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x) + 0.5f;
+                auto v = proj_real_coordinate(z * factor, proj_h, pixel_size_y, pixel_offset_y) + 0.5f;
                 //auto h = t * factor;
                 //auto v = z * factor;
 
