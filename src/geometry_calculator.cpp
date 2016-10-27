@@ -43,7 +43,10 @@
 
 namespace ddafa
 {
-    geometry_calculator::geometry_calculator(const geometry& geo)
+    geometry_calculator::geometry_calculator(const geometry& geo, bool enable_roi,
+                                                std::uint32_t roi_x1, std::uint32_t roi_x2,
+                                                std::uint32_t roi_y1, std::uint32_t roi_y2,
+                                                std::uint32_t roi_z1, std::uint32_t roi_z2)
     : det_geo_(geo)
     , vol_geo_{}
     , d_sd_{std::abs(det_geo_.d_od) + std::abs(det_geo_.d_so)}

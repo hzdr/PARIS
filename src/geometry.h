@@ -27,7 +27,7 @@
 
 namespace ddafa
 {
-    struct geometry
+    struct detector_geometry
     {
         // Detector
         std::uint32_t n_row;    // pixels per row
@@ -44,6 +44,22 @@ namespace ddafa
         // Rotation
         float delta_phi;        // difference between two successive angles - ignored if there is an angle file
     };
+
+    struct volume_geometry
+    {
+        std::uint32_t dim_x;    // voxels in x direction
+        std::uint32_t dim_y;    // voxels in y direction
+        std::uint32_t dim_z;    // voxels in z direction
+
+        float l_vx_x;           // voxel size in x direction [mm]
+        float l_vx_y;           // voxel size in y direction [mm]
+        float l_vx_z;           // voxel size in z direction [mm]
+    };
+
+    auto calculate_volume_geometry(const detector_geometry& det_geo, bool enable_roi,
+                                    std::uint32_t roi_x1, std::uint32_t roi_x2,
+                                    std::uint32_t roi_y1, std::uint32_t roi_y2,
+                                    std::uint32_t roi_z1, std::uint32_t roi_z2) noexcept -> volume_geometry;
 }
 
 #endif /* DDAFA_GEOMETRY_H_ */
