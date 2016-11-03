@@ -56,6 +56,18 @@ namespace ddafa
         float l_vx_z;           // voxel size in z direction [mm]
     };
 
+    struct subvolume_geometry
+    {
+        std::uint32_t dim_x;
+        std::uint32_t dim_y;
+        std::uint32_t dim_z;
+
+        /* Not all volumes are evenly distributable. The lowest subvolume therefore contains the remaining
+         * slices.
+         */
+        std::uint32_t remainder;
+    };
+
     auto calculate_volume_geometry(const detector_geometry& det_geo, bool enable_roi,
                                     std::uint32_t roi_x1, std::uint32_t roi_x2,
                                     std::uint32_t roi_y1, std::uint32_t roi_y2,

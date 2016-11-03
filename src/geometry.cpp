@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <cmath>
 
+#include <boost/log/trivial.hpp>
+
 #include "geometry.h"
 
 namespace ddafa

@@ -106,41 +106,6 @@ namespace ddafa
         return vec;
     }
 
-    auto geometry_calculator::calculate_volume_width_height_vx() noexcept -> void
-    {
-        auto n_row = static_cast<float>(det_geo_.n_row);
-        auto l_px_row = det_geo_.l_px_row;
-        auto delta_s = det_geo_.delta_s * l_px_row; // the offset is originally measured in pixels!
-
-        auto alpha = std::atan((((n_row * l_px_row) / 2.f) + std::abs(delta_s)) / d_sd_);
-        auto r = std::abs(det_geo_.d_so) * std::sin(alpha);
-
-        vol_geo_.vx_size_x = r / ((((n_row * l_px_row) / 2.f) + std::abs(delta_s)) / l_px_row);
-        vol_geo_.vx_size_y = vol_geo_.vx_size_x;
-
-        vol_geo_.width = static_cast<std::size_t>((2.f * r) / vol_geo_.vx_size_x);
-        vol_geo_.height = vol_geo_.width;
-    }
-
-    auto geometry_calculator::calculate_volume_depth_vx() noexcept -> void
-    {
-        vol_geo_.vx_size_z = vol_geo_.vx_size_x;
-        auto n_col = static_cast<float>(det_geo_.n_col);
-        auto l_px_col = det_geo_.l_px_col;
-        auto delta_t = det_geo_.delta_t * l_px_col;
-
-        vol_geo_.depth = static_cast<std::size_t>(((n_col * l_px_col / 2.f) + std::abs(delta_t)) * (std::abs(det_geo_.d_so) / d_sd_) * (2.f / vol_geo_.vx_size_z));
-
-        BOOST_LOG_TRIVIAL(info) << "Volume dimensions: " << vol_geo_.width << " x " << vol_geo_.height << " x " << vol_geo_.depth << " vx";
-        BOOST_LOG_TRIVIAL(info) << "Voxel size: " << std::setprecision(4) << vol_geo_.vx_size_x << " x " << vol_geo_.vx_size_y << " x " << vol_geo_.vx_size_z << " mm";
-    }
-
-    auto geometry_calculator::calculate_volume_height_mm() noexcept -> void
-    {
-        vol_height_ = vol_geo_.depth * vol_geo_.vx_size_z;
-        BOOST_LOG_TRIVIAL(info) << "Volume height: " << vol_height_ << " mm";
-    }
-
     auto geometry_calculator::calculate_memory_footprint() noexcept -> void
     {
         // this is not entirely accurate as CUDA adds a few more bytes when allocating 2D/3D memory
