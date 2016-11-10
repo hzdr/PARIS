@@ -26,6 +26,7 @@
 #include <boost/log/trivial.hpp>
 
 #include "geometry.h"
+#include "region_of_interest.h"
 
 namespace ddafa
 {

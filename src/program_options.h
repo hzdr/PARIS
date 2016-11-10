@@ -16,30 +16,40 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 18 August 2016
+ * Date: 07 November 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_TIFF_SAVER_SINGLE_H_
-#define DDAFA_TIFF_SAVER_SINGLE_H_
+#ifndef DDAFA_PROGRAM_OPTIONS_H_
+#define DDAFA_PROGRAM_OPTIONS_H_
 
+#include <cstdint>
 #include <string>
-#include <utility>
 
-#include <ddrf/cuda/memory.h>
-
-#include "projection.h"
+#include "geometry.h"
+#include "region_of_interest.h"
 
 namespace ddafa
 {
-    class tiff_saver_single
+    struct program_options
     {
-        public:
-            tiff_saver_single() noexcept = default;
-            auto save(projection<ddrf::cuda::pinned_host_ptr<float>> proj, const std::string& path) const -> void;
+        detector_geometry det_geo;
+
+        bool enable_io;
+        std::string input_path;
+        std::string output_path;
+        std::string prefix;
+
+        bool enable_roi;
+        region_of_interest roi;
+
+        bool enable_angles;
+        std::string angle_path;
     };
+
+    auto make_program_options(int argc, char** argv) -> program_options;
 }
 
 
 
-#endif /* DDAFA_TIFF_SAVER_H_ */
+#endif /* DDAFA_PROGRAM_OPTIONS_H_ */

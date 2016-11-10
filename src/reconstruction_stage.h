@@ -34,6 +34,9 @@
 
 #include "geometry.h"
 #include "projection.h"
+#include "region_of_interest.h"
+#include "scheduler.h"
+#include "task.h"
 #include "volume.h"
 
 namespace ddafa
@@ -51,18 +54,17 @@ namespace ddafa
             using volume_type = volume<ddrf::cuda::pitched_device_ptr<float>>;
 
         public:
-            reconstruction_stage(const geometry& det_geo, const volume_type& vol_geo, const std::vector<volume_type>& subvol_geos, bool predefined_angles);
-            ~reconstruction_stage();
+            reconstruction_stage(int device) noexcept;
+            ~reconstruction_stage() = default;
             reconstruction_stage(reconstruction_stage&& other) = default;
             auto operator=(reconstruction_stage&& other) -> reconstruction_stage& = default;
 
+            auto assign_task(task t) noexcept -> void;
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
 
         private:
-            auto safe_push(input_type) -> void;
-            auto safe_pop(int) -> input_type;
             auto process(int) -> void;
             auto download_and_reset(int, std::uint32_t) -> void;
 
@@ -70,21 +72,19 @@ namespace ddafa
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
 
-            geometry det_geo_;
-            volume_type vol_geo_;
-            bool predefined_angles_;
-            output_type vol_out_;
+            detector_geometry det_geo_;
+            volume_geometry vol_geo_;
+            subvolume_geometry subvol_geo_;
 
-            int devices_;
+            bool enable_angles_;
 
-            std::vector<volume_type> subvol_vec_;
-            using svv_size_type = typename decltype(subvol_vec_)::size_type;
+            bool enable_roi_;
+            region_of_interest roi_;
 
-            std::vector<volume_type> subvol_geo_vec_;
-            using svgv_size_type = typename decltype(subvol_geo_vec_)::size_type;
+            int device_;
 
-            std::vector<std::queue<input_type>> input_vec_;
-            using iv_size_type = typename decltype(input_vec_)::size_type;
+            std::uint32_t task_id_;
+            std::uint32_t task_num_;
     };
 }
 

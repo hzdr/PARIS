@@ -16,44 +16,28 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 24 August 2016
+ * Date: 07 November 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_SINK_STAGE_SINGLE_H_
-#define DDAFA_SINK_STAGE_SINGLE_H_
+#ifndef DDAFA_REGION_OF_INTEREST_H_
+#define DDAFA_REGION_OF_INTEREST_H_
 
-#include <functional>
-#include <string>
-#include <utility>
-
-#include <ddrf/cuda/memory.h>
-
-#include "projection.h"
+#include <cstdint>
 
 namespace ddafa
 {
-    class sink_stage_single
+    struct region_of_interest
     {
-        public:
-            using input_type = projection<ddrf::cuda::pinned_host_ptr<float>>;
-            using output_type = void;
-
-        public:
-            sink_stage_single(const std::string& path, const std::string& prefix);
-
-            auto run() -> void;
-            auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
-
-        private:
-            std::function<input_type(void)> input_;
-            int devices_;
-
-            std::string path_;
-            std::string prefix_;
+        std::uint32_t x1;
+        std::uint32_t x2;
+        std::uint32_t y1;
+        std::uint32_t y2;
+        std::uint32_t z1;
+        std::uint32_t z2;
     };
 }
 
 
 
-#endif /* DDAFA_SINK_STAGE_SINGLE_H_ */
+#endif /* REGION_OF_INTEREST_H_ */

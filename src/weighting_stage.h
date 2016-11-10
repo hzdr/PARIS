@@ -25,13 +25,13 @@
 
 #include <cstdint>
 #include <functional>
-#include <queue>
-#include <vector>
 
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "geometry.h"
 #include "projection.h"
+#include "task.h"
 
 namespace ddafa
 {
@@ -47,37 +47,24 @@ namespace ddafa
             using output_type = projection<smart_pointer>;
 
         public:
-            weighting_stage(std::uint32_t n_row, std::uint32_t n_col,
-                            float l_px_row, float l_px_col,
-                            float delta_s, float delta_t,
-                            float d_so, float d_od);
+            weighting_stage(int device) noexcept;
 
-            weighting_stage(weighting_stage&& other) = default;
-            auto operator=(weighting_stage&& other) -> weighting_stage& = default;
-
-            auto run() -> void;
+            auto assign_task(task t) noexcept -> void;
+            auto run() const -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
-
-        private:
-            auto process(int) -> void;
 
         private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
 
-            float l_px_row_;
-            float l_px_col_;
+            int device_;
+
+            detector_geometry det_geo_;
             float h_min_;
             float v_min_;
             float d_sd_;
-
-            int devices_;
-            std::vector<std::queue<input_type>> input_vec_;
-            using iv_size_type = typename decltype(input_vec_)::size_type;
     };
 }
-
-
 
 #endif /* DDAFA_WEIGHTING_STAGE_H_ */

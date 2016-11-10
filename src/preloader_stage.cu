@@ -24,7 +24,6 @@
 #include <cstdlib>
 #include <functional>
 #include <utility>
-#include <vector>
 
 #include <boost/log/trivial.hpp>
 
@@ -37,102 +36,53 @@
 #include "exception.h"
 #include "projection.h"
 #include "preloader_stage.h"
+#include "task.h"
 
 namespace ddafa
 {
-    namespace
-    {
-        __global__ void init_kernel(float* dst, std::size_t w, std::size_t h, std::size_t p)
-        {
-            auto x = ddrf::cuda::coord_x();
-            auto y = ddrf::cuda::coord_y();
-
-            if((x < w) && (y < h))
-            {
-                auto dst_row = reinterpret_cast<float*>(reinterpret_cast<char*>(dst) + p * y);
-
-                dst_row[x] = 0.f;
-            }
-        }
-    }
-
-    preloader_stage::preloader_stage(std::size_t pool_limit)
-    : pools_{}
-    {
-        auto sce = stage_construction_error{"preloader_stage::preloader_stage() failed"};
-
-        try
-        {
-            devices_ = ddrf::cuda::get_device_count();
-            for(auto i = 0; i < devices_; ++i)
-                pools_.emplace_back(pool_limit);
-        }
-        catch(const ddrf::cuda::bad_alloc& ba)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() encountered a bad_alloc: " << ba.what();
-            throw sce;
-        }
-        catch(const ddrf::cuda::invalid_argument& ia)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() encountered an invalid argument error: " << ia.what();
-            throw sce;
-        }
-        catch(const ddrf::cuda::runtime_error& re)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::preloader_stage() caused a runtime error: " << re.what();
-            throw sce;
-        }
-    }
+    preloader_stage::preloader_stage(std::size_t pool_limit, int device) noexcept
+    : device_{device}, pool_{pool_limit}
+    {}
 
     preloader_stage::~preloader_stage()
     {
-        if(pools_.empty())
-            return;
-
-        for(auto i = 0; i < devices_; ++i)
+        auto err = cudaSetDevice(device_); // ddrf::cuda::set_device() can throw, cudaSetDevice() does not
+        if(err != cudaSuccess)
         {
-            auto err = cudaSetDevice(i); // ddrf::cuda::set_device() can throw, cudaSetDevice() does not
-            if(err != cudaSuccess)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::~preloader_stage() encountered error: " << cudaGetErrorString(err);
-                std::exit(err);
-            }
-
-            auto d = static_cast<p_size_type>(i);
-            pools_.at(d).release();
+            BOOST_LOG_TRIVIAL(fatal) << "preloader_stage::~preloader_stage() encountered error: " << cudaGetErrorString(err);
+            std::exit(err);
         }
-}
+
+        pool_.release();
+    }
+
+    auto preloader_stage::assign_task(task t) noexcept -> void
+    {}
 
     auto preloader_stage::run() -> void
     {
         auto sre = stage_runtime_error{"preloader_stage::run() failed"};
         try
         {
+            ddrf::cuda::set_device(device_);
             while(true)
             {
-                auto proj = input_();
 
-                if(!proj.valid)
+                auto p = input_();
+
+                if(!p.valid)
                     break;
 
-                for(auto i = 0; i < devices_; ++i)
-                {
-                    ddrf::cuda::set_device(i);
+                auto dev_p = pool_.allocate_smart(p.width, p.height);
+                auto stream = ddrf::cuda::create_concurrent_stream();
 
-                    auto d_v = static_cast<p_size_type>(i);
-                    auto&& alloc = pools_[d_v];
-                    auto dev_proj = alloc.allocate_smart(proj.width, proj.height);
+                // initialize the destination data before copying
+                ddrf::cuda::fill(ddrf::cuda::async, dev_p, 0, stream, p.width, p.height);
+                ddrf::cuda::copy(ddrf::cuda::async, dev_p, p.ptr, stream, p.width, p.height);
 
-                    auto stream = ddrf::cuda::create_concurrent_stream();
+                ddrf::cuda::synchronize_stream(stream);
 
-                    // initialize the destination data before copying
-                    ddrf::cuda::fill(ddrf::cuda::async, dev_proj, 0, stream, proj.width, proj.height);
-                    ddrf::cuda::copy(ddrf::cuda::async, dev_proj, proj.ptr, stream, proj.width, proj.height);
-
-                    ddrf::cuda::synchronize_stream(stream);
-
-                    output_(output_type{std::move(dev_proj), proj.width, proj.height, proj.idx, proj.phi, true, i, stream});
-                }
+                output_(output_type{std::move(dev_p), p.width, p.height, p.idx, p.phi, true, stream});
             }
 
             // Uploaded all projections to the GPU, notify the next stage that we are done here

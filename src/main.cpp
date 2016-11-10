@@ -27,6 +27,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <stdexcept>
 #include <string>
 
@@ -35,20 +36,20 @@
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
-#include <boost/program_options.hpp>
 
+#include <ddrf/cuda/utility.h>
 #include <ddrf/pipeline/pipeline.h>
 
-#include "device_to_host_stage.h"
 #include "exception.h"
 #include "filter_stage.h"
 #include "geometry.h"
-#include "geometry_calculator.h"
 #include "preloader_stage.h"
+#include "program_options.h"
 #include "reconstruction_stage.h"
+#include "scheduler.h"
 #include "sink_stage.h"
-#include "sink_stage_single.h"
 #include "source_stage.h"
+#include "task.h"
 #include "version.h"
 #include "weighting_stage.h"
 
@@ -81,186 +82,54 @@ auto main(int argc, char** argv) -> int
     std::signal(SIGABRT, signal_handler);
 
     init_log();
-
-    auto geometry_path = std::string{""};
-    auto det_geo = ddafa::detector_geometry{};
-
-    auto enable_io = false;
-    auto has_projection_path = false;
-    auto has_output_path = false;
-    auto projection_path = std::string{""};
-    auto output_path = std::string{""};
-    auto prefix = std::string{""};
-
-    auto enable_roi = false;
-    auto has_roi_x1 = false;
-    auto has_roi_x2 = false;
-    auto has_roi_y1 = false;
-    auto has_roi_y2 = false;
-    auto has_roi_z1 = false;
-    auto has_roi_z2 = false;
-    auto roi_x1 = std::uint32_t{0};
-    auto roi_x2 = std::uint32_t{0};
-    auto roi_y1 = std::uint32_t{0};
-    auto roi_y2 = std::uint32_t{0};
-    auto roi_z1 = std::uint32_t{0};
-    auto roi_z2 = std::uint32_t{0};
-
-    auto enable_angles = false;
-    auto angle_path = std::string{""};
+    auto po = ddafa::make_program_options(argc, argv);
 
     try
     {
-        // General options
-        boost::program_options::options_description general{"General options"};
-        general.add_options()
-                ("help", "produce a help message")
-                ("geometry-format", "Display geometry file format");
+        constexpr auto parallel_projections = 5; // number of projections present in the pipeline at the same time
+        constexpr auto input_limit = std::size_t{1}; // input limit per stage
 
-        // Geometry options
-        boost::program_options::options_description geo_opts{"Geometry options"};
-        geo_opts.add_options()
-                ("geometry", boost::program_options::value<std::string>(&geometry_path)->required(), "Path to geometry file")
-                ("roi", "Region of interest switch (optional)");
+        auto vol_geo = ddafa::calculate_volume_geometry(po.det_geo, po.enable_roi,
+                                                        po.roi.x1, po.roi.x2,
+                                                        po.roi.y1, po.roi.y2,
+                                                        po.roi.z1, po.roi.z2);
+        auto subvol_info = ddafa::create_subvolume_information(vol_geo, po.det_geo, parallel_projections);
 
-        // Region of interest options
-        boost::program_options::options_description roi_opts{"Region of Interest options"};
-        roi_opts.add_options()
-                ("roi-x1", boost::program_options::value<std::uint32_t>(&roi_x1), "leftmost coordinate")
-                ("roi-x2", boost::program_options::value<std::uint32_t>(&roi_x2), "rightmost coordinate")
-                ("roi-y1", boost::program_options::value<std::uint32_t>(&roi_y1), "uppermost coordinate")
-                ("roi-y2", boost::program_options::value<std::uint32_t>(&roi_y2), "lowest coordinate")
-                ("roi-z1", boost::program_options::value<std::uint32_t>(&roi_z1), "uppermost slice")
-                ("roi-z2", boost::program_options::value<std::uint32_t>(&roi_z2), "lowest slice");
-
-        // I/O options
-        boost::program_options::options_description io{"Input/output options"};
-        io.add_options()
-                ("input", boost::program_options::value<std::string>(&projection_path), "Path to projections (optional)")
-                ("output", boost::program_options::value<std::string>(&output_path), "Output directory for the reconstructed volume (optional)")
-                ("name", boost::program_options::value<std::string>(&prefix)->default_value("vol"), "Name of the reconstructed volume (optional)");
-
-        // Reconstruction options
-        boost::program_options::options_description recon{"Reconstruction options"};
-        recon.add_options()
-                ("angles", boost::program_options::value<std::string>(&angle_path), "Path to projection angles (optional)");
-
-        // Geometry file
-        boost::program_options::options_description geom{"Geometry file"};
-        geom.add_options()
-                ("n_row", boost::program_options::value<std::uint32_t>(&det_geo.n_row)->required(), "[integer] number of pixels per detector row (= projection width)")
-                ("n_col", boost::program_options::value<std::uint32_t>(&det_geo.n_col)->required(), "[integer] number of pixels per detector column (= projection height)")
-                ("l_px_row", boost::program_options::value<float>(&det_geo.l_px_row)->required(), "[float] horizontal pixel size (= distance between pixel centers) in mm")
-                ("l_px_col", boost::program_options::value<float>(&det_geo.l_px_col)->required(), "[float] vertical pixel size (= distance between pixel centers) in mm")
-                ("delta_s", boost::program_options::value<float>(&det_geo.delta_s)->required(), "[float] horizontal detector offset in pixels")
-                ("delta_t", boost::program_options::value<float>(&det_geo.delta_t)->required(), "[float] vertical detector offset in pixels")
-                ("d_so", boost::program_options::value<float>(&det_geo.d_so)->required(), "[float] distance between object (= center of rotation) and source in mm")
-                ("d_od", boost::program_options::value<float>(&det_geo.d_od)->required(), "[float] distance between object (= center of rotation) and detector in mm")
-                ("delta_phi", boost::program_options::value<float>(&det_geo.delta_phi)->required(), "[float] angle step between two successive projections in °");
-
-        // combine
-        boost::program_options::options_description params;
-        params.add(general).add(geo_opts).add(io).add(recon).add(roi_opts);
-
-        boost::program_options::variables_map param_map, geom_map;
-        boost::program_options::store(boost::program_options::parse_command_line(argc, argv, params), param_map);
-
-        if(param_map.count("help"))
+        if(po.enable_io)
         {
-            std::cout << params << std::endl;
-            return 0;
-        }
-        else if(param_map.count("geometry-format"))
-        {
-            std::cout << geom << std::endl;
-            return 0;
-        }
-
-        auto print_missing = [](const char* str)
-        {
-            std::cerr << "the option '--" << str << "' is required but missing" << std::endl;
-            std::exit(EXIT_FAILURE);
-        };
-
-        if(param_map.count("input") || param_map.count("output"))
-        {
-            enable_io = true;
-            if(param_map.count("input") == 0) print_missing("input");
-            if(param_map.count("output") == 0) print_missing("output");
-        }
-
-        if(param_map.count("roi"))
-        {
-            enable_roi = true;
-            if(param_map.count("roi-x1") == 0) print_missing("roi-x1");
-            if(param_map.count("roi-x2") == 0) print_missing("roi-x2");
-            if(param_map.count("roi-y1") == 0) print_missing("roi-y1");
-            if(param_map.count("roi-y2") == 0) print_missing("roi-y2");
-            if(param_map.count("roi-z1") == 0) print_missing("roi-z1");
-            if(param_map.count("roi-z2") == 0) print_missing("roi-z2");
-        }
-
-        if(param_map.count("angles"))
-            enable_angles = true;
-
-        boost::program_options::notify(param_map);
-
-        auto&& file = std::ifstream{geometry_path.c_str()};
-        if(file)
-            boost::program_options::store(boost::program_options::parse_config_file(file, geom), geom_map);
-        boost::program_options::notify(geom_map);
-    }
-    catch(const boost::program_options::error& err)
-    {
-        std::cerr << err.what() << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-
-    try
-    {
-        // auto geo_calc = ddafa::geometry_calculator{geo, enable_roi, roi_x1, roi_x2, roi_y1, roi_y2, roi_z1, roi_z2};
-        auto vol_geo = ddafa::calculate_volume_geometry(det_geo, enable_roi, roi_x1, roi_x2, roi_y1, roi_y2, roi_z1, roi_z2);
-        auto input_limit = std::size_t{100};
-
-        if(enable_io)
-        {
-            // set up pipeline
             auto start = std::chrono::high_resolution_clock::now();
 
-            auto pipeline = ddrf::pipeline::pipeline{};
+            // generate tasks
+            auto tasks = ddafa::make_tasks(po, vol_geo, subvol_info);
+            auto task_queue = ddrf::pipeline::task_queue(tasks);
 
-            // uncomment the following when individual projections from the intermediate stages are needed for debugging
-            /*auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
-            auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
-            auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row, geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
-            auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
-            auto device_to_host = pipeline.make_stage<ddafa::device_to_host_stage>(input_limit);
-            auto sink = pipeline.make_stage<ddafa::sink_stage_single>(output_path, prefix);
+            // get number of devices
+            auto devices = ddrf::cuda::get_device_count();
 
-            pipeline.connect(source, preloader);
-            pipeline.connect(preloader, weighting);
-            pipeline.connect(weighting, filter);
-            pipeline.connect(filter, device_to_host);
-            pipeline.connect(device_to_host, sink);
+            // create shared sink and register devices
+            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, devices);
 
-            pipeline.run(source, preloader, weighting, filter, device_to_host, sink);*/
+            // set up and run pipelines
+            std::map<int, ddrf::pipeline::task_pipeline<ddafa::task>> pipelines;
 
-            auto source = pipeline.make_stage<ddafa::source_stage>(projection_path);
-            auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, input_limit);
-            auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, det_geo.n_row, det_geo.n_col, det_geo.l_px_row, det_geo.l_px_col, geo.delta_s, geo.delta_t, geo.d_od, geo.d_so);
-            auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, geo.n_row, geo.n_col, geo.l_px_row);
-            auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, geo, geo_calc.get_volume_metadata(), geo_calc.get_subvolume_metadata(), enable_angles);
-            auto sink = pipeline.make_stage<ddafa::sink_stage>(output_path, prefix);
+            for(auto d = 0; d < devices; ++d)
+            {
+                pipelines[d] = ddrf::pipeline::task_pipeline{task_queue};
 
-            pipeline.connect(source, preloader);
-            pipeline.connect(preloader, weighting);
-            pipeline.connect(weighting, filter);
-            pipeline.connect(filter, reconstruction);
-            pipeline.connect(reconstruction, sink);
+                auto&& pipeline = pipelines[d];
+                auto source = pipeline.make_stage<ddafa::source_stage>();
+                auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, d, parallel_projections);
+                auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, d);
+                auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, d);
+                auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, d);
 
-            pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+                pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);
+                pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+            }
 
-            pipeline.wait();
+            // wait for the end of execution
+            for(auto d = 0; d < devices; ++d)
+                pipelines[d].wait();
 
             auto stop = std::chrono::high_resolution_clock::now();
 
@@ -268,7 +137,8 @@ auto main(int argc, char** argv) -> int
             auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
             auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
 
-            BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: " << minutes.count() << ":" << std::setfill('0') << std::setw(2) << seconds.count() % 60 << " minutes";
+            BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: "
+                    << minutes.count() << ":" << std::setfill('0') << std::setw(2) << seconds.count() % 60 << " minutes";
         }
     }
     catch(const ddafa::stage_construction_error& sce)

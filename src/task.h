@@ -16,38 +16,46 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 09 September 2016
+ * Date: 07 November 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_VOLUME_H_
-#define DDAFA_VOLUME_H_
+#ifndef DDAFA_TASK_H_
+#define DDAFA_TASK_H_
 
-#include <cstddef>
 #include <cstdint>
-#include <utility>
+#include <string>
+#include <queue>
+
+#include "geometry.h"
+#include "program_options.h"
+#include "region_of_interest.h"
+#include "scheduler.h"
 
 namespace ddafa
 {
-    template <class Ptr>
-    struct volume
+    struct task
     {
-        volume() noexcept = default;
+        std::uint32_t id;
+        std::uint32_t num;
 
-        volume(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t o, bool v, int dev) noexcept
-        : ptr{std::move(p)}, width{w}, height{h}, depth{d}, offset{o}, valid{v}, device{dev}
-        {}
+        std::string input_path;
 
-        Ptr ptr = nullptr;
-        std::uint32_t width = 0;
-        std::uint32_t height = 0;
-        std::uint32_t depth = 0;
-        std::uint32_t offset = 0;
-        bool valid = false;
-        int device = 0;
+        detector_geometry det_geo;
+        volume_geometry vol_geo;
+        subvolume_geometry subvol_geo;
+
+        bool enable_roi;
+        region_of_interest roi;
+
+        bool enable_angles;
+        std::string angle_path;
     };
+
+    auto make_tasks(const program_options& po, const volume_geometry& vol_geo, const subvolume_info& subvol_info)
+    -> std::queue<task>;
 }
 
 
 
-#endif /* DDAFA_VOLUME_H_ */
+#endif /* DDAFA_TASK_H_ */

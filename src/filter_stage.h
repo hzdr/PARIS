@@ -25,14 +25,13 @@
 
 #include <cstdint>
 #include <functional>
-#include <map>
-#include <queue>
-#include <vector>
 
 #include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "geometry.h"
 #include "projection.h"
+#include "task.h"
 
 namespace ddafa
 {
@@ -48,33 +47,22 @@ namespace ddafa
             using output_type = projection<smart_pointer>;
 
         public:
-            filter_stage(std::uint32_t n_row, std::uint32_t n_col, float l_px_row);
-            filter_stage(filter_stage&& other) = default;
-            auto operator=(filter_stage&& other) -> filter_stage& = default;
+            filter_stage(int device) noexcept;
 
+            auto assign_task(task t) noexcept -> void;
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
             auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
 
         private:
-            auto safe_push(input_type) -> void;
-            auto safe_pop(int) -> input_type;
-            auto create_filter(int) -> void;
-            auto process(int) -> void;
-
-        private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
 
-            int devices_;
+            int device_;
 
-            std::size_t filter_size_;
-            std::size_t n_col_;
+            std::uint32_t filter_size_;
+            std::uint32_t n_col_;
             float tau_;
-            std::map<int, ddrf::cuda::device_ptr<float>> rs_;
-
-            std::vector<std::queue<input_type>> input_vec_;
-            using iv_size_type = typename decltype(input_vec_)::size_type;
     };
 }
 

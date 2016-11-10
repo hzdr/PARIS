@@ -47,7 +47,6 @@ namespace ddafa
 
         private:
             std::function<input_type(void)> input_;
-            int devices_;
 
             std::string path_;
             std::string prefix_;
