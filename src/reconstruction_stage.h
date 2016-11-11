@@ -56,8 +56,6 @@ namespace ddafa
         public:
             reconstruction_stage(int device) noexcept;
             ~reconstruction_stage() = default;
-            reconstruction_stage(reconstruction_stage&& other) = default;
-            auto operator=(reconstruction_stage&& other) -> reconstruction_stage& = default;
 
             auto assign_task(task t) noexcept -> void;
             auto run() -> void;

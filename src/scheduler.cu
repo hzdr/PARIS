@@ -27,8 +27,10 @@
 #include <boost/log/trivial.hpp>
 
 #include <ddrf/cuda/exception.h>
+#include <ddrf/cuda/memory.h>
 #include <ddrf/cuda/utility.h>
 
+#include "exception.h"
 #include "geometry.h"
 #include "scheduler.h"
 
@@ -49,13 +51,17 @@ namespace ddafa
             info.vol = vol_geo.dim_x * vol_geo.dim_y * vol_geo.dim_z * sizeof(float);
             info.proj = det_geo.n_row * det_geo.n_col * sizeof(float);
 
-            BOOST_LOG_TRIVIAL(info) << "The volume requires (roughly) " << vol_mem_ << " bytes";
-            BOOST_LOG_TRIVIAL(info) << "One projection requires (roughly) " << proj_mem_ << " bytes";
+            BOOST_LOG_TRIVIAL(info) << "The volume requires (roughly) " << info.vol << " bytes";
+            BOOST_LOG_TRIVIAL(info) << "One projection requires (roughly) " << info.proj << " bytes";
+
+            return info;
         }
     }
 
     auto create_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) -> subvolume_info
     {
+        auto sce = ddafa::stage_construction_error{"create_subvolume_information() failed"};
+
         try
         {
             auto subvol_info = subvolume_info{};
@@ -75,7 +81,7 @@ namespace ddafa
 
                 auto mem_free = std::size_t{};
                 auto mem_total = std::size_t{};
-                ddrf::cuda::get_memory_info(&mem_free, &mem_total);
+                ddrf::cuda::get_memory_info(mem_free, mem_total);
 
                 while(std::max(mem_dev, mem_free) == mem_dev)
                 {
@@ -86,7 +92,7 @@ namespace ddafa
                 // FIXME: nasty exception abuse
                 try
                 {
-                    ddrf::cuda::make_unique_device(vol_geo.dim_x, vol_geo.dim_y, vol_geo.dim_z / vols_needed);
+                    ddrf::cuda::make_unique_device<float>(vol_geo.dim_x, vol_geo.dim_y, vol_geo.dim_z / vols_needed);
                     BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
                 }
                 catch(const ddrf::cuda::bad_alloc& ba)

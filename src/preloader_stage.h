@@ -48,8 +48,8 @@ namespace ddafa
         public:
             preloader_stage(std::size_t pool_limit, int device) noexcept;
             ~preloader_stage();
-            preloader_stage(preloader_stage&&) = default;
-            auto operator=(preloader_stage&&) -> preloader_stage& = default;
+            preloader_stage(const preloader_stage& other);
+            auto operator=(const preloader_stage& other) -> preloader_stage&;
 
             auto assign_task(task t) noexcept -> void;
             auto run() -> void;
@@ -60,6 +60,7 @@ namespace ddafa
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
             int device_;
+            std::size_t limit_;
             pool_allocator pool_;
     };
 }

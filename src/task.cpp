@@ -16,40 +16,36 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 18 August 2016
+ * Date: 10 November 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_SOURCE_STAGE_H_
-#define DDAFA_SOURCE_STAGE_H_
+#include <cstdint>
+#include <queue>
 
-#include <functional>
-#include <string>
-#include <vector>
-
-#include "his_loader.h"
+#include "geometry.h"
+#include "program_options.h"
+#include "scheduler.h"
 #include "task.h"
 
 namespace ddafa
 {
-    class source_stage
+    auto make_tasks(const program_options& po, const volume_geometry& vol_geo, const subvolume_info& subvol_info)
+    -> std::queue<task>
     {
-        public:
-            using input_type = void;
-            using output_type = typename his_loader::image_type;
+        auto q = std::queue<task>{};
 
-        public:
-            source_stage() noexcept;
-            auto assign_task(task t) noexcept -> void;
-            auto run() -> void;
-            auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
+        for(auto i = 0; i < subvol_info.num; ++i)
+        {
+            auto subvol_geo = subvol_info.geo;
+            q.emplace(task{static_cast<std::uint32_t>(i),
+                            static_cast<std::uint32_t>(subvol_info.num),
+                            po.input_path,
+                            po.det_geo, vol_geo, subvol_geo,
+                            po.enable_roi, po.roi,
+                            po.enable_angles, po.angle_path});
+        }
 
-        private:
-            std::function<void(output_type)> output_;
-            std::string directory_;
-    };
+        return q;
+    }
 }
-
-
-
-#endif /* DDAFA_SOURCE_STAGE_H_ */

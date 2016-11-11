@@ -29,6 +29,7 @@
 
 #include <ddrf/cuda/memory.h>
 
+#include "task.h"
 #include "volume.h"
 
 namespace ddafa
@@ -42,6 +43,7 @@ namespace ddafa
         public:
             sink_stage(const std::string& path, const std::string& prefix);
 
+            auto assign_task(task t) noexcept -> void;
             auto run() -> void;
             auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
 

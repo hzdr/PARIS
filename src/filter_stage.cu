@@ -47,7 +47,7 @@ namespace ddafa
 {
     namespace
     {
-        __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::size_t size, float tau)
+        __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::uint32_t size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
 
@@ -94,14 +94,14 @@ namespace ddafa
             auto d_r  = ddrf::cuda::make_unique_device<float>(filter_size);
 
             // calculate the filter values
-            ddrf::cuda::launch(filter_size_, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size, tau);
+            ddrf::cuda::launch(filter_size, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size, tau);
             BOOST_LOG_TRIVIAL(debug) << "Device filter creation succeeded";
 
             BOOST_LOG_TRIVIAL(debug) << "Filter creation complete";
             return d_r;
         }
 
-        __global__ void k_creation_kernel(cufftComplex* __restrict__ data, std::size_t filter_size, float tau)
+        __global__ void k_creation_kernel(cufftComplex* __restrict__ data, std::uint32_t filter_size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
             if(x < filter_size)
@@ -126,6 +126,8 @@ namespace ddafa
             plan.execute(r.get(), k.get());
 
             ddrf::cuda::launch(size_trans, k_creation_kernel, k.get(), size_trans, tau);
+
+            return k;
         }
 
         __global__ void filter_application_kernel(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
@@ -164,7 +166,8 @@ namespace ddafa
             }
         }
 
-        auto normalize(projection<ddrf::cuda::device_ptr<float>>& in, std::uint32_t filter_size) -> void
+        template <class In>
+        auto normalize(In& in, std::uint32_t filter_size) -> void
         {
             ddrf::cuda::launch_async(in.stream, in.width, in.height,
                                         normalization_kernel,
@@ -173,7 +176,8 @@ namespace ddafa
                                         in.width, in.height, filter_size);
         }
 
-        auto expand(const projection<ddrf::cuda::device_ptr<float>>& in, ddrf::cuda::device_ptr<float>& out, std::uint32_t x, std::uint32_t y) -> void
+        template <class In, class Out>
+        auto expand(const In& in, Out& out, std::uint32_t x, std::uint32_t y) -> void
         {
             // reset expanded projection
             ddrf::cuda::fill(ddrf::cuda::async, out, 0, in.stream, x, y);
@@ -182,13 +186,14 @@ namespace ddafa
             ddrf::cuda::copy(ddrf::cuda::async, out, in.ptr, in.stream, in.width, in.height);
         }
 
-        auto shrink(const ddrf::cuda::device_ptr<float>& in, projection<ddrf::cuda::device_ptr<float>>& out) -> void
+        template <class In, class Out>
+        auto shrink(const In& in, Out& out) -> void
         {
             ddrf::cuda::copy(ddrf::cuda::async, out.ptr, in, out.stream, out.width, out.height);
         }
 
-        template <class Plan>
-        auto transform(const float* in, float* out, Plan& plan, cudaStream_t stream) -> void
+        template <class In, class Out, class Plan>
+        auto transform(In* in, Out* out, Plan& plan, cudaStream_t stream) -> void
         {
             plan.set_stream(stream);
             plan.execute(in, out);
@@ -201,7 +206,7 @@ namespace ddafa
 
     auto filter_stage::assign_task(task t) noexcept -> void
     {
-        filter_size_ = static_cast<std::uint32_t>(2 * std::pow(2, std::ceil(std::log2(det_geo.n_row))));
+        filter_size_ = static_cast<std::uint32_t>(2 * std::pow(2, std::ceil(std::log2(t.det_geo.n_row))));
         n_col_ = t.det_geo.n_col;
         tau_ = t.det_geo.l_px_row;
     }
@@ -224,7 +229,7 @@ namespace ddafa
             auto n = static_cast<int>(filter_size_);
 
             // we are executing a batched FFT -> set batch size
-            auto batch = n_col_;
+            auto batch = static_cast<int>(n_col_);
 
             // allocate memory for expanded projection (projection width -> filter_size_)
             auto p_exp = ddrf::cuda::make_unique_device<float>(filter_size_, n_col_);
@@ -234,8 +239,8 @@ namespace ddafa
             auto p_trans = ddrf::cuda::make_unique_device<cufftComplex>(size_trans, n_col_);
 
             // calculate the distance between the first elements of two successive lines (needed for cuFFT)
-            auto p_exp_dist = p_exp.pitch() / sizeof(float);
-            auto p_trans_dist = p_trans.pitch() / sizeof(cufftComplex);
+            auto p_exp_dist = static_cast<int>(p_exp.pitch() / sizeof(float));
+            auto p_trans_dist = static_cast<int>(p_trans.pitch() / sizeof(cufftComplex));
 
             // set the distance between two successive elements
             constexpr auto p_exp_stride = 1;
@@ -268,13 +273,13 @@ namespace ddafa
 
                 // expand and transform the projection
                 expand(p, p_exp, filter_size_, n_col_);
-                transform(p_exp, p_trans, forward, p.stream);
+                transform(p_exp.get(), p_trans.get(), forward, p.stream);
 
                 // apply the filter to the transformed projection
-                apply_filter(p_trans.get(), k.get(), filter_size_, n_col_, p_trans.pitch());
+                apply_filter(p_trans.get(), k.get(), filter_size_, n_col_, p_trans.pitch(), p.stream);
 
                 // inverse transformation
-                transform(p_trans, p_exp, inverse, p.stream);
+                transform(p_trans.get(), p_exp.get(), inverse, p.stream);
 
                 // shrink to original size and normalize
                 shrink(p_exp, p);

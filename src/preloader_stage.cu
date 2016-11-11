@@ -41,11 +41,14 @@
 namespace ddafa
 {
     preloader_stage::preloader_stage(std::size_t pool_limit, int device) noexcept
-    : device_{device}, pool_{pool_limit}
-    {}
+    : device_{device}, limit_{pool_limit}, pool_{pool_limit}
+    {
+        BOOST_LOG_TRIVIAL(info) << "preloader_stage::ctor called for device #" << device;
+    }
 
     preloader_stage::~preloader_stage()
     {
+        BOOST_LOG_TRIVIAL(info) << "preloader_stage::~preloader_stage() called for device #" << device_;
         auto err = cudaSetDevice(device_); // ddrf::cuda::set_device() can throw, cudaSetDevice() does not
         if(err != cudaSuccess)
         {
@@ -54,6 +57,23 @@ namespace ddafa
         }
 
         pool_.release();
+    }
+
+    preloader_stage::preloader_stage(const preloader_stage& other)
+    : device_{other.device_}, input_{other.input_}, output_{other.output_}
+    , limit_{other.limit_}, pool_{other.limit_}
+    {
+    }
+
+    auto preloader_stage::operator=(const preloader_stage& other) -> preloader_stage&
+    {
+        device_ = other.device_;
+        input_ = other.input_;
+        output_ = other.output_;
+        limit_ = other.limit_;
+        pool_.release();
+        pool_ = pool_allocator{limit_};
+        return *this;
     }
 
     auto preloader_stage::assign_task(task t) noexcept -> void

@@ -32,22 +32,19 @@
 #include "exception.h"
 #include "filesystem.h"
 #include "source_stage.h"
+#include "task.h"
 
 
 namespace ddafa
 {
-    source_stage::source_stage(const std::string& dir)
+    source_stage::source_stage() noexcept
     : output_{}
     {
-        try
-        {
-            paths_ = read_directory(dir);
-        }
-        catch(const std::runtime_error& e)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "source_stage::source_stage() failed to obtain file paths: " << e.what();
-            throw stage_construction_error{"source_stage::source_stage() failed"};
-        }
+    }
+
+    auto source_stage::assign_task(task t) noexcept -> void
+    {
+        directory_ = t.input_path;
     }
 
     auto source_stage::run() -> void
@@ -55,7 +52,19 @@ namespace ddafa
         auto loader = his_loader{};
         auto i = 0u;
 
-        for(const auto& s : paths_)
+        auto paths = std::vector<std::string>{};
+
+        try
+        {
+            paths = read_directory(directory_);
+        }
+        catch(const std::runtime_error& e)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "source_stage::source_stage() failed to obtain file paths: " << e.what();
+            throw stage_construction_error{"source_stage::source_stage() failed"};
+        }
+
+        for(const auto& s : paths)
         {
             try
             {
@@ -87,6 +96,7 @@ namespace ddafa
 
     auto source_stage::set_output_function(std::function<void(output_type)> output) noexcept -> void
     {
+        BOOST_LOG_TRIVIAL(info) << "source_stage: Output function set!";
         output_ = output;
     }
 }

@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <iomanip>
 
 #include <boost/log/trivial.hpp>
 

@@ -39,23 +39,6 @@ namespace ddafa
         auto po = program_options{};
 
         auto geometry_path = std::string{""};
-        auto det_geo = detector_geometry{};
-
-        auto enable_io = false;
-        auto has_projection_path = false;
-        auto has_output_path = false;
-
-        auto enable_roi = false;
-        auto has_roi_x1 = false;
-        auto has_roi_x2 = false;
-        auto has_roi_y1 = false;
-        auto has_roi_y2 = false;
-        auto has_roi_z1 = false;
-        auto has_roi_z2 = false;
-        auto roi = region_of_interest{};
-
-        auto enable_angles = false;
-        auto angle_path = std::string{""};
 
         try
         {
@@ -116,12 +99,12 @@ namespace ddafa
             if(param_map.count("help"))
             {
                 std::cout << params << std::endl;
-                return 0;
+                std::exit(EXIT_SUCCESS);
             }
             else if(param_map.count("geometry-format"))
             {
                 std::cout << geom << std::endl;
-                return 0;
+                std::exit(EXIT_SUCCESS);
             }
 
             auto print_missing = [](const char* str)
@@ -132,14 +115,14 @@ namespace ddafa
 
             if(param_map.count("input") || param_map.count("output"))
             {
-                enable_io = true;
+                po.enable_io = true;
                 if(param_map.count("input") == 0) print_missing("input");
                 if(param_map.count("output") == 0) print_missing("output");
             }
 
             if(param_map.count("roi"))
             {
-                enable_roi = true;
+                po.enable_roi = true;
                 if(param_map.count("roi-x1") == 0) print_missing("roi-x1");
                 if(param_map.count("roi-x2") == 0) print_missing("roi-x2");
                 if(param_map.count("roi-y1") == 0) print_missing("roi-y1");
@@ -149,7 +132,7 @@ namespace ddafa
             }
 
             if(param_map.count("angles"))
-                enable_angles = true;
+                po.enable_angles = true;
 
             boost::program_options::notify(param_map);
 

@@ -129,7 +129,7 @@ namespace ddafa
         enable_roi_ = t.enable_roi;
         roi_ = t.roi;
 
-        task_no_ = t.id;
+        task_id_ = t.id;
     }
 
     auto reconstruction_stage::run() -> void
@@ -140,6 +140,7 @@ namespace ddafa
         {
             ddrf::cuda::set_device(device_);
 
+            auto dim_z = std::uint32_t{};
             // if this is the lowest subvolume we need to consider the remaining slices
             if(task_id_ == task_num_ - 1)
                 dim_z = subvol_geo_.dim_z + subvol_geo_.remainder;
@@ -147,11 +148,10 @@ namespace ddafa
                 dim_z = subvol_geo_.dim_z;
 
             // create host volume
-            auto vol_h_ptr = ddrf::cuda::make_unique_host<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
+            auto vol_h_ptr = ddrf::cuda::make_unique_pinned_host<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
             ddrf::cuda::fill(ddrf::cuda::sync, vol_h_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
 
             // create device volume
-            auto dim_z = std::uint32_t{};
             auto vol_d_ptr = ddrf::cuda::make_unique_device<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
             ddrf::cuda::fill(ddrf::cuda::sync, vol_d_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
 
@@ -211,7 +211,7 @@ namespace ddafa
                 ddrf::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
                                     backproject,
                                     vol_d_ptr.get(), subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z, vol_d_ptr.pitch(),
-                                    offset, vol_geo_.depth,
+                                    offset, vol_geo_.dim_z,
                                     vol_geo_.l_vx_x, vol_geo_.l_vx_y, vol_geo_.l_vx_z,
                                     tex, p.width, p.height, p.ptr.pitch(), det_geo_.l_px_row, det_geo_.l_px_col,
                                         delta_s, delta_t,
@@ -231,7 +231,7 @@ namespace ddafa
             download(vol_d_ptr, vol_h_ptr, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z);
 
             // create and move output volume -- done
-            output_(volume{std::move(vol_h_ptr), subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z, offset , true, device_});
+            output_(output_type{std::move(vol_h_ptr), subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z, offset , true, device_});
             BOOST_LOG_TRIVIAL(info) << "Reconstruction complete.";
         }
         catch(const ddrf::cuda::bad_alloc& ba)

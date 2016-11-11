@@ -101,24 +101,24 @@ auto main(int argc, char** argv) -> int
 
             // generate tasks
             auto tasks = ddafa::make_tasks(po, vol_geo, subvol_info);
-            auto task_queue = ddrf::pipeline::task_queue(tasks);
+            auto&& task_queue = ddrf::pipeline::task_queue<ddafa::task>(tasks);
 
             // get number of devices
             auto devices = ddrf::cuda::get_device_count();
 
             // create shared sink and register devices
-            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, devices);
+            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix);
 
             // set up and run pipelines
             std::map<int, ddrf::pipeline::task_pipeline<ddafa::task>> pipelines;
 
             for(auto d = 0; d < devices; ++d)
             {
-                pipelines[d] = ddrf::pipeline::task_pipeline{task_queue};
+                pipelines.emplace(d, ddrf::pipeline::task_pipeline<ddafa::task>{&task_queue});
 
-                auto&& pipeline = pipelines[d];
+                auto&& pipeline = pipelines.at(d);
                 auto source = pipeline.make_stage<ddafa::source_stage>();
-                auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, d, parallel_projections);
+                auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, d);
                 auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, d);
                 auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, d);
                 auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, d);
@@ -129,7 +129,7 @@ auto main(int argc, char** argv) -> int
 
             // wait for the end of execution
             for(auto d = 0; d < devices; ++d)
-                pipelines[d].wait();
+                pipelines.at(d).wait();
 
             auto stop = std::chrono::high_resolution_clock::now();
 

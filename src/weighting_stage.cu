@@ -71,7 +71,8 @@ namespace ddafa
             }
         }
 
-        auto weight(ddafa::projection<ddrf::cuda::device_ptr<float>>& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col) -> void
+        template <class In>
+        auto weight(In& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col) -> void
         {
             ddrf::cuda::launch_async(p.stream, p.width, p.height,
                                 weighting_kernel,
