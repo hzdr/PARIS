@@ -103,6 +103,7 @@ namespace ddafa
 
         try
         {
+            ddrf::cuda::set_device(device_);
             while(true)
             {
                 auto p = input_();

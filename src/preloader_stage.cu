@@ -42,13 +42,10 @@ namespace ddafa
 {
     preloader_stage::preloader_stage(std::size_t pool_limit, int device) noexcept
     : device_{device}, limit_{pool_limit}, pool_{pool_limit}
-    {
-        BOOST_LOG_TRIVIAL(info) << "preloader_stage::ctor called for device #" << device;
-    }
+    {}
 
     preloader_stage::~preloader_stage()
     {
-        BOOST_LOG_TRIVIAL(info) << "preloader_stage::~preloader_stage() called for device #" << device_;
         auto err = cudaSetDevice(device_); // ddrf::cuda::set_device() can throw, cudaSetDevice() does not
         if(err != cudaSuccess)
         {
@@ -87,9 +84,7 @@ namespace ddafa
             ddrf::cuda::set_device(device_);
             while(true)
             {
-
                 auto p = input_();
-
                 if(!p.valid)
                     break;
 

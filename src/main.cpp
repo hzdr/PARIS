@@ -24,12 +24,13 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
-#include <fstream>
+#include <functional>
+#include <future>
 #include <iomanip>
 #include <iostream>
-#include <map>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <execinfo.h>
 
@@ -73,6 +74,25 @@ namespace
         backtrace_symbols_fd(array, size, STDERR_FILENO);
         std::exit(EXIT_FAILURE);
     }
+
+    auto launch_pipeline(ddrf::pipeline::task_queue<ddafa::task>* queue, int device,
+                         ddrf::pipeline::stage<ddafa::sink_stage>& sink, std::size_t input_limit,
+                         std::size_t parallel_projections) -> void
+    {
+        if(queue == nullptr)
+            return;
+
+        auto pipeline = ddrf::pipeline::task_pipeline<ddafa::task>{queue};
+        auto source = pipeline.make_stage<ddafa::source_stage>();
+        auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, device);
+        auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, device);
+        auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, device);
+        auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, device);
+
+        pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);
+        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+        pipeline.wait();
+    }
 }
 
 auto main(int argc, char** argv) -> int
@@ -86,7 +106,7 @@ auto main(int argc, char** argv) -> int
 
     try
     {
-        constexpr auto parallel_projections = 5; // number of projections present in the pipeline at the same time
+        constexpr auto parallel_projections = std::size_t{5}; // number of projections present in the pipeline at the same time
         constexpr auto input_limit = std::size_t{1}; // input limit per stage
 
         auto vol_geo = ddafa::calculate_volume_geometry(po.det_geo, po.enable_roi,
@@ -106,30 +126,20 @@ auto main(int argc, char** argv) -> int
             // get number of devices
             auto devices = ddrf::cuda::get_device_count();
 
-            // create shared sink and register devices
+            // create shared sink
             auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix);
 
-            // set up and run pipelines
-            std::map<int, ddrf::pipeline::task_pipeline<ddafa::task>> pipelines;
+            // pipeline futures
+            auto futures = std::vector<std::future<void>>{};
 
+            // launch a pipeline for each available device
             for(auto d = 0; d < devices; ++d)
-            {
-                pipelines.emplace(d, ddrf::pipeline::task_pipeline<ddafa::task>{&task_queue});
-
-                auto&& pipeline = pipelines.at(d);
-                auto source = pipeline.make_stage<ddafa::source_stage>();
-                auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, d);
-                auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, d);
-                auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, d);
-                auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, d);
-
-                pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);
-                pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
-            }
+                futures.emplace_back(std::async(std::launch::async, launch_pipeline,
+                                                &task_queue, d, std::ref(sink), input_limit, parallel_projections));
 
             // wait for the end of execution
-            for(auto d = 0; d < devices; ++d)
-                pipelines.at(d).wait();
+            for(auto&& f : futures)
+                f.get();
 
             auto stop = std::chrono::high_resolution_clock::now();
 

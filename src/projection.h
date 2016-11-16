@@ -32,6 +32,8 @@
 #include <cuda_runtime.h>
 #endif
 
+#include <ddrf/cuda/memory.h>
+
 namespace ddafa
 {
     template <class Ptr>

@@ -119,6 +119,10 @@ namespace ddafa
         {
             if(apply_roi(vol_geo, roi_x1, roi_x2, roi_y1, roi_y2, roi_z1, roi_z2))
             {
+                dim_x_mm = vol_geo.dim_x * vol_geo.l_vx_x;
+                dim_y_mm = vol_geo.dim_y * vol_geo.l_vx_y;
+                dim_z_mm = vol_geo.dim_z * vol_geo.l_vx_z;
+
                 BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;

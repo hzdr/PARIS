@@ -96,7 +96,6 @@ namespace ddafa
 
     auto source_stage::set_output_function(std::function<void(output_type)> output) noexcept -> void
     {
-        BOOST_LOG_TRIVIAL(info) << "source_stage: Output function set!";
         output_ = output;
     }
 }
