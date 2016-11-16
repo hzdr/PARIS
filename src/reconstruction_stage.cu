@@ -93,19 +93,15 @@ namespace ddafa
         }
 
         template <bool enable_roi>
-        __global__ void backproject(float* __restrict__ vol, std::uint32_t vol_w, std::uint32_t vol_h, std::uint32_t vol_d, std::size_t vol_pitch,
-                                    std::uint32_t vol_offset, std::uint32_t vol_d_full, float voxel_size_x, float voxel_size_y, float voxel_size_z,
-                                    cudaTextureObject_t proj, std::uint32_t proj_w, std::uint32_t proj_h,
-                                    float pixel_size_x, float pixel_size_y, float pixel_offset_x, float pixel_offset_y,
-                                    float angle_sin, float angle_cos, float dist_src, float dist_sd)
+        __global__ void backproject(float* __restrict__ vol, std::size_t vol_pitch, cudaTextureObject_t proj, float angle_sin, float angle_cos)
         {
             auto k = ddrf::cuda::coord_x();
             auto l = ddrf::cuda::coord_y();
             auto m = ddrf::cuda::coord_z();
 
-            if((k < vol_w) && (l < vol_h) && (m < vol_d))
+            if((k < dev_consts__.vol_dim_x) && (l < dev_consts__.vol_dim_y) && (m < dev_consts__.vol_dim_z))
             {
-                auto slice_pitch = vol_pitch * vol_h;
+                auto slice_pitch = vol_pitch * dev_consts__.vol_dim_y;
                 auto slice = reinterpret_cast<char*>(vol) + m * slice_pitch;
                 auto row = reinterpret_cast<float*>(slice + l * vol_pitch);
 
@@ -121,32 +117,70 @@ namespace ddafa
                 }
 
                 // add offset for the current subvolume
-                m += vol_offset;
+                m += dev_consts__.vol_offset;
 
                 // get centered coordinates -- volume center is at (0, 0, 0) and the top slice is at -(vol_d_off / 2)
-                auto x_k = vol_centered_coordinate(k, vol_w, voxel_size_x);
-                auto y_l = vol_centered_coordinate(l, vol_h, voxel_size_y);
-                auto z_m = vol_centered_coordinate(m, vol_d_full, voxel_size_z);
+                auto x_k = vol_centered_coordinate(k, dev_consts__.vol_dim_x_full, dev_consts__.l_vx_x);
+                auto y_l = vol_centered_coordinate(l, dev_consts__.vol_dim_y_full, dev_consts__.l_vx_y);
+                auto z_m = vol_centered_coordinate(m, dev_consts__.vol_dim_z_full, dev_consts__.l_vx_z);
 
                 // rotate coordinates
                 auto s = x_k * angle_cos + y_l * angle_sin;
                 auto t = -x_k * angle_sin + y_l * angle_cos;
 
                 // project rotated coordinates
-                auto factor = dist_sd / (s + dist_src);
+                auto factor = dev_consts__.d_sd / (s + dev_consts__.d_so);
                 // add 0.5 to each coordinate to deal with CUDA's filtering mechanism
-                auto h = proj_real_coordinate(t * factor, proj_w, pixel_size_x, pixel_offset_x) + 0.5f;
-                auto v = proj_real_coordinate(z_m * factor, proj_h, pixel_size_y, pixel_offset_y) + 0.5f;
+                auto h = proj_real_coordinate(t * factor, dev_consts__.proj_dim_x, dev_consts__.l_px_x, dev_consts__.delta_s) + 0.5f;
+                auto v = proj_real_coordinate(z_m * factor, dev_consts__.proj_dim_y, dev_consts__.l_px_y, dev_consts__.delta_t) + 0.5f;
 
                 // get projection value (note the implicit linear interpolation)
                 auto det = tex2D<float>(proj, h, v);
 
                 // backproject
-                auto u = -(dist_src / (s + dist_src));
+                auto u = -(dev_consts__.d_so / (s + dev_consts__.d_so));
+
+                if(k == 512 && l == 512 && m == 211)
+                {
+                    printf("x_k = %f\n", x_k);
+                    printf("y_l = %f\n", y_l);
+                    printf("z_m = %f\n", z_m);
+
+                    printf("s = %f\n", s);
+                    printf("t = %f\n", t);
+
+                    printf("factor = %f\n", factor);
+
+                    printf("t * factor = %f\n", t * factor);
+                    printf("dev_consts__.proj_dim_x = %u\n", dev_consts__.proj_dim_x);
+                    printf("dev_consts__.l_px_x = %f\n", dev_consts__.l_px_x);
+                    printf("dev_consts__.delta_s = %f\n", dev_consts__.delta_s);
+
+                    printf("h = %f\n", h);
+                    printf("v = %f\n", v);
+
+                    printf("det = %f\n", det);
+                    printf("u = %f\n", u);
+                }
+
                 row[k] = old_val + 0.5f * det * u * u;
             }
         }
 
+        __global__ void check(const float* in, std::uint32_t dim_x, std::uint32_t dim_y, std::size_t pitch)
+        {
+            auto x = ddrf::cuda::coord_x();
+            auto y = ddrf::cuda::coord_y();
+
+            if(x < dim_x && y < dim_y)
+            {
+                auto row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(in) + y * pitch);
+
+                if(x == 508 && y == 200)
+                    printf("value = %f\n", row[x]);
+            }
+        }
+        
         auto download(const ddrf::cuda::pitched_device_ptr<float>& in, ddrf::cuda::pinned_host_ptr<float>& out,
                         std::uint32_t x, std::uint32_t y, std::uint32_t z) -> void
         {
@@ -203,12 +237,37 @@ namespace ddafa
             auto delta_t = det_geo_.delta_t * det_geo_.l_px_col;
 
             // initialize dev_consts__
-
+            auto host_consts = reconstruction_constants {
+                subvol_geo_.dim_x,
+                vol_geo_.dim_x,
+                subvol_geo_.dim_y,
+                vol_geo_.dim_y,
+                subvol_geo_.dim_z,
+                vol_geo_.dim_z,
+                offset,
+                vol_geo_.l_vx_x,
+                vol_geo_.l_vx_y,
+                vol_geo_.l_vx_z,
+                det_geo_.n_row,
+                det_geo_.n_col,
+                det_geo_.l_px_row,
+                det_geo_.l_px_col,
+                delta_s,
+                delta_t,
+                det_geo_.d_so,
+                std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od)
+            };
+            auto err = cudaMemcpyToSymbol(dev_consts__, &host_consts, sizeof(host_consts));
+            if(err != cudaSuccess)
+            {
+                BOOST_LOG_TRIVIAL(fatal) << "Could not initialize device constants: " << cudaGetErrorString(err);
+                throw stage_runtime_error{"reconstruction_stage::run() failed"};
+            }
 
             // initialize dev_roi__
             if(enable_roi_)
             {
-                auto err = cudaMemcpyToSymbol(dev_roi__, &roi_, sizeof(roi_));
+                err = cudaMemcpyToSymbol(dev_roi__, &roi_, sizeof(roi_));
                 if(err != cudaSuccess)
                 {
                     BOOST_LOG_TRIVIAL(fatal) << "Could not initialize region of interest on device: " << cudaGetErrorString(err);
@@ -224,6 +283,8 @@ namespace ddafa
 
                 if(p.idx % 10 == 0)
                     BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.idx << " on device #" << device_ << " in stream " << p.stream;
+
+//                ddrf::cuda::launch(p.width, p.height, check, static_cast<const float*>(p.ptr.get()), p.width, p.height, p.ptr.pitch());
 
                 // get angular position of the current projection
                 auto phi = 0.f;
@@ -255,7 +316,7 @@ namespace ddafa
                 tex_desc.normalizedCoords = 0;
 
                 auto tex = cudaTextureObject_t{0};
-                auto err = cudaCreateTextureObject(&tex, &res_desc, &tex_desc, nullptr);
+                err = cudaCreateTextureObject(&tex, &res_desc, &tex_desc, nullptr);
                 if(err != cudaSuccess)
                 {
                     BOOST_LOG_TRIVIAL(fatal) << "Could not create CUDA texture: " << cudaGetErrorString(err);
@@ -264,23 +325,10 @@ namespace ddafa
 
                 if(enable_roi_)
                     ddrf::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
-                                        backproject<true>,
-                                        vol_d_ptr.get(), subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z, vol_d_ptr.pitch(),
-                                        offset, vol_geo_.dim_z,
-                                        vol_geo_.l_vx_x, vol_geo_.l_vx_y, vol_geo_.l_vx_z,
-                                        tex, p.width, p.height, det_geo_.l_px_row, det_geo_.l_px_col,
-                                            delta_s, delta_t,
-                                        sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
+                                        backproject<true>, vol_d_ptr.get(), vol_d_ptr.pitch(), tex, sin, cos);
                 else
                     ddrf::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
-                                        backproject<false>,
-                                        vol_d_ptr.get(), subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z, vol_d_ptr.pitch(),
-                                        offset, vol_geo_.dim_z,
-                                        vol_geo_.l_vx_x, vol_geo_.l_vx_y, vol_geo_.l_vx_z,
-                                        tex, p.width, p.height, det_geo_.l_px_row, det_geo_.l_px_col,
-                                            delta_s, delta_t,
-                                        sin, cos, det_geo_.d_so, std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od));
-
+                                        backproject<false>, vol_d_ptr.get(), vol_d_ptr.pitch(), tex, sin, cos);
 
                 ddrf::cuda::synchronize_stream(p.stream);
 

@@ -56,12 +56,12 @@ namespace ddafa
             vol_geo.l_vx_x = r / ((((n_row * l_px_row) / 2.f) + delta_s) / l_px_row);
             vol_geo.l_vx_y = vol_geo.l_vx_x;
 
-            vol_geo.dim_x = static_cast<std::size_t>((2.f * r) / vol_geo.l_vx_x);
+            vol_geo.dim_x = static_cast<std::uint32_t>((2.f * r) / vol_geo.l_vx_x);
             vol_geo.dim_y = vol_geo.dim_x;
 
             /* Calculate number of slices */
             vol_geo.l_vx_z = vol_geo.l_vx_x;
-            vol_geo.dim_z = static_cast<std::size_t>(((n_col * l_px_col / 2.f) + delta_t) * (d_so / d_sd) * (2.f / vol_geo.l_vx_z));
+            vol_geo.dim_z = static_cast<std::uint32_t>(((n_col * l_px_col / 2.f) + delta_t) * (d_so / d_sd) * (2.f / vol_geo.l_vx_z));
 
             return vol_geo;
         }
@@ -108,9 +108,9 @@ namespace ddafa
     {
         auto vol_geo = make_volume_geometry(det_geo);
 
-        auto dim_x_mm = vol_geo.dim_x * vol_geo.l_vx_x;
-        auto dim_y_mm = vol_geo.dim_y * vol_geo.l_vx_y;
-        auto dim_z_mm = vol_geo.dim_z * vol_geo.l_vx_z;
+        auto dim_x_mm = static_cast<float>(vol_geo.dim_x) * vol_geo.l_vx_x;
+        auto dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
+        auto dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
 
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
@@ -119,9 +119,9 @@ namespace ddafa
         {
             if(apply_roi(vol_geo, roi_x1, roi_x2, roi_y1, roi_y2, roi_z1, roi_z2))
             {
-                dim_x_mm = vol_geo.dim_x * vol_geo.l_vx_x;
-                dim_y_mm = vol_geo.dim_y * vol_geo.l_vx_y;
-                dim_z_mm = vol_geo.dim_z * vol_geo.l_vx_z;
+                dim_x_mm = static_cast<float>(vol_geo.dim_x) * vol_geo.l_vx_x;
+                dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
+                dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
 
                 BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;

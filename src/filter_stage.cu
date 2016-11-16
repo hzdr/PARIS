@@ -47,6 +47,20 @@ namespace ddafa
 {
     namespace
     {
+        __global__ void check(const float* in, std::uint32_t dim_x, std::uint32_t dim_y, std::size_t pitch)
+        {
+            auto x = ddrf::cuda::coord_x();
+            auto y = ddrf::cuda::coord_y();
+
+            if(x < dim_x && y < dim_y)
+            {
+                auto row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(in) + y * pitch);
+
+                if(x == 508 && y == 200)
+                    printf("value = %f\n", row[x]);
+            }
+        }
+
         __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::uint32_t size, float tau)
         {
             auto x = ddrf::cuda::coord_x();
@@ -198,6 +212,7 @@ namespace ddafa
             plan.set_stream(stream);
             plan.execute(in, out);
         }
+
     }
 
     filter_stage::filter_stage(int device) noexcept
@@ -270,6 +285,8 @@ namespace ddafa
                 auto p = input_();
                 if(!p.valid)
                     break;
+
+                ddrf::cuda::launch(p.width, p.height, check, static_cast<const float*>(p.ptr.get()), p.width, p.height, p.ptr.pitch());
 
                 // expand and transform the projection
                 expand(p, p_exp, filter_size_, n_col_);
