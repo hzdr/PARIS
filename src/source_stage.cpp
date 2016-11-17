@@ -67,6 +67,8 @@ namespace ddafa
                 file >> angle;
                 angles.push_back(angle);
             }
+
+            return angles;
         }
     }
 
