@@ -20,6 +20,7 @@
  * Authors: Jan Stephan
  */
 
+#include <fstream>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -37,6 +38,38 @@
 
 namespace ddafa
 {
+    namespace
+    {
+        auto read_angles(const std::string& path) -> std::vector<float>
+        {
+            auto angles = std::vector<float>{};
+
+            auto&& file = std::ifstream{path.c_str()};
+            if(!file.is_open())
+            {
+                BOOST_LOG_TRIVIAL(warning) << "Could not open angle file at " << path << ", using default values.";
+                return angles;
+            }
+
+            auto angle_string = std::string{};
+            std::getline(file, angle_string);
+
+            auto loc = std::locale{};
+            if(angle_string.find(',') != std::string::npos)
+                loc = std::locale{"de_DE.UTF-8"};
+
+            file.seekg(0, std::ios_base::beg);
+            file.imbue(loc);
+
+            while(!file.eof())
+            {
+                auto angle = 0.f;
+                file >> angle;
+                angles.push_back(angle);
+            }
+        }
+    }
+
     source_stage::source_stage() noexcept
     : output_{}
     {
@@ -45,6 +78,8 @@ namespace ddafa
     auto source_stage::assign_task(task t) noexcept -> void
     {
         directory_ = t.input_path;
+        enable_angles_ = t.enable_angles;
+        angle_path_ = t.angle_path;
     }
 
     auto source_stage::run() -> void
@@ -64,6 +99,10 @@ namespace ddafa
             throw stage_construction_error{"source_stage::source_stage() failed"};
         }
 
+        auto angles = std::vector<float>{};
+        if(enable_angles_)
+            angles = read_angles(angle_path_);
+
         for(const auto& s : paths)
         {
             try
@@ -74,6 +113,10 @@ namespace ddafa
                 {
                     img.idx = i;
                     ++i;
+
+                    if(enable_angles_ && !angles.empty())
+                        img.phi = angles.at(i);
+
                     output_(std::move(img));
                 }
             }

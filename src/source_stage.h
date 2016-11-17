@@ -47,6 +47,8 @@ namespace ddafa
         private:
             std::function<void(output_type)> output_;
             std::string directory_;
+            bool enable_angles_;
+            std::string angle_path_;
     };
 }
 
