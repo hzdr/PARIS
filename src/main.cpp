@@ -42,6 +42,7 @@
 #include <ddrf/pipeline/pipeline.h>
 
 #include "exception.h"
+#include "d2h_stage.h"
 #include "filter_stage.h"
 #include "geometry.h"
 #include "preloader_stage.h"
@@ -49,6 +50,7 @@
 #include "reconstruction_stage.h"
 #include "scheduler.h"
 #include "sink_stage.h"
+#include "sink_stage_single.h"
 #include "source_stage.h"
 #include "task.h"
 #include "version.h"
@@ -87,6 +89,7 @@ namespace
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, device);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, device);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, device);
+//        auto d2h = pipeline.make_stage<ddafa::d2h_stage>();
         auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, device);
 
         pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);

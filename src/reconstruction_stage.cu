@@ -139,48 +139,10 @@ namespace ddafa
 
                 // backproject
                 auto u = -(dev_consts__.d_so / (s + dev_consts__.d_so));
-
-                if(k == 512 && l == 512 && m == 211)
-                {
-                    printf("x_k = %f\n", x_k);
-                    printf("y_l = %f\n", y_l);
-                    printf("z_m = %f\n", z_m);
-
-                    printf("s = %f\n", s);
-                    printf("t = %f\n", t);
-
-                    printf("factor = %f\n", factor);
-
-                    printf("t * factor = %f\n", t * factor);
-                    printf("dev_consts__.proj_dim_x = %u\n", dev_consts__.proj_dim_x);
-                    printf("dev_consts__.l_px_x = %f\n", dev_consts__.l_px_x);
-                    printf("dev_consts__.delta_s = %f\n", dev_consts__.delta_s);
-
-                    printf("h = %f\n", h);
-                    printf("v = %f\n", v);
-
-                    printf("det = %f\n", det);
-                    printf("u = %f\n", u);
-                }
-
                 row[k] = old_val + 0.5f * det * u * u;
             }
         }
 
-        __global__ void check(const float* in, std::uint32_t dim_x, std::uint32_t dim_y, std::size_t pitch)
-        {
-            auto x = ddrf::cuda::coord_x();
-            auto y = ddrf::cuda::coord_y();
-
-            if(x < dim_x && y < dim_y)
-            {
-                auto row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(in) + y * pitch);
-
-                if(x == 508 && y == 200)
-                    printf("value = %f\n", row[x]);
-            }
-        }
-        
         auto download(const ddrf::cuda::pitched_device_ptr<float>& in, ddrf::cuda::pinned_host_ptr<float>& out,
                         std::uint32_t x, std::uint32_t y, std::uint32_t z) -> void
         {
@@ -283,8 +245,6 @@ namespace ddafa
 
                 if(p.idx % 10 == 0)
                     BOOST_LOG_TRIVIAL(info) << "Reconstruction processing projection #" << p.idx << " on device #" << device_ << " in stream " << p.stream;
-
-//                ddrf::cuda::launch(p.width, p.height, check, static_cast<const float*>(p.ptr.get()), p.width, p.height, p.ptr.pitch());
 
                 // get angular position of the current projection
                 auto phi = 0.f;

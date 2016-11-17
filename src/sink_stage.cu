@@ -33,6 +33,7 @@
 #include "exception.h"
 #include "filesystem.h"
 #include "sink_stage.h"
+#include "task.h"
 #include "tiff_saver.h"
 #include "volume.h"
 
