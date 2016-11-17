@@ -78,6 +78,7 @@ namespace ddafa
 
             bool enable_roi_;
             region_of_interest roi_;
+            volume_geometry roi_geo_;
 
             int device_;
 
