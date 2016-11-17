@@ -27,9 +27,7 @@
 
 namespace ddafa
 {
-    extern std::string version;
-    extern std::string git_build_time;
-    extern std::string git_build_sha;
+    std::string version = std::string{"0.1.97"};
 }
 
 #endif /* DDAFA_VERSION_H_ */

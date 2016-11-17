@@ -98,7 +98,7 @@ namespace
 
 auto main(int argc, char** argv) -> int
 {
-    std::cout << "ddafa - version " << ddafa::version << " from " << ddafa::git_build_time << std::endl;
+    std::cout << "ddafa - version " << ddafa::version << std::endl;
     std::signal(SIGSEGV, signal_handler);
     std::signal(SIGABRT, signal_handler);
 

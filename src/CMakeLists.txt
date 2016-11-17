@@ -12,7 +12,6 @@ CUDA_ADD_EXECUTABLE(ddafa
                     source_stage.cpp
                     task.cpp
                     tiff_saver.cpp
-                    version.cpp
                     weighting_stage.cu)
 
 SET_PROPERTY(TARGET ddafa PROPERTY CXX_STANDARD 11)

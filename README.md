@@ -16,20 +16,15 @@
 
 ### Building
 
+You have to clone the ddrf repository first. Then execute the following steps in the ddafa directory:
+
 ```
-cd /path/to/build/directory
-cmake -DDDRF_INCLUDE_PATH=/path/to/ddrf/include -DDDRF_LIBRARY/path/to/libddrf.so -DCMAKE_BUILD_TYPE=Release /path/to/ddafa/top/level/directory
+mkdir build
+cd build
+cmake -DDDRF_INCLUDE_PATH=/path/to/ddrf/include -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
-
-If you would rather build ddafa using NSight/Eclipse, we supply the files ".project", ".cproject" and the ".settings" directory. Import the
-project into NSight and adapt the paths in the project file to your needs.
-
 ## Execution
-
-### Prerequisites
-
-libddrf.so has to exist either in your $PATH or in the same directory as the ddafa executable.
 
 ### Usage
 
@@ -59,9 +54,3 @@ All parameters are specified as a "key=value" pair.
 * dist_src | [float] distance between object (= center of rotation) and source in mm
 * dist_det | [float] distance between object (= center of rotation) and detector in mm
 * rot_angle | [float] angle step between two successive projections in °
-
-## Troubleshooting
-
-### Building takes forever!
-
-By default ddafa is built to support all available CUDA architectures. If you do not need some of them disable them in CMakeLists.txt or NSight's project settings. 
