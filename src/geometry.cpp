@@ -66,45 +66,9 @@ namespace ddafa
             return vol_geo;
         }
 
-        auto apply_roi(volume_geometry& vol_geo,
-                        std::uint32_t x1, std::uint32_t x2,
-                        std::uint32_t y1, std::uint32_t y2,
-                        std::uint32_t z1, std::uint32_t z2) noexcept -> bool
-        {
-            auto check_coords = [](std::uint32_t low, std::uint32_t high) { return low < high; };
-            auto check_dims = [](std::uint32_t updated, std::uint32_t old) { return updated <= old; };
-
-            if(check_coords(x1, x2) && check_coords(y1, y2) && check_coords(z1, z2))
-            {
-                auto dim_x = x2 - x1;
-                auto dim_y = y2 - y1;
-                auto dim_z = z2 - z1;
-                if(check_dims(dim_x, vol_geo.dim_x) && check_dims(dim_y, vol_geo.dim_y) && check_dims(dim_z, vol_geo.dim_z))
-                {
-                    vol_geo.dim_x = dim_x;
-                    vol_geo.dim_y = dim_y;
-                    vol_geo.dim_z = dim_z;
-                }
-                else
-                {
-                    BOOST_LOG_TRIVIAL(warning) << "New volume dimensions exceed old volume dimensions. ROI NOT applied.";
-                    return false;
-                }
-            }
-            else
-            {
-                BOOST_LOG_TRIVIAL(warning) << "Invalid ROI coordinates. ROI NOT applied.";
-                return false;
-            }
-
-            return true;
-        }
     }
 
-    auto calculate_volume_geometry(const detector_geometry& det_geo, bool enable_roi,
-                                    std::uint32_t roi_x1, std::uint32_t roi_x2,
-                                    std::uint32_t roi_y1, std::uint32_t roi_y2,
-                                    std::uint32_t roi_z1, std::uint32_t roi_z2) noexcept -> volume_geometry
+    auto calculate_volume_geometry(const detector_geometry& det_geo) noexcept -> volume_geometry
     {
         auto vol_geo = make_volume_geometry(det_geo);
 
@@ -114,24 +78,47 @@ namespace ddafa
 
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
-
-        if(enable_roi)
-        {
-            if(apply_roi(vol_geo, roi_x1, roi_x2, roi_y1, roi_y2, roi_z1, roi_z2))
-            {
-                dim_x_mm = static_cast<float>(vol_geo.dim_x) * vol_geo.l_vx_x;
-                dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
-                dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
-
-                BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
-                BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
-                BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
-            }
-        }
-
         BOOST_LOG_TRIVIAL(info) << "Voxel size [mm]: " << std::setprecision(4) << vol_geo.l_vx_x << " x " << vol_geo.l_vx_y << " x " << vol_geo.l_vx_z;
 
         return vol_geo;
+    }
+
+    auto apply_roi(const volume_geometry& vol_geo,
+                    std::uint32_t x1, std::uint32_t x2,
+                    std::uint32_t y1, std::uint32_t y2,
+                    std::uint32_t z1, std::uint32_t z2) noexcept -> volume_geometry
+    {
+        auto roi_geo = vol_geo;
+
+        auto check_coords = [](std::uint32_t low, std::uint32_t high) { return low < high; };
+        auto check_dims = [](std::uint32_t updated, std::uint32_t old) { return updated <= old; };
+
+        if(check_coords(x1, x2) && check_coords(y1, y2) && check_coords(z1, z2))
+        {
+            auto dim_x = x2 - x1;
+            auto dim_y = y2 - y1;
+            auto dim_z = z2 - z1;
+            if(check_dims(dim_x, vol_geo.dim_x) && check_dims(dim_y, vol_geo.dim_y) && check_dims(dim_z, vol_geo.dim_z))
+            {
+                roi_geo.dim_x = dim_x;
+                roi_geo.dim_y = dim_y;
+                roi_geo.dim_z = dim_z;
+
+                auto dim_x_mm = static_cast<float>(roi_geo.dim_x) * roi_geo.l_vx_x;
+                auto dim_y_mm = static_cast<float>(roi_geo.dim_y) * roi_geo.l_vx_y;
+                auto dim_z_mm = static_cast<float>(roi_geo.dim_z) * roi_geo.l_vx_z;
+
+                BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
+                BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << roi_geo.dim_x << " x " << roi_geo.dim_y << " x " << roi_geo.dim_z;
+                BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
+            }
+            else
+                BOOST_LOG_TRIVIAL(warning) << "New volume dimensions exceed old volume dimensions. ROI NOT applied.";
+        }
+        else
+            BOOST_LOG_TRIVIAL(warning) << "Invalid ROI coordinates. ROI NOT applied.";
+
+        return roi_geo;
     }
 }
 

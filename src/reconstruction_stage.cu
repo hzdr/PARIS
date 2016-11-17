@@ -139,6 +139,12 @@ namespace ddafa
 
                 // backproject
                 auto u = -(dev_consts__.d_so / (s + dev_consts__.d_so));
+
+                // restore old coordinate for writing. If enable_roi == false, the compiler will optimize this code away
+                if(enable_roi)
+                    k -= dev_roi__.x1;
+
+                // write value
                 row[k] = old_val + 0.5f * det * u * u;
             }
         }
@@ -219,6 +225,7 @@ namespace ddafa
                 det_geo_.d_so,
                 std::abs(det_geo_.d_so) + std::abs(det_geo_.d_od)
             };
+            
             auto err = cudaMemcpyToSymbol(dev_consts__, &host_consts, sizeof(host_consts));
             if(err != cudaSuccess)
             {

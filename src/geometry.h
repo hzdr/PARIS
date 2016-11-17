@@ -68,10 +68,11 @@ namespace ddafa
         std::uint32_t remainder;
     };
 
-    auto calculate_volume_geometry(const detector_geometry& det_geo, bool enable_roi,
-                                    std::uint32_t roi_x1, std::uint32_t roi_x2,
-                                    std::uint32_t roi_y1, std::uint32_t roi_y2,
-                                    std::uint32_t roi_z1, std::uint32_t roi_z2) noexcept -> volume_geometry;
+    auto calculate_volume_geometry(const detector_geometry& det_geo) noexcept -> volume_geometry;
+
+    auto apply_roi(const volume_geometry& vol_geo, std::uint32_t roi_x1, std::uint32_t roi_x2,
+                                                    std::uint32_t roi_y1, std::uint32_t roi_y2,
+                                                    std::uint32_t roi_z1, std::uint32_t roi_z2) noexcept -> volume_geometry;
 }
 
 #endif /* DDAFA_GEOMETRY_H_ */

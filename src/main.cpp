@@ -42,7 +42,6 @@
 #include <ddrf/pipeline/pipeline.h>
 
 #include "exception.h"
-#include "d2h_stage.h"
 #include "filter_stage.h"
 #include "geometry.h"
 #include "preloader_stage.h"
@@ -50,7 +49,6 @@
 #include "reconstruction_stage.h"
 #include "scheduler.h"
 #include "sink_stage.h"
-#include "sink_stage_single.h"
 #include "source_stage.h"
 #include "task.h"
 #include "version.h"
@@ -112,11 +110,16 @@ auto main(int argc, char** argv) -> int
         constexpr auto parallel_projections = std::size_t{5}; // number of projections present in the pipeline at the same time
         constexpr auto input_limit = std::size_t{1}; // input limit per stage
 
-        auto vol_geo = ddafa::calculate_volume_geometry(po.det_geo, po.enable_roi,
-                                                        po.roi.x1, po.roi.x2,
-                                                        po.roi.y1, po.roi.y2,
-                                                        po.roi.z1, po.roi.z2);
-        auto subvol_info = ddafa::create_subvolume_information(vol_geo, po.det_geo, parallel_projections);
+        auto vol_geo = ddafa::calculate_volume_geometry(po.det_geo);
+
+        auto roi_geo = vol_geo;
+        if(po.enable_roi)
+            roi_geo = ddafa::apply_roi(vol_geo,
+                                       po.roi.x1, po.roi.x2,
+                                       po.roi.y1, po.roi.y2,
+                                       po.roi.z1, po.roi.z2);
+
+        auto subvol_info = ddafa::create_subvolume_information(roi_geo, po.det_geo, parallel_projections);
 
         if(po.enable_io)
         {
