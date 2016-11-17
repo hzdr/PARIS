@@ -4,15 +4,14 @@
 
 ### Dependencies
 
-* ddrf
-* CUDA 7.5
-* a CUDA 7.5 compatible C++ compiler with C++11 support (e.g. g++ 4.9)
-* cuFFT 7.5
-* libtiff >= 4.0.3
-* Boost.System >= 1.54.0
-* Boost.Log >= 1.54.0
-* Boost.Program_options >= 1.54.0
-* Boost.Thread >= 1.54.0
+* CUDA 8.0 
+* a CUDA 8.0 compatible C++ compiler with C++11 support (e.g. g++ 5.4)
+* cuFFT 8.0
+* libtiff
+* Boost.System
+* Boost.Log
+* Boost.Program_options
+* Boost.Thread
 
 ### Building
 
@@ -40,6 +39,7 @@ make
 * --geometry-format             |            prints required parameters in geometry file
 * --angles  /path/to/angle.file |            override the rot_angle parameter in the geometry file; angles are loaded from the specified file on a per-projection basis
 * --name volume_prefix          |            change the output volume's prefix (default: vol)
+* --roi                         |            enable region of interest support. Supply the ROI parameters with --roi-x1, --roi-x2, --roi-y1 and so on
 
 #### Geometry parameters
 
