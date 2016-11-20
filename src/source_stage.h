@@ -23,6 +23,7 @@
 #ifndef DDAFA_SOURCE_STAGE_H_
 #define DDAFA_SOURCE_STAGE_H_
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -47,6 +48,7 @@ namespace ddafa
         private:
             std::function<void(output_type)> output_;
             std::string directory_;
+            std::uint16_t quality_;
     };
 }
 

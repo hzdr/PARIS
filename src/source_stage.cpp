@@ -20,6 +20,7 @@
  * Authors: Jan Stephan
  */
 
+#include <algorithm>
 #include <functional>
 #include <stdexcept>
 #include <string>
@@ -45,6 +46,7 @@ namespace ddafa
     auto source_stage::assign_task(task t) noexcept -> void
     {
         directory_ = t.input_path;
+        quality_ = t.quality;
     }
 
     auto source_stage::run() -> void
@@ -72,9 +74,12 @@ namespace ddafa
 
                 for(auto&& img : vec)
                 {
-                    img.idx = i;
+                    if(i % quality_ == 0)
+                    {
+                        img.idx = i;
+                        output_(std::move(img));
+                    }
                     ++i;
-                    output_(std::move(img));
                 }
             }
             catch(const std::system_error& e)
