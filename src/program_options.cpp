@@ -74,7 +74,8 @@ namespace ddafa
             // Reconstruction options
             boost::program_options::options_description recon{"Reconstruction options"};
             recon.add_options()
-                    ("angles", boost::program_options::value<std::string>(&po.angle_path), "Path to projection angles (optional)");
+                    ("angles", boost::program_options::value<std::string>(&po.angle_path), "Path to projection angles (optional)")
+                    ("quality", boost::program_options::value<std::uint16_t>(&po.quality)->default_value(1), "Quality setting (optional)");
 
             // Geometry file
             boost::program_options::options_description geom{"Geometry file"};

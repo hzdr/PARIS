@@ -43,7 +43,8 @@ namespace ddafa
                             po.input_path,
                             po.det_geo, vol_geo, subvol_geo,
                             po.enable_roi, po.roi,
-                            po.enable_angles, po.angle_path});
+                            po.enable_angles, po.angle_path,
+                            po.quality});
         }
 
         return q;
