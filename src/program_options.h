@@ -45,6 +45,8 @@ namespace ddafa
 
         bool enable_angles;
         std::string angle_path;
+
+        std::uint16_t quality;
     };
 
     auto make_program_options(int argc, char** argv) -> program_options;

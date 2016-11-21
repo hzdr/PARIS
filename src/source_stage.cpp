@@ -20,6 +20,7 @@
  * Authors: Jan Stephan
  */
 
+#include <algorithm>
 #include <fstream>
 #include <functional>
 #include <stdexcept>
@@ -80,8 +81,11 @@ namespace ddafa
     auto source_stage::assign_task(task t) noexcept -> void
     {
         directory_ = t.input_path;
+
         enable_angles_ = t.enable_angles;
         angle_path_ = t.angle_path;
+
+        quality_ = t.quality;
     }
 
     auto source_stage::run() -> void
@@ -113,13 +117,16 @@ namespace ddafa
 
                 for(auto&& img : vec)
                 {
-                    img.idx = i;
+                    if(i % quality_ == 0)
+                    {
+                        img.idx = i;
+
+                        if(enable_angles_ && !angles.empty())
+                            img.phi = angles.at(i);
+
+                        output_(std::move(img));
+                    }
                     ++i;
-
-                    if(enable_angles_ && !angles.empty())
-                        img.phi = angles.at(i);
-
-                    output_(std::move(img));
                 }
             }
             catch(const std::system_error& e)
