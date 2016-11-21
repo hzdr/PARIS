@@ -16,50 +16,34 @@
  * See the Licence for the specific language governing permissions and
  * limitations under the Licence.
  *
- * Date: 19 August 2016
+ * Date: 21 November 2016
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_SINK_STAGE_H_
-#define DDAFA_SINK_STAGE_H_
-
-#include <functional>
+#include <cstdint>
+#include <memory>
 #include <string>
-#include <utility>
 
 #include <ddrf/cuda/memory.h>
 
-#include "geometry.h"
-#include "task.h"
 #include "volume.h"
 
 namespace ddafa
 {
-    class sink_stage
+    namespace ddbvf
     {
-        public:
-            using input_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
-            using output_type = void;
+        struct handle;
+        struct handle_deleter { auto operator()(handle* h) noexcept -> void; };
+        using handle_type = std::unique_ptr<handle, handle_deleter>;
 
-        public:
-            sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, int devices);
+        using volume_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
 
-            auto assign_task(task t) noexcept -> void;
-            auto run() -> void;
-            auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
+        auto open(const std::string& path) -> handle_type;
+        auto create(const std::string& path, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> handle_type;
 
-        private:
-            std::function<input_type(void)> input_;
+        auto write(handle_type& h, const volume_type& vol, std::uint32_t first) -> void;
+        auto read(handle_type& h, std::uint32_t first) -> volume_type;
+        auto read(handle_type& h, std::uint32_t first, std::uint32_t last) -> volume_type;
 
-            std::string path_;
-            std::string prefix_;
-
-            int devices_;
-
-            volume_geometry vol_geo_;
-    };
+    }
 }
-
-
-
-#endif /* DDAFA_SINK_STAGE_H_ */

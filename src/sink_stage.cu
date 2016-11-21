@@ -34,13 +34,13 @@
 #include "filesystem.h"
 #include "sink_stage.h"
 #include "task.h"
-#include "tiff_saver.h"
+#include "ddbvf.h"
 #include "volume.h"
 
 namespace ddafa
 {
-    sink_stage::sink_stage(const std::string& path, const std::string& prefix)
-    : path_{path}
+    sink_stage::sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, int devices)
+    : path_{path}, vol_geo_(vol_geo), devices_{devices}
     {
         if(path_.back() != '/')
             path_ += '/';
@@ -70,13 +70,26 @@ namespace ddafa
     {
         try
         {
-            auto vol = input_();
-            auto saver = tiff_saver{};
-            saver.save(std::move(vol), path_);
+            auto handle = ddbvf::create(path_, vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z);
+            auto count = devices_;
+            while(true)
+            {
+                auto vol = input_();
+                --count;
+                ddbvf::write(handle, vol, vol.offset);
+                if(count == 0)
+                    break;
+            }
         }
-        catch(const std::runtime_error re)
+        catch(const std::system_error& se)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "sink_stage::run() failed to save volume: " << re.what();
+            BOOST_LOG_TRIVIAL(fatal) << "sink_stage::run(): system error while saving volume: "
+                                        << se.code() << " - " << se.what();
+            throw stage_runtime_error{"sink_stage::run() failed"};
+        }
+        catch(const std::runtime_error& re)
+        {
+            BOOST_LOG_TRIVIAL(fatal) << "sink_stage::run(): runtime error while saving volume: " << re.what();
             throw stage_runtime_error{"sink_stage::run() failed"};
         }
     }

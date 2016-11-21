@@ -1,4 +1,5 @@
 CUDA_ADD_EXECUTABLE(ddafa
+                    ddbvf.cpp
                     filesystem.cpp
                     filter_stage.cu
                     geometry.cpp

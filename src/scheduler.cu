@@ -71,7 +71,7 @@ namespace ddafa
             auto devices = ddrf::cuda::get_device_count();
             mem_needed /= devices;
 
-            auto vols_needed = 1;
+            auto vols_needed = devices;
 
             for(auto d = 0; d < devices; ++d)
             {

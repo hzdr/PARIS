@@ -87,11 +87,10 @@ namespace
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, device);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, device);
         auto filter = pipeline.make_stage<ddafa::filter_stage>(input_limit, device);
-//        auto d2h = pipeline.make_stage<ddafa::d2h_stage>();
         auto reconstruction = pipeline.make_stage<ddafa::reconstruction_stage>(input_limit, device);
 
         pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);
-        pipeline.run(source, preloader, weighting, filter, reconstruction, sink);
+        pipeline.run(source, preloader, weighting, filter, reconstruction);
         pipeline.wait();
     }
 }
@@ -133,19 +132,26 @@ auto main(int argc, char** argv) -> int
             auto devices = ddrf::cuda::get_device_count();
 
             // create shared sink
-            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix);
+            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, vol_geo, devices);
 
             // pipeline futures
             auto futures = std::vector<std::future<void>>{};
+
+            auto task_string = tasks.size() == 1 ? "task" : "tasks";
+            BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices << " devices";
 
             // launch a pipeline for each available device
             for(auto d = 0; d < devices; ++d)
                 futures.emplace_back(std::async(std::launch::async, launch_pipeline,
                                                 &task_queue, d, std::ref(sink), input_limit, parallel_projections));
 
+            auto sink_future = std::async(std::launch::async, &ddrf::pipeline::stage<ddafa::sink_stage>::run, &sink);
+
             // wait for the end of execution
             for(auto&& f : futures)
                 f.get();
+
+            sink_future.get();
 
             auto stop = std::chrono::high_resolution_clock::now();
 
