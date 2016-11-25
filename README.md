@@ -64,8 +64,8 @@ make
 * --geometry-format                     | prints required parameters in geometry file
 * --input /path/to/projection/directory | path to projections. If this parameter is supplied, "--output" must be specified as well
 * --output /path/to/volume/directory    | target directory. If this parameter is supplied, "--input" must be specified as well
-* --angles  /path/to/angle.file         | override the rot_angle parameter in the geometry file; angles are loaded from the specified file on a per-projection basis
-* --name volume_prefix                  | change the output volume's prefix (default: vol)
+* --angles  /path/to/angle.file         | override the rot\_angle parameter in the geometry file; angles are loaded from the specified file on a per-projection basis
+* --name volume\_prefix                 | change the output volume's prefix (default: vol)
 * --roi                                 | enable region of interest support. Supply the ROI parameters with --roi-x1, --roi-x2, --roi-y1 and so on
 * --quality [arg]                       | specify desired quality. --quality 1 (default) will consider every projection, --quality 2 every second and so on
 
@@ -73,16 +73,16 @@ make
 
 All parameters are specified as a "key=value" pair.
 
-* n_row | [integer] number of pixels per detector row (= projection width)
-* n_col | [integer] number of pixels per detector column (= projection height)
-* l_px_row | [float] horizontal pixel size (= distance between pixel centers) in mm
-* l_px_col | [float] vertical pixel size (= distance between pixel centers) in mm
-* delta_s | [float] horizontal detector offset in pixels
-* delta_t | [float] vertical detector offset in pixels
-* d_so | [float] distance between object (= center of rotation) and source in mm
-* d_od | [float] distance between object (= center of rotation) and detector in mm
-* delta_phi | [float] angle step between two successive projections in °
+* n\_row | [integer] number of pixels per detector row (= projection width)
+* n\_col | [integer] number of pixels per detector column (= projection height)
+* l\_px\_row | [float] horizontal pixel size (= distance between pixel centers) in mm
+* l\_px\_col | [float] vertical pixel size (= distance between pixel centers) in mm
+* delta\_s | [float] horizontal detector offset in pixels
+* delta\_t | [float] vertical detector offset in pixels
+* d\_so | [float] distance between object (= center of rotation) and source in mm
+* d\_od | [float] distance between object (= center of rotation) and detector in mm
+* delta\_phi | [float] angle step between two successive projections in °
 
 ## File format
 
-ddrf's file format description can be found in the (wiki)[https://github.com/HZDR-FWDF/ddafa/wiki/ddbvf-format].
+ddrf's file format description can be found in the [wiki](https://github.com/HZDR-FWDF/ddafa/wiki/ddbvf-format).
