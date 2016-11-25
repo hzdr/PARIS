@@ -92,6 +92,7 @@ namespace ddafa
             std::fill_n(buf.get(), h->head.offset, 0);
             h->stream.write(buf.get(), static_cast<std::streamsize>(h->head.offset));
 
+            // check for errors
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
 
@@ -118,6 +119,7 @@ namespace ddafa
 
             h->stream.read(reinterpret_cast<char*>(&h->head), sizeof(h->head));
 
+            // check for errors
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
 
@@ -129,19 +131,24 @@ namespace ddafa
             if(h == nullptr || vol.ptr == nullptr)
                 return;
 
+            // check dimensions
             if(first >= h->head.dim_z)
                 throw std::runtime_error{"ddbvf::write(): Starting position out of bounds"};
 
             if(vol.width != h->head.dim_x || vol.height != h->head.dim_y || vol.depth > h->head.dim_z)
                 throw std::runtime_error{"ddbvf::write(): Attempting to save volume to file with wrong dimensions"};
 
+            // calculate size and offset for writing
             using element_type = typename decltype(volume_type::ptr)::element_type;
             auto write_size = static_cast<std::streamsize>(vol.width * vol.height * vol.depth * sizeof(element_type));
+            auto write_pos = static_cast<std::fstream::off_type>(vol.width * vol.height * first * sizeof(element_type));
 
+            // write data
             h->stream.seekp(first_pos);
-            h->stream.seekp(h->head.dim_x * h->head.dim_y * first, std::ios_base::cur);
+            h->stream.seekp(write_pos, std::ios_base::cur);
             h->stream.write(reinterpret_cast<char*>(vol.ptr.get()), write_size);
 
+            // check for errors
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
         }
@@ -160,21 +167,26 @@ namespace ddafa
             if(h == nullptr)
                 return volume_type{};
 
+            // check dimensions
             if(first >= h->head.dim_z)
                 throw std::runtime_error{"ddbvf::read(): Starting position out of bounds"};
 
             if(last > h->head.dim_z)
                 throw std::runtime_error{"ddbvf::read(): Last position out of bounds"};
 
+            // calculate size and offset for reading
             auto slices = last - first;
             using element_type = typename decltype(volume_type::ptr)::element_type;
             auto read_size = static_cast<std::streamsize>(h->head.dim_x * h->head.dim_y * slices * sizeof(element_type));
+            auto read_pos = static_cast<std::fstream::off_type>(h->head.dim_x * h->head.dim_y * first * sizeof(element_type));
             auto ptr = ddrf::cuda::make_unique_pinned_host<element_type>(h->head.dim_x, h->head.dim_y, slices);
-            
+
+            // read data 
             h->stream.seekp(first_pos);
-            h->stream.seekp(h->head.dim_x * h->head.dim_y * first, std::ios_base::cur);
+            h->stream.seekp(read_pos, std::ios_base::cur);
             h->stream.read(reinterpret_cast<char*>(ptr.get()), read_size);
 
+            // check for errors
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
 
