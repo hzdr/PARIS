@@ -20,6 +20,9 @@
  * Authors: Jan Stephan
  */
 
+#ifndef DDAFA_DDBVF_H_
+#define DDAFA_DDBVF_H_
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -47,3 +50,5 @@ namespace ddafa
 
     }
 }
+
+#endif /* DDAFA_DDBVF_H_ */
