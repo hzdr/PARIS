@@ -2,8 +2,18 @@
 
 ## Build instructions
 
+### Branch selection
+
+We strongly recommend the usage of the latest stable branch (currently 0.2). Issue the following command to switch to
+the stable branch (do the same in ddrf's repository as well!):
+
+```
+git checkout 0.2
+```
+
 ### Dependencies
 
+* CMake 3.5
 * CUDA 8.0 
 * a CUDA 8.0 compatible C++ compiler with C++11 support (e.g. g++ 5.4)
 * cuFFT 8.0
@@ -11,6 +21,24 @@
 * Boost.Log
 * Boost.Program_options
 * Boost.Thread
+
+### Preparations
+
+Before building you need to ensure that the generated GPU code matches your target architecture. Edit the top-level
+CMakeLists.txt and find the following lines:
+
+```
+-gencode arch=compute_61,code=sm_61;
+-gencode arch=compute_35,code=sm_35;
+```
+
+Most users can delete the second line as they typically won't utilize two different GPUs. The correct values can be
+looked up [here](https://developer.nvidia.com/cuda-gpus) (just leave out the dot). For example, an adaption for the
+GeForce 940M looks like this:
+
+```
+-gencode arch=compute_50,code=sm_50;
+```
 
 ### Building
 
@@ -54,3 +82,7 @@ All parameters are specified as a "key=value" pair.
 * d_so | [float] distance between object (= center of rotation) and source in mm
 * d_od | [float] distance between object (= center of rotation) and detector in mm
 * delta_phi | [float] angle step between two successive projections in °
+
+## File format
+
+ddrf's file format description can be found in the (wiki)[https://github.com/HZDR-FWDF/ddafa/wiki/ddbvf-format].
