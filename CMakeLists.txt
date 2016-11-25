@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ddafa. If not, see <http://www.gnu.org/licenses/>.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
 PROJECT(ddafa)
 
 SET(Boost_USE_STATIC_LIBS OFF)
