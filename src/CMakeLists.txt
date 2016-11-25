@@ -15,25 +15,27 @@
 # You should have received a copy of the GNU General Public License
 # along with ddafa. If not, see <http://www.gnu.org/licenses/>.
 
-CUDA_ADD_EXECUTABLE(ddafa
-                    ddbvf.cpp
-                    filesystem.cpp
-                    filter_stage.cu
-                    geometry.cpp
-                    his_loader.cpp
-                    main.cpp
-                    preloader_stage.cu
-                    program_options.cpp
-                    reconstruction_stage.cu
-                    scheduler.cu
-                    sink_stage.cu
-                    source_stage.cpp
-                    task.cpp
-                    weighting_stage.cu)
+IF(DDAFA_ENABLE_CUDA)
+    CUDA_ADD_EXECUTABLE(ddafa.cuda
+                        ddbvf.cpp
+                        filesystem.cpp
+                        filter_stage.cu
+                        geometry.cpp
+                        his_loader.cpp
+                        main.cpp
+                        preloader_stage.cu
+                        program_options.cpp
+                        reconstruction_stage.cu
+                        scheduler.cu
+                        sink_stage.cu
+                        source_stage.cpp
+                        task.cpp
+                        weighting_stage.cu)
 
-SET_PROPERTY(TARGET ddafa PROPERTY CXX_STANDARD 11)
-CUDA_ADD_CUFFT_TO_TARGET(ddafa)
+    SET_PROPERTY(TARGET ddafa.cuda PROPERTY CXX_STANDARD 11)
+    CUDA_ADD_CUFFT_TO_TARGET(ddafa.cuda)
 
-TARGET_LINK_LIBRARIES(ddafa
-                        ${Boost_LIBRARIES}
-                        ${CMAKE_THREAD_LIBS_INIT})
+    TARGET_LINK_LIBRARIES(ddafa.cuda
+                            ${Boost_LIBRARIES}
+                            ${CMAKE_THREAD_LIBS_INIT})
+ENDIF(DDAFA_ENABLE_CUDA)
