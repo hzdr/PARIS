@@ -1,3 +1,20 @@
+# This file is part of the ddafa reconstruction program.
+#
+# Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
+#
+# ddafa is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# ddafa is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
 PROJECT(ddafa)
 
@@ -20,7 +37,8 @@ INCLUDE_DIRECTORIES(${DDRF_INCLUDE_PATH})
 SET(CUDA_NVCC_FLAGS
     ${CUDA_NVCC_FLAGS};
     -std=c++11;
-    -gencode arch=compute_30,code=sm_30;
+    -gencode arch=compute_61,code=sm_61;
+    -gencode arch=compute_35,code=sm_35;
     --default-stream per-thread;
     -prec-div=true;
     -prec-sqrt=true;
