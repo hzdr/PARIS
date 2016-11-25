@@ -92,9 +92,12 @@ namespace ddafa
         template <typename T>
         auto copy_to_buf(std::ifstream& file, float* dest, std::uint16_t w, std::uint16_t h) -> void
         {
-            auto buffer = std::unique_ptr<T[]>{new T[w * h]};
-            read_entry(file, buffer.get(), w * h * sizeof(T));
-            std::copy(buffer.get(), buffer.get() + (w * h), dest);
+            auto w_s = static_cast<std::size_t>(w);
+            auto h_s = static_cast<std::size_t>(h);
+            auto size = static_cast<std::streamsize>(w_s * h_s * sizeof(T));
+            auto buffer = std::unique_ptr<T[]>{new T[w_s * h_s]};
+            read_entry(file, buffer.get(), size);
+            std::copy(buffer.get(), buffer.get() + (w_s * h_s), dest);
         }
     }
 
@@ -142,8 +145,12 @@ namespace ddafa
             throw std::runtime_error{"File with unsupported data type"};
         }
 
-        auto width = header.brx - header.ulx + 1u;
-        auto height = header.bry - header.uly + 1u;
+        auto x1 = static_cast<std::uint32_t>(header.ulx);
+        auto x2 = static_cast<std::uint32_t>(header.brx);
+        auto y1 = static_cast<std::uint32_t>(header.uly);
+        auto y2 = static_cast<std::uint32_t>(header.bry);
+        auto width = x2 - x1 + 1u;
+        auto height = y2 - y1 + 1u;
         for(auto i = 0u; i < header.frame_number; ++i)
         {
             // skip image header

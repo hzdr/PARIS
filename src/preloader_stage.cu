@@ -73,7 +73,7 @@ namespace ddafa
         return *this;
     }
 
-    auto preloader_stage::assign_task(task t) noexcept -> void
+    auto preloader_stage::assign_task(task) noexcept -> void
     {}
 
     auto preloader_stage::run() -> void

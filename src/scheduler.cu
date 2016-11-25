@@ -65,12 +65,13 @@ namespace ddafa
         {
             auto subvol_info = subvolume_info{};
             auto info = memory_info(vol_geo, det_geo);
-            auto mem_needed = info.vol + proj_num * info.proj;
+            auto mem_needed = info.vol + static_cast<std::size_t>(proj_num) * info.proj;
 
             auto devices = ddrf::cuda::get_device_count();
-            mem_needed /= devices;
+            auto d_s = static_cast<std::size_t>(devices);
+            mem_needed /= d_s;
 
-            auto vols_needed = devices;
+            auto vols_needed = static_cast<std::uint32_t>(devices);
 
             for(auto d = 0; d < devices; ++d)
             {
@@ -91,7 +92,9 @@ namespace ddafa
                 // FIXME: nasty exception abuse
                 try
                 {
-                    ddrf::cuda::make_unique_device<float>(vol_geo.dim_x, vol_geo.dim_y, vol_geo.dim_z / vols_needed);
+                    ddrf::cuda::make_unique_device<float>(vol_geo.dim_x,
+                                                            vol_geo.dim_y,
+                                                            vol_geo.dim_z / vols_needed);
                     BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
                 }
                 catch(const ddrf::cuda::bad_alloc& ba)
@@ -106,7 +109,7 @@ namespace ddafa
             subvol_info.geo.dim_y = vol_geo.dim_y;
             subvol_info.geo.dim_z = vol_geo.dim_z / vols_needed;
             subvol_info.geo.remainder = vol_geo.dim_z % vols_needed;
-            subvol_info.num = vols_needed;
+            subvol_info.num = static_cast<int>(vols_needed);
 
             return subvol_info;
         }

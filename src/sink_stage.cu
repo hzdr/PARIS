@@ -62,7 +62,7 @@ namespace ddafa
         }
     }
 
-    auto sink_stage::assign_task(task t) noexcept -> void
+    auto sink_stage::assign_task(task) noexcept -> void
     {
     }
 
