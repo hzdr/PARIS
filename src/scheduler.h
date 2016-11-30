@@ -17,7 +17,7 @@
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 28 October 2016
- * Authors: Jan Stephan
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
 #ifndef DDAFA_SCHEDULER_H_

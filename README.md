@@ -19,7 +19,7 @@ git checkout 0.2
 * cuFFT 8.0
 * Boost.System
 * Boost.Log
-* Boost.Program_options
+* Boost.Program\_options
 * Boost.Thread
 
 ### Preparations
