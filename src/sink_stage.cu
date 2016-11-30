@@ -17,7 +17,7 @@
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 19 August 2016
- * Authors: Jan Stephan
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
 #include <functional>
