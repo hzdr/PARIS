@@ -15,6 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with ddafa. If not, see <http://www.gnu.org/licenses/>.
 
+SET(COMMON_SOURCES  ddbvf.cpp
+                    filesystem.cpp
+                    geometry.cpp
+                    his.cpp
+                    main.cpp
+                    preloader_stage.cpp
+                    program_options.cpp
+                    source_stage.cpp
+                    task.cpp)
+
 IF(DDAFA_ENABLE_CUDA)
     SET(CUDA_NVCC_FLAGS
         ${CUDA_NVCC_FLAGS};
@@ -43,21 +53,16 @@ IF(DDAFA_ENABLE_CUDA)
     SET(CUDA_SEPARABLE_COMPILATION OFF)
 
     CUDA_ADD_EXECUTABLE(ddafa.cuda
+                        cuda/device.cpp
+                        cuda/error.cpp
                         cuda/memory.cpp
-                        ddbvf.cpp
-                        filesystem.cpp
+                        cuda/synchronization.cpp
                         filter_stage.cu
-                        geometry.cpp
-                        his.cpp
-                        main.cpp
-                        preloader_stage.cu
-                        program_options.cpp
                         reconstruction_stage.cu
                         scheduler.cu
                         sink_stage.cu
-                        source_stage.cpp
-                        task.cpp
-                        weighting_stage.cu)
+                        weighting_stage.cu
+                        ${COMMON_SOURCES})
 
     SET_PROPERTY(TARGET ddafa.cuda PROPERTY CXX_STANDARD 11)
     CUDA_ADD_CUFFT_TO_TARGET(ddafa.cuda)

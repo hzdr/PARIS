@@ -26,9 +26,9 @@
 #include <cstddef>
 #include <functional>
 
-#include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "backend.h"
 #include "projection.h"
 #include "task.h"
 
@@ -37,16 +37,15 @@ namespace ddafa
     class preloader_stage
     {
         private:
-            using device_allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, device_allocator>;
+            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, backend::allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
-            using input_type = projection<ddrf::cuda::pinned_host_ptr<float>>;
+            using input_type = projection<backend::host_ptr_2D>;
             using output_type = projection<smart_pointer>;
 
         public:
-            preloader_stage(std::size_t pool_limit, int device) noexcept;
+            preloader_stage(std::size_t pool_limit, const backend::device_handle& device) noexcept;
             ~preloader_stage();
             preloader_stage(const preloader_stage& other);
             auto operator=(const preloader_stage& other) -> preloader_stage&;
@@ -59,7 +58,7 @@ namespace ddafa
         private:
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
-            int device_;
+            backend::device_handle device_;
             std::size_t limit_;
             pool_allocator pool_;
     };
