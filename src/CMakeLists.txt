@@ -38,6 +38,10 @@ IF(DDAFA_ENABLE_CUDA)
         -lineinfo;
         -pg)
 
+    SET(CUDA_PROPAGATE_HOST_FLAGS ON)
+    SET(CUDA_VERBOSE_BUILD OFF)
+    SET(CUDA_SEPARABLE_COMPILATION OFF)
+
     CUDA_ADD_EXECUTABLE(ddafa.cuda
                         cuda/memory.cpp
                         ddbvf.cpp
