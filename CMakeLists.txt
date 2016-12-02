@@ -48,28 +48,6 @@ ENDIF(OPENMP_FOUND)
 
 INCLUDE_DIRECTORIES(${DDRF_INCLUDE_PATH})
 
-SET(CUDA_NVCC_FLAGS
-    ${CUDA_NVCC_FLAGS};
-    -std=c++11;
-    -gencode arch=compute_61,code=sm_61;
-    -gencode arch=compute_35,code=sm_35;
-    --default-stream per-thread;
-    -prec-div=true;
-    -prec-sqrt=true;
-    -fmad=true)
-
-SET(CUDA_NVCC_FLAGS_DEBUG
-    ${CUDA_NVCC_FLAGS_DEBUG};
-    -O0;
-    -g;
-    -G)
-
-SET(CUDA_NVCC_FLAGS_RELEASE
-    ${CUDA_NVCC_FLAGS_RELEASE};
-    -O3;
-    -lineinfo;
-    -pg)
-
 SET(ABI_OPTIONS "-fsigned-char -fsigned-bitfields -ffor-scope -fuse-cxa-atexit -fabi-version=0")
 SET(BASIC_WARNINGS "-Wall -Wextra")
 SET(NUMERICAL_WARNINGS "-Wfloat-equal -Wconversion -Wnarrowing -Wsign-conversion")
@@ -83,9 +61,6 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ABI_OPTIONS} ${BASIC_WARNINGS} ${NUMER
 SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -fno-omit-frame-pointer")
 SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-omit-frame-pointer")
 
-SET(CUDA_PROPAGATE_HOST_FLAGS ON)
-SET(CUDA_VERBOSE_BUILD OFF)
-SET(CUDA_SEPARABLE_COMPILATION OFF)
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug")
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")
