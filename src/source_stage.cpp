@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <fstream>
 #include <functional>
-#include <stdexcept>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -33,6 +32,7 @@
 
 #include "exception.h"
 #include "filesystem.h"
+#include "his.h"
 #include "source_stage.h"
 #include "task.h"
 
@@ -90,7 +90,6 @@ namespace ddafa
 
     auto source_stage::run() -> void
     {
-        auto loader = his_loader{};
         auto i = 0u;
 
         auto paths = std::vector<std::string>{};
@@ -113,31 +112,32 @@ namespace ddafa
         {
             try
             {
-                auto vec = loader.load(s);
+                auto vec = his::load(s);
 
-                for(auto&& img : vec)
+                if(vec.empty())
+                    BOOST_LOG_TRIVIAL(warning) << "Skipping invalid file at " << s;
+                else
                 {
-                    if(i % quality_ == 0)
+                    for(auto&& img : vec)
                     {
-                        img.idx = i;
+                        if(i % quality_ == 0)
+                        {
+                            img.idx = i;
 
-                        if(enable_angles_ && !angles.empty())
-                            img.phi = angles.at(i);
+                            if(enable_angles_ && !angles.empty())
+                                img.phi = angles.at(i);
 
-                        output_(std::move(img));
+                            output_(std::move(img));
+                        }
+                        ++i;
                     }
-                    ++i;
                 }
+
             }
             catch(const std::system_error& e)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "source_stage::run(): Could not open file at " << s << " : " << e.what();
                 throw stage_runtime_error{"source_stage::run() failed"};
-            }
-            catch(const std::runtime_error& e)
-            {
-                BOOST_LOG_TRIVIAL(warning) << "source_stage::run(): Skipping invalid HIS file at " << s << " : " << e.what();
-                continue;
             }
         }
 

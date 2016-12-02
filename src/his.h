@@ -20,42 +20,25 @@
  * Authors: Jan Stephan
  */
 
-#ifndef DDAFA_SOURCE_STAGE_H_
-#define DDAFA_SOURCE_STAGE_H_
+#ifndef DDAFA_HIS_LOADER_H_
+#define DDAFA_HIS_LOADER_H_
 
-#include <cstdint>
-#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "his.h"
-#include "task.h"
+#include "backend.h"
+#include "projection.h"
 
 namespace ddafa
 {
-    class source_stage
+    namespace his
     {
-        public:
-            using input_type = void;
-            using output_type = his::image_type;
-
-        public:
-            source_stage() noexcept;
-            auto assign_task(task t) noexcept -> void;
-            auto run() -> void;
-            auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
-
-        private:
-            std::function<void(output_type)> output_;
-            std::string directory_;
-            
-            bool enable_angles_;
-            std::string angle_path_;
-
-            std::uint16_t quality_;
-    };
+        using image_type = projection<backend::host_ptr_2D>;
+        auto load(const std::string& path) -> std::vector<image_type>;
+    }
 }
 
 
 
-#endif /* DDAFA_SOURCE_STAGE_H_ */
+#endif /* DDAFA_HIS_LOADER_H_ */
