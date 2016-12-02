@@ -17,7 +17,7 @@
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
- * Authors: Jan Stephan
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
 #include <chrono>
@@ -132,7 +132,7 @@ auto main(int argc, char** argv) -> int
             auto devices = ddrf::cuda::get_device_count();
 
             // create shared sink
-            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, roi_geo, devices);
+            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, roi_geo, tasks.size());
 
             // pipeline futures
             auto futures = std::vector<std::future<void>>{};

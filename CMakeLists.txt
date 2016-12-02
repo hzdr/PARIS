@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with ddafa. If not, see <http://www.gnu.org/licenses/>.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
 PROJECT(ddafa)
 
 IF(NOT DEFINED DDRF_INCLUDE_PATH)
@@ -27,7 +27,7 @@ SET(Boost_USE_STATIC_RUNTIME OFF)
 SET(Boost_USE_MULTITHREADED ON)
 ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK=1)
 
-FIND_PACKAGE(Boost REQUIRED COMPONENTS system filesystem log program_options thread)
+FIND_PACKAGE(Boost REQUIRED COMPONENTS system filesystem log program_options)
 FIND_PACKAGE(Threads REQUIRED)
 
 FIND_PACKAGE(CUDA)

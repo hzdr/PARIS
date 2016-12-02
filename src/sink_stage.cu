@@ -17,9 +17,10 @@
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 19 August 2016
- * Authors: Jan Stephan
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
+#include <cstddef>
 #include <functional>
 #include <stdexcept>
 #include <utility>
@@ -39,8 +40,8 @@
 
 namespace ddafa
 {
-    sink_stage::sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, int devices)
-    : path_{path}, vol_geo_(vol_geo), devices_{devices}
+    sink_stage::sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, std::size_t tasks)
+    : path_{path}, vol_geo_(vol_geo), tasks_{tasks}
     {
         if(path_.back() != '/')
             path_ += '/';
@@ -71,7 +72,7 @@ namespace ddafa
         try
         {
             auto handle = ddbvf::create(path_, vol_geo_.dim_x, vol_geo_.dim_y, vol_geo_.dim_z);
-            auto count = devices_;
+            auto count = tasks_;
             while(true)
             {
                 auto vol = input_();

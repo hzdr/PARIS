@@ -17,12 +17,13 @@
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 19 August 2016
- * Authors: Jan Stephan
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
 #ifndef DDAFA_SINK_STAGE_H_
 #define DDAFA_SINK_STAGE_H_
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <utility>
@@ -42,7 +43,7 @@ namespace ddafa
             using output_type = void;
 
         public:
-            sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, int devices);
+            sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, std::size_t tasks);
 
             auto assign_task(task t) noexcept -> void;
             auto run() -> void;
@@ -54,7 +55,7 @@ namespace ddafa
             std::string path_;
             std::string prefix_;
 
-            int devices_;
+            std::size_t tasks_;
 
             volume_geometry vol_geo_;
     };
