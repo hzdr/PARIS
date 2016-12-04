@@ -27,7 +27,7 @@
 
 namespace ddafa
 {
-    std::string version = std::string{"0.2.96"};
+    std::string version = std::string{"0.2.97"};
 }
 
 #endif /* DDAFA_VERSION_H_ */
