@@ -27,10 +27,6 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <cuda_runtime.h>
-
-#include <ddrf/cuda/memory.h>
-
 #include "exception.h"
 #include "filesystem.h"
 #include "sink_stage.h"

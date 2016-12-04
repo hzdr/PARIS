@@ -20,6 +20,8 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
+#include <vector>
+
 #include <ddrf/cuda/utility.h>
 
 #include "backend.h"
@@ -36,6 +38,17 @@ namespace ddafa
         auto set_device_noexcept(const device_handle& device) noexcept -> error_type
         {
             return cudaSetDevice(device);
+        }
+
+        auto get_devices() -> std::vector<device_handle>
+        {
+            auto vec = std::vector<device_handle>{};
+            auto num = ddrf::cuda::get_device_count();
+
+            for(auto i = 0; i < num; ++i)
+                vec.push_back(i);
+
+            return vec;
         }
     }
 }

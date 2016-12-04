@@ -29,13 +29,12 @@
 #include <utility>
 #include <vector>
 
-#include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "backend.h"
 #include "geometry.h"
 #include "projection.h"
 #include "region_of_interest.h"
-#include "scheduler.h"
 #include "task.h"
 #include "volume.h"
 
@@ -44,17 +43,16 @@ namespace ddafa
     class reconstruction_stage
     {
         private:
-            using device_allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, device_allocator>;
+            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, backend::allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
             using input_type = projection<smart_pointer>;
-            using output_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
-            using volume_type = volume<ddrf::cuda::pitched_device_ptr<float>>;
+            using output_type = volume<backend::host_ptr_3D<float>>;
+            using volume_type = volume<backend::device_ptr_3D<float>>;
 
         public:
-            reconstruction_stage(int device) noexcept;
+            reconstruction_stage(const backend::device_handle& device) noexcept;
             ~reconstruction_stage() = default;
 
             auto assign_task(task t) noexcept -> void;
@@ -80,13 +78,11 @@ namespace ddafa
             region_of_interest roi_;
             volume_geometry roi_geo_;
 
-            int device_;
+            backend::device_handle device_;
 
             std::uint32_t task_id_;
             std::uint32_t task_num_;
     };
 }
-
-
 
 #endif /* DDAFA_RECONSTRUCTION_STAGE_H_ */

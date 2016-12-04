@@ -158,7 +158,7 @@ namespace ddafa
                 auto img_header = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[header.image_header_size]};
                 read_entry(file, img_header.get(), header.image_header_size);
 
-                auto img_buffer = backend::make_host_ptr(width, height);
+                auto img_buffer = backend::make_host_ptr<float>(width, height);
 
                 auto w16 = static_cast<std::uint16_t>(width);
                 auto h16 = static_cast<std::uint16_t>(height);

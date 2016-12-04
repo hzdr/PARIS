@@ -190,7 +190,7 @@ namespace ddafa
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
 
-            return volume_type{std::move(ptr), h->head.dim_x, h->head.dim_y, slices, 0, true, 0};
+            return volume_type{std::move(ptr), h->head.dim_x, h->head.dim_y, slices, 0, true};
         }
     }
 }

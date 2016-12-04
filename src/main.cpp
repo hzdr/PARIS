@@ -38,18 +38,18 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
-#include <ddrf/cuda/utility.h>
 #include <ddrf/pipeline/pipeline.h>
 
+#include "backend.h"
 #include "exception.h"
 #include "filter_stage.h"
 #include "geometry.h"
 #include "preloader_stage.h"
 #include "program_options.h"
 #include "reconstruction_stage.h"
-#include "scheduler.h"
 #include "sink_stage.h"
 #include "source_stage.h"
+#include "subvolume_information.h"
 #include "task.h"
 #include "version.h"
 #include "weighting_stage.h"
@@ -118,18 +118,19 @@ auto main(int argc, char** argv) -> int
                                        po.roi.y1, po.roi.y2,
                                        po.roi.z1, po.roi.z2);
 
-        auto subvol_info = ddafa::create_subvolume_information(roi_geo, po.det_geo, parallel_projections);
-
         if(po.enable_io)
         {
             auto start = std::chrono::high_resolution_clock::now();
+
+            // split the volume into subvolumes
+            auto subvol_info = ddafa::backend::make_subvolume_information(roi_geo, po.det_geo, parallel_projections);
 
             // generate tasks
             auto tasks = ddafa::make_tasks(po, vol_geo, subvol_info);
             auto&& task_queue = ddrf::pipeline::task_queue<ddafa::task>(tasks);
 
-            // get number of devices
-            auto devices = ddrf::cuda::get_device_count();
+            // get devices
+            auto devices = ddafa::backend::get_devices();
 
             // create shared sink
             auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, roi_geo, tasks.size());
@@ -138,10 +139,10 @@ auto main(int argc, char** argv) -> int
             auto futures = std::vector<std::future<void>>{};
 
             auto task_string = tasks.size() == 1 ? "task" : "tasks";
-            BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices << " devices";
+            BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices.size() << " devices";
 
             // launch a pipeline for each available device
-            for(auto d = 0; d < devices; ++d)
+            for(auto&& d : devices)
                 futures.emplace_back(std::async(std::launch::async, launch_pipeline,
                                                 &task_queue, d, std::ref(sink), input_limit, parallel_projections));
 

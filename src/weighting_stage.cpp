@@ -28,11 +28,7 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/exception.h>
-#include <ddrf/cuda/launch.h>
-#include <ddrf/cuda/utility.h>
-
+#include "backend.h"
 #include "exception.h"
 #include "geometry.h"
 #include "projection.h"
@@ -40,49 +36,7 @@
 
 namespace ddafa
 {
-    namespace
-    {
-        __global__ void weighting_kernel(float* output, const float* input,
-                                std::uint32_t n_row, std::uint32_t n_col, std::size_t pitch,
-                                float h_min, float v_min,
-                                float d_sd,
-                                float l_px_row, float l_px_col)
-        {
-            auto s = ddrf::cuda::coord_x();
-            auto t = ddrf::cuda::coord_y();
-
-            if((s < n_row) && (t < n_col))
-            {
-                auto input_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(input) + t * pitch);
-                auto output_row = reinterpret_cast<float*>(reinterpret_cast<char*>(output) + t * pitch);
-
-                // enable parallel global memory fetch while calculating
-                auto val = input_row[s];
-
-                // detector coordinates in mm
-                auto h_s = (l_px_row / 2) + s * l_px_row + h_min;
-                auto v_t = (l_px_col / 2) + t * l_px_col + v_min;
-
-                // calculate weight
-                auto w_st = d_sd * rsqrtf(powf(d_sd, 2) + powf(h_s, 2) + powf(v_t, 2));
-
-                // write value
-                output_row[s] = val * w_st;
-            }
-        }
-
-        template <class In>
-        auto weight(In& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col) -> void
-        {
-            ddrf::cuda::launch_async(p.stream, p.width, p.height,
-                                weighting_kernel,
-                                p.ptr.get(), static_cast<const float*>(p.ptr.get()),
-                                p.width, p.height, p.ptr.pitch(),
-                                h_min, v_min, d_sd, l_px_row, l_px_col);
-        }
-    }
-
-    weighting_stage::weighting_stage(int device) noexcept
+    weighting_stage::weighting_stage(const backend::device_handle& device) noexcept
     : device_{device}
     {}
 
@@ -103,7 +57,7 @@ namespace ddafa
 
         try
         {
-            ddrf::cuda::set_device(device_);
+            backend::set_device(device_);
             while(true)
             {
                 auto p = input_();
@@ -111,29 +65,29 @@ namespace ddafa
                     break;
 
                 // weight the projection
-                weight(p, h_min_, v_min_, d_sd_, det_geo_.l_px_row, det_geo_.l_px_col);
+                backend::weight(p, h_min_, v_min_, d_sd_, det_geo_.l_px_row, det_geo_.l_px_col);
 
                 // done
-                ddrf::cuda::synchronize_stream(p.stream);
+                backend::synchronize(p.async_handle);
                 output_(std::move(p));
             }
 
             output_(output_type{});
             BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
         }
-        catch(const ddrf::cuda::bad_alloc& ba)
+        catch(const backend::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() encountered a bad_alloc: " << ba.what();
             throw sre;
         }
-        catch(const ddrf::cuda::invalid_argument& ia)
+        catch(const backend::invalid_argument& ia)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() passed an invalid argument to the CUDA runtime: " << ia.what();
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() passed an invalid argument to the " << backend::name << " runtime: " << ia.what();
             throw sre;
         }
-        catch(const ddrf::cuda::runtime_error& re)
+        catch(const backend::runtime_error& re)
         {
-            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() caused a CUDA runtime error: " << re.what();
+            BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() caused a " << backend::name << " runtime error: " << re.what();
             throw sre;
         }
     }

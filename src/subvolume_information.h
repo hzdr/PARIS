@@ -16,34 +16,22 @@
  * You should have received a copy of the GNU General Public License
  * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 18 August 2016
+ * Date: 28 October 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_HIS_LOADER_H_
-#define DDAFA_HIS_LOADER_H_
+#ifndef DDAFA_SUBVOLUME_INFORMATION_H_
+#define DDAFA_SUBVOLUME_INFORMATION_H_
 
-#include <string>
-#include <utility>
-#include <vector>
-
-#include <ddrf/cuda/memory.h>
-#include <ddrf/memory.h>
-
-#include "projection.h"
+#include "geometry.h"
 
 namespace ddafa
 {
-    class his_loader
+    struct subvolume_info
     {
-        public:
-            using smart_pointer = ddrf::cuda::pinned_host_ptr<float>;
-            using image_type = projection<smart_pointer>;
-
-            auto load(const std::string& path) -> std::vector<image_type>;
+        subvolume_geometry geo;
+        int num;
     };
 }
 
-
-
-#endif /* DDAFA_HIS_LOADER_H_ */
+#endif /* DDAFA_SUBVOLUME_INFORMATION_H_ */

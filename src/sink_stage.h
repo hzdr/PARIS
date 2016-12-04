@@ -28,8 +28,7 @@
 #include <string>
 #include <utility>
 
-#include <ddrf/cuda/memory.h>
-
+#include "backend.h"
 #include "geometry.h"
 #include "task.h"
 #include "volume.h"
@@ -39,7 +38,7 @@ namespace ddafa
     class sink_stage
     {
         public:
-            using input_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
+            using input_type = volume<backend::host_ptr_3D<float>>;
             using output_type = void;
 
         public:
@@ -60,7 +59,5 @@ namespace ddafa
             volume_geometry vol_geo_;
     };
 }
-
-
 
 #endif /* DDAFA_SINK_STAGE_H_ */

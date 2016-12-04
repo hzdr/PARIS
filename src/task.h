@@ -30,7 +30,7 @@
 #include "geometry.h"
 #include "program_options.h"
 #include "region_of_interest.h"
-#include "scheduler.h"
+#include "subvolume_information.h"
 
 namespace ddafa
 {

@@ -34,7 +34,7 @@ namespace ddafa
 {
     namespace his
     {
-        using image_type = projection<backend::host_ptr_2D>;
+        using image_type = projection<backend::host_ptr_2D<float>>;
         auto load(const std::string& path) -> std::vector<image_type>;
     }
 }

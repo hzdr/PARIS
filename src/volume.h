@@ -34,8 +34,8 @@ namespace ddafa
     {
         volume() noexcept = default;
 
-        volume(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t o, bool v, int dev) noexcept
-        : ptr{std::move(p)}, width{w}, height{h}, depth{d}, offset{o}, valid{v}, device{dev}
+        volume(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t o, bool v) noexcept
+        : ptr{std::move(p)}, width{w}, height{h}, depth{d}, offset{o}, valid{v}
         {}
 
         Ptr ptr = nullptr;
@@ -44,10 +44,7 @@ namespace ddafa
         std::uint32_t depth = 0;
         std::uint32_t offset = 0;
         bool valid = false;
-        int device = 0;
     };
 }
-
-
 
 #endif /* DDAFA_VOLUME_H_ */

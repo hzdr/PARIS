@@ -17,13 +17,17 @@
 
 SET(COMMON_SOURCES  ddbvf.cpp
                     filesystem.cpp
+                    filter_stage.cpp
                     geometry.cpp
                     his.cpp
                     main.cpp
                     preloader_stage.cpp
                     program_options.cpp
+                    reconstruction_stage.cpp
+                    sink_stage.cpp
                     source_stage.cpp
-                    task.cpp)
+                    task.cpp
+                    weighting_stage.cpp)
 
 IF(DDAFA_ENABLE_CUDA)
     SET(CUDA_NVCC_FLAGS
@@ -55,13 +59,11 @@ IF(DDAFA_ENABLE_CUDA)
     CUDA_ADD_EXECUTABLE(ddafa.cuda
                         cuda/device.cpp
                         cuda/error.cpp
-                        cuda/memory.cpp
+                        cuda/filter_kernels.cu
+                        cuda/reconstruction_kernels.cu
+                        cuda/subvolume_information.cpp
                         cuda/synchronization.cpp
-                        filter_stage.cu
-                        reconstruction_stage.cu
-                        scheduler.cu
-                        sink_stage.cu
-                        weighting_stage.cu
+                        cuda/weighting_kernels.cu
                         ${COMMON_SOURCES})
 
     SET_PROPERTY(TARGET ddafa.cuda PROPERTY CXX_STANDARD 11)

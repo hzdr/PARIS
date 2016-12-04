@@ -33,7 +33,12 @@ namespace ddafa
             return ddrf::cuda::create_concurrent_stream();
         }
 
-        auto synchronize(async_handle& handle) -> void
+        auto destroy_async_handle(async_handle& handle) noexcept -> error_type
+        {
+            return cudaStreamDestroy(handle);
+        }
+
+        auto synchronize(const async_handle& handle) -> void
         {
             ddrf::cuda::synchronize_stream(handle);
         }

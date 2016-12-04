@@ -26,9 +26,9 @@
 #include <cstdint>
 #include <functional>
 
-#include <ddrf/cuda/memory.h>
 #include <ddrf/memory.h>
 
+#include "backend.h"
 #include "geometry.h"
 #include "projection.h"
 #include "task.h"
@@ -38,8 +38,7 @@ namespace ddafa
     class weighting_stage
     {
         private:
-            using device_allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, device_allocator>;
+            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, backend::allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
@@ -47,7 +46,7 @@ namespace ddafa
             using output_type = projection<smart_pointer>;
 
         public:
-            weighting_stage(int device) noexcept;
+            weighting_stage(const backend::device_handle& device) noexcept;
 
             auto assign_task(task t) noexcept -> void;
             auto run() const -> void;
@@ -58,7 +57,7 @@ namespace ddafa
             std::function<input_type(void)> input_;
             std::function<void(output_type)> output_;
 
-            int device_;
+            backend::device_handle device_;
 
             detector_geometry det_geo_;
             float h_min_;

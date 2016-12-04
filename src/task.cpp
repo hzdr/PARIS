@@ -25,7 +25,7 @@
 
 #include "geometry.h"
 #include "program_options.h"
-#include "scheduler.h"
+#include "subvolume_information.h"
 #include "task.h"
 
 namespace ddafa

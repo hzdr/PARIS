@@ -34,6 +34,8 @@
 
 #include <ddrf/cuda/memory.h>
 
+#include "backend.h"
+
 namespace ddafa
 {
     template <class Ptr>
@@ -41,8 +43,8 @@ namespace ddafa
     {
         projection() noexcept = default;
 
-        projection(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t i, float ph, bool v, cudaStream_t str) noexcept
-        : ptr{std::move(p)}, width{w}, height{h}, idx{i}, phi{ph}, valid{v}, stream{str}
+        projection(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t i, float ph, bool v, backend::async_handle hnd) noexcept
+        : ptr{std::move(p)}, width{w}, height{h}, idx{i}, phi{ph}, valid{v}, async_handle{hnd}
         {}
 
         projection(const projection&) = delete;
@@ -50,7 +52,7 @@ namespace ddafa
 
         projection(projection&& other) noexcept
         : ptr{std::move(other.ptr)}, width{other.width}, height{other.height}, idx{other.idx}, phi{other.phi}, valid{other.valid}
-        , stream{other.stream}
+        , async_handle{other.async_handle}
         {
             other.ptr = nullptr;
             other.width = 0;
@@ -58,7 +60,7 @@ namespace ddafa
             other.idx = 0;
             other.phi = 0.f;
             other.valid = false;
-            other.stream = 0;
+            other.async_handle = backend::async_handle{};
         }
 
         auto operator=(projection&& other) noexcept -> projection&
@@ -81,19 +83,21 @@ namespace ddafa
             valid = other.valid;
             other.valid = false;
 
-            stream = other.stream;
-            other.stream = 0;
+            async_handle = std::move(other.async_handle);
 
             return *this;
         }
 
         ~projection()
         {
-            if(stream != 0)
+            if(async_handle != backend::default_async_handle)
             {
-                auto err = cudaStreamDestroy(stream);
-                if(err != cudaSuccess)
-                    std::exit(err);
+                auto err = backend::destroy_async_handle(async_handle);
+                if(err != backend::success)
+                {
+                    backend::print_error("Error while destructing projection: ", err);
+                    std::exit(EXIT_FAILURE);
+                }
             }
         }
 
@@ -103,7 +107,7 @@ namespace ddafa
         std::uint32_t idx = 0;
         float phi = 0.f;
         bool valid = false;
-        cudaStream_t stream = 0;
+        backend::async_handle async_handle = backend::default_async_handle;
     };
 }
 

@@ -41,7 +41,7 @@ namespace ddafa
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
-            using input_type = projection<backend::host_ptr_2D>;
+            using input_type = projection<backend::host_ptr_2D<float>>;
             using output_type = projection<smart_pointer>;
 
         public:
