@@ -1,4 +1,4 @@
-# ddafa - Dresden Accelerated Feldkamp Algorithm
+# PARIS - Portable and Accelerated 3D Reconstruction tool for radiation based Imaging Systems
 
 ## Build instructions
 
