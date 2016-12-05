@@ -25,6 +25,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -58,6 +59,7 @@ namespace ddafa
         using runtime_error = ddrf::cuda::runtime_error;
 
         constexpr auto name = "CUDA";
+
         /*
          * Memory management
          * */
@@ -200,31 +202,25 @@ namespace ddafa
             using runtime_error = ddrf::cufft::runtime_error;
 
             using complex_type = cufftComplex;
-            using transformation_type = cufftType;
-            constexpr auto r2c = CUFFT_R2C;
-            constexpr auto c2r = CUFFT_C2R;
-
-            template <transformation_type Type>
-            using plan_type = ddrf::cufft::plan<Type>;
+            using forward_plan_type = ddrf::cufft::plan<CUFFT_R2C>;
+            using inverse_plan_type = ddrf::cufft::plan<CUFFT_C2R>;
 
             // cuFFT doesn't need pointers to the data for plan creation -> ignore in and out ptrs
-            template <transformation_type Type, class Src, class Dst>
-            auto make_plan(int rank, int *n, int batch_size,
-                           Src* /* in */, int* inembed, int istride, int idist,
-                           Dst* /* out */, int* onembed, int ostride, int odist)
-            -> plan_type<Type>
-            {
-                return ddrf::cufft::plan<Type>{rank, n,
-                                               inembed, istride, idist,
-                                               onembed, ostride, odist,
-                                               batch_size};
-            }
+            auto make_forward_plan(int rank, int *n, int batch_size,
+                           float* /* in */, int* inembed, int istride, int idist,
+                           complex_type* /* out */, int* onembed, int ostride, int odist)
+            -> forward_plan_type;
+
+            auto make_inverse_plan(int rank, int *n, int batch_size,
+                           complex_type* /* in */, int* inembed, int istride, int idist,
+                           float* /* out */, int* onembed, int ostride, int odist)
+            -> inverse_plan_type;
         }
 
         auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>;
 
         template <class Ptr>
-        auto calculate_distance(Ptr& p) -> int
+        auto calculate_distance(Ptr& p, std::uint32_t /* width */) -> int
         {
             return static_cast<int>(p.pitch() / sizeof(typename Ptr::element_type));
         }

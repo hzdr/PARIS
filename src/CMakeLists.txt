@@ -59,6 +59,7 @@ IF(DDAFA_ENABLE_CUDA)
     CUDA_ADD_EXECUTABLE(ddafa.cuda
                         cuda/device.cpp
                         cuda/error.cpp
+                        cuda/filtering.cpp
                         cuda/filter_kernels.cu
                         cuda/reconstruction_kernels.cu
                         cuda/subvolume_information.cpp
@@ -75,3 +76,18 @@ IF(DDAFA_ENABLE_CUDA)
                             ${Boost_LIBRARIES}
                             ${CMAKE_THREAD_LIBS_INIT})
 ENDIF(DDAFA_ENABLE_CUDA)
+
+IF(DDAFA_ENABLE_OPENMP)
+    ADD_EXECUTABLE(ddafa.openmp
+                   openmp/filtering.cpp
+                   openmp/weighting.cpp
+                   ${COMMON_SOURCES})
+
+    SET_PROPERTY(TARGET ddafa.openmp PROPERTY CXX_STANDARD 14)
+    TARGET_COMPILE_DEFINITIONS(ddafa.openmp PRIVATE DDAFA_ENABLE_OPENMP)
+    TARGET_COMPILE_OPTIONS(ddafa.openmp PRIVATE ${OpenMP_CXX_FLAGS})
+
+    TARGET_LINK_LIBRARIES(ddafa.openmp
+                            ${Boost_LIBRARIES}
+                            ${FFTW_LIBRARY})
+ENDIF(DDAFA_ENABLE_OPENMP)

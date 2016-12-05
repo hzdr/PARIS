@@ -87,11 +87,11 @@ namespace ddafa
             auto p_trans_nembed = p_trans_dist;
 
             // create plans for forward and inverse FFT
-            auto forward = backend::fft::make_plan<backend::fft::r2c>(rank, &n, batch,
+            auto forward = backend::fft::make_forward_plan(rank, &n, batch,
                                                         p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                         p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist);
 
-            auto inverse = backend::fft::make_plan<backend::fft::c2r>(rank, &n, batch,
+            auto inverse = backend::fft::make_inverse_plan(rank, &n, batch,
                                                         p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist,
                                                         p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist);
 
