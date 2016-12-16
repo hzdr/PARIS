@@ -75,8 +75,8 @@ namespace ddafa
             auto p_trans = backend::make_device_ptr<backend::fft::complex_type>(size_trans, n_col_);
 
             // calculate the distance between the first elements of two successive lines
-            auto p_exp_dist = backend::calculate_distance(p_exp);
-            auto p_trans_dist = backend::calculate_distance(p_trans);
+            auto p_exp_dist = backend::calculate_distance(p_exp, filter_size_);
+            auto p_trans_dist = backend::calculate_distance(p_trans, size_trans);
 
             // set the distance between two successive elements
             constexpr auto p_exp_stride = 1;

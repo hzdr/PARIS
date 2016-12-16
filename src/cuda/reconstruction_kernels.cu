@@ -25,8 +25,8 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
 
 #include "../exception.h"
 #include "../reconstruction_constants.h"
@@ -65,9 +65,9 @@ namespace ddafa
                                         cudaTextureObject_t proj, float angle_sin,
                                         float angle_cos)
             {
-                auto k = ddrf::cuda::coord_x();
-                auto l = ddrf::cuda::coord_y();
-                auto m = ddrf::cuda::coord_z();
+                auto k = glados::cuda::coord_x();
+                auto l = glados::cuda::coord_y();
+                auto m = glados::cuda::coord_z();
 
                 if((k < dev_consts__.vol_dim_x) &&
                    (l < dev_consts__.vol_dim_y) &&
@@ -174,10 +174,10 @@ namespace ddafa
                 }
 
                 if(enable_roi)
-                    ddrf::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<true>,
+                    glados::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<true>,
                                                 vol_ptr, vol_pitch, tex, sin, cos);
                 else
-                    ddrf::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<false>,
+                    glados::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<false>,
                                                 vol_ptr, vol_pitch, tex, sin, cos);
 
                 err = cudaDestroyTextureObject(tex);

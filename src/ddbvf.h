@@ -27,8 +27,7 @@
 #include <memory>
 #include <string>
 
-#include <ddrf/cuda/memory.h>
-
+#include "backend.h"
 #include "volume.h"
 
 namespace ddafa
@@ -39,7 +38,7 @@ namespace ddafa
         struct handle_deleter { auto operator()(handle* h) noexcept -> void; };
         using handle_type = std::unique_ptr<handle, handle_deleter>;
 
-        using volume_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
+        using volume_type = volume<backend::host_ptr_3D<float>>;
 
         auto open(const std::string& path) -> handle_type;
         auto create(const std::string& path, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> handle_type;

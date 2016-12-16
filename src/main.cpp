@@ -38,7 +38,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
-#include <ddrf/pipeline/pipeline.h>
+#include <glados/pipeline/pipeline.h>
 
 #include "backend.h"
 #include "exception.h"
@@ -75,14 +75,14 @@ namespace
         std::exit(EXIT_FAILURE);
     }
 
-    auto launch_pipeline(ddrf::pipeline::task_queue<ddafa::task>* queue, int device,
-                         ddrf::pipeline::stage<ddafa::sink_stage>& sink, std::size_t input_limit,
+    auto launch_pipeline(glados::pipeline::task_queue<ddafa::task>* queue, int device,
+                         glados::pipeline::stage<ddafa::sink_stage>& sink, std::size_t input_limit,
                          std::size_t parallel_projections) -> void
     {
         if(queue == nullptr)
             return;
 
-        auto pipeline = ddrf::pipeline::task_pipeline<ddafa::task>{queue};
+        auto pipeline = glados::pipeline::task_pipeline<ddafa::task>{queue};
         auto source = pipeline.make_stage<ddafa::source_stage>();
         auto preloader = pipeline.make_stage<ddafa::preloader_stage>(input_limit, parallel_projections, device);
         auto weighting = pipeline.make_stage<ddafa::weighting_stage>(input_limit, device);
@@ -127,13 +127,13 @@ auto main(int argc, char** argv) -> int
 
             // generate tasks
             auto tasks = ddafa::make_tasks(po, vol_geo, subvol_info);
-            auto&& task_queue = ddrf::pipeline::task_queue<ddafa::task>(tasks);
+            auto&& task_queue = glados::pipeline::task_queue<ddafa::task>(tasks);
 
             // get devices
             auto devices = ddafa::backend::get_devices();
 
             // create shared sink
-            auto sink = ddrf::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, roi_geo, tasks.size());
+            auto sink = glados::pipeline::stage<ddafa::sink_stage>(po.output_path, po.prefix, roi_geo, tasks.size());
 
             // pipeline futures
             auto futures = std::vector<std::future<void>>{};
@@ -146,7 +146,7 @@ auto main(int argc, char** argv) -> int
                 futures.emplace_back(std::async(std::launch::async, launch_pipeline,
                                                 &task_queue, d, std::ref(sink), input_limit, parallel_projections));
 
-            auto sink_future = std::async(std::launch::async, &ddrf::pipeline::stage<ddafa::sink_stage>::run, &sink);
+            auto sink_future = std::async(std::launch::async, &glados::pipeline::stage<ddafa::sink_stage>::run, &sink);
 
             // wait for the end of execution
             for(auto&& f : futures)

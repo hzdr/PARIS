@@ -32,8 +32,6 @@
 #include <cuda_runtime.h>
 #endif
 
-#include <ddrf/cuda/memory.h>
-
 #include "backend.h"
 
 namespace ddafa

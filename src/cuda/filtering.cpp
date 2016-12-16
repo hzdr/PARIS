@@ -20,8 +20,6 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <ddrf/cufft/plan.h>
-
 #include "backend.h"
 
 namespace ddafa
@@ -47,7 +45,7 @@ namespace ddafa
             -> inverse_plan_type
             {
                 return inverse_plan_type{rank, n,
-                                         nembed, istride, idist,
+                                         inembed, istride, idist,
                                          onembed, ostride, odist,
                                          batch_size};
             } 

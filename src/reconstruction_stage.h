@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include <ddrf/memory.h>
+#include <glados/memory.h>
 
 #include "backend.h"
 #include "geometry.h"
@@ -43,7 +43,7 @@ namespace ddafa
     class reconstruction_stage
     {
         private:
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, backend::allocator>;
+            using pool_allocator = glados::pool_allocator<float, glados::memory_layout::pointer_2D, backend::allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:

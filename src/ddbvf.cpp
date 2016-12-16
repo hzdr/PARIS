@@ -32,8 +32,7 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/memory.h>
-
+#include "backend.h"
 #include "ddbvf.h"
 #include "volume.h"
 
@@ -179,7 +178,7 @@ namespace ddafa
             using element_type = typename decltype(volume_type::ptr)::element_type;
             auto read_size = static_cast<std::streamsize>(h->head.dim_x * h->head.dim_y * slices * sizeof(element_type));
             auto read_pos = static_cast<std::fstream::off_type>(h->head.dim_x * h->head.dim_y * first * sizeof(element_type));
-            auto ptr = ddrf::cuda::make_unique_pinned_host<element_type>(h->head.dim_x, h->head.dim_y, slices);
+            auto ptr = backend::make_host_ptr<element_type>(h->head.dim_x, h->head.dim_y, slices);
 
             // read data 
             h->stream.seekp(first_pos);

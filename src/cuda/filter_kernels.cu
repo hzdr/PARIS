@@ -25,11 +25,11 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/algorithm.h>
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
-#include <ddrf/cuda/memory.h>
-#include <ddrf/cufft/plan.h>
+#include <glados/cuda/algorithm.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
+#include <glados/cuda/memory.h>
+#include <glados/cufft/plan.h>
 
 #include "backend.h"
 
@@ -43,7 +43,7 @@ namespace ddafa
                                                    const std::int32_t* __restrict__ j,
                                                    std::uint32_t size, float tau)
             {
-                auto x = ddrf::cuda::coord_x();
+                auto x = glados::cuda::coord_x();
 
                 /*
                  * r(j) with j = [ -(filter_length - 2) / 2, ..., 0, ..., filter_length / 2 ]
@@ -70,7 +70,7 @@ namespace ddafa
             } 
 
             auto make_filter_real(std::uint32_t filter_size, float tau)
-            -> ddrf::cuda::device_ptr<float>
+            -> glados::cuda::device_ptr<float>
             {
                 /*
                  * for a more detailed description see filter_creation_kernel
@@ -78,22 +78,22 @@ namespace ddafa
                 /* create j on the host and fill it with values from
                  * -(filter_size_ - 2) / 2 to filter_size / 2
                  */
-                auto h_j = ddrf::cuda::make_unique_pinned_host<std::int32_t>(filter_size);
+                auto h_j = glados::cuda::make_unique_pinned_host<std::int32_t>(filter_size);
                 auto size = static_cast<std::int32_t>(filter_size);
                 auto j = -(size - 2) / 2;
                 std::iota(h_j.get(), h_j.get() + filter_size, j);
                 BOOST_LOG_TRIVIAL(debug) << "Host filter creation succeeded";
 
                 // create j on the device and copy j from the host to the device
-                auto d_j = ddrf::cuda::make_unique_device<std::int32_t>(filter_size);
-                ddrf::cuda::copy(ddrf::cuda::sync, d_j, h_j, filter_size);
+                auto d_j = glados::cuda::make_unique_device<std::int32_t>(filter_size);
+                glados::cuda::copy(glados::cuda::sync, d_j, h_j, filter_size);
                 BOOST_LOG_TRIVIAL(debug) << "Copied filter from host to device";
 
                 // create r on the device
-                auto d_r  = ddrf::cuda::make_unique_device<float>(filter_size);
+                auto d_r  = glados::cuda::make_unique_device<float>(filter_size);
 
                 // calculate the filter values
-                ddrf::cuda::launch(filter_size, filter_creation_kernel,
+                glados::cuda::launch(filter_size, filter_creation_kernel,
                                    d_r.get(),
                                    static_cast<const std::int32_t*>(d_j.get()),
                                    filter_size, tau);
@@ -106,7 +106,7 @@ namespace ddafa
             __global__ void k_creation_kernel(cufftComplex* __restrict__ data,
                                               std::uint32_t filter_size, float tau)
             {
-                auto x = ddrf::cuda::coord_x();
+                auto x = glados::cuda::coord_x();
                 if(x < filter_size)
                 {
                     auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f)
@@ -123,14 +123,14 @@ namespace ddafa
             auto r = make_filter_real(size, tau);
 
             auto size_trans = size / 2 + 1;
-            auto k = ddrf::cuda::make_unique_device<cufftComplex>(size_trans);
+            auto k = glados::cuda::make_unique_device<cufftComplex>(size_trans);
 
             auto n = static_cast<int>(size);
 
-            auto plan = ddrf::cufft::plan<CUFFT_R2C>{n};
+            auto plan = glados::cufft::plan<CUFFT_R2C>{n};
             plan.execute(r.get(), k.get());
 
-            ddrf::cuda::launch(size_trans, k_creation_kernel, k.get(), size_trans, tau);
+            glados::cuda::launch(size_trans, k_creation_kernel, k.get(), size_trans, tau);
 
             return k;
         }
@@ -143,8 +143,8 @@ namespace ddafa
                                                       std::uint32_t data_height,
                                                       std::size_t pitch)
             {
-                auto x = ddrf::cuda::coord_x();
-                auto y = ddrf::cuda::coord_y();
+                auto x = glados::cuda::coord_x();
+                auto y = glados::cuda::coord_y();
 
                 if((x < filter_size) && (y < data_height))
                 {
@@ -164,7 +164,7 @@ namespace ddafa
                                                 std::uint32_t dim_x, std::uint32_t dim_y,
                                                 std::size_t in_pitch) -> void
             {
-                ddrf::cuda::launch_async(handle, dim_x, dim_y, filter_application_kernel,
+                glados::cuda::launch_async(handle, dim_x, dim_y, filter_application_kernel,
                                          in, filter, dim_x, dim_y, in_pitch);
             }
         }
@@ -176,8 +176,8 @@ namespace ddafa
                                                  std::uint32_t width, std::uint32_t height,
                                                  std::uint32_t filter_size)
             {
-                auto x = ddrf::cuda::coord_x();
-                auto y = ddrf::cuda::coord_y();
+                auto x = glados::cuda::coord_x();
+                auto y = glados::cuda::coord_y();
 
                 if((x < width) && (y < height))
                 {
@@ -198,7 +198,7 @@ namespace ddafa
                                            std::size_t out_pitch, std::size_t in_pitch,
                                            std::uint32_t filter_size) -> void
             {
-                ddrf::cuda::launch_async(handle, dim_x, dim_y, normalization_kernel,
+                glados::cuda::launch_async(handle, dim_x, dim_y, normalization_kernel,
                                             out, out_pitch, in, in_pitch, dim_x, dim_y,
                                             filter_size);
             }

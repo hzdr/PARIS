@@ -41,7 +41,7 @@ namespace ddafa
 {
     namespace
     {
-        auto download(const ddrf::cuda::pitched_device_ptr<float>& in, ddrf::cuda::pinned_host_ptr<float>& out,
+        auto download(const backend::device_ptr_3D<float>& in, backend::host_ptr_3D<float>& out,
                         std::uint32_t x, std::uint32_t y, std::uint32_t z) -> void
         {
             backend::copy(backend::sync, out, in, x, y, z);

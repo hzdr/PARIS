@@ -20,6 +20,11 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <numeric>
+
 #include <fftw3.h>
 
 #include "backend.h"
@@ -48,6 +53,75 @@ namespace ddafa
                                               in, inembed, istride, idist,
                                               out, onembed, ostride, odist,
                                               FFTW_MEASURE | FFTW_DESTROY_INPUT);
+            }
+        }
+
+        namespace
+        {
+            auto make_filter_real(std::uint32_t size, float tau) -> device_ptr_1D<float>
+            {
+                auto js = make_device_ptr<std::int32_t>(size);
+                auto size_i = static_cast<std::int32_t>(size);
+                auto j = -(size - 2) / 2;
+                std::iota(js.get(), js.get() + size, j);
+
+                auto r = std::make_device_ptr<float>(size);
+
+                #pragma omp parallel for
+                for(auto x = 0u; x < size; ++x)
+                {
+                    if(j[x] == 0)
+                        r[x] = (1.f / 8.f) * (1.f / std::pow(tau, 2.f));
+                    else
+                    {
+                        if(j[x] % 2 == 0)
+                            r[x] = 0.f;
+                        else
+                            r[x] = -(1.f / (2.f * std::pow(j[x], 2.f)
+                                   * std::pow(M_PI, 2.f)
+                                   * std::pow(tau, 2.f)));
+                    }
+                }
+            }   
+        }
+
+        auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>
+        {
+            auto r = make_filter_real(size, tau);
+
+            auto size_trans = size / 2 + 1;
+            auto k = make_device_ptr<fft::complex_type>(size_trans);
+
+            auto n = static_cast<int>(size);
+
+            auto plan = fftwf_plan_dft_r2c_1d(n, r.get(), k.get(), FFTW_MEASURE | FFTW_PRESERVE_INPUT);
+            fftwf_execute(plan);
+            
+            #pragma omp parallel for
+            for(auto x = 0u; x < size_trans; ++x)
+            {
+                auto result = tau * std::abs(std::sqrt(std::pow(k[x][0], 2.f) + std::powf(k[x][1], 2.f)));
+
+                k[x][0] = result;
+                k[x][1] = result;
+            }
+        }
+    
+        namespace detail
+        {
+            auto do_filtering(fft::complex_type* in, const fft::complex_type* filter,
+                              std::uint32_t dim_x, std::uint32_t dim_y) -> void
+            {
+                #pragma omp parallel for collapse(2)
+                for(auto y = 0u; y < dim_y; ++y)
+                {
+                    for(auto x = 0u; x < dim_x; ++x)
+                    {
+                        auto coord = x + y * dim_x;
+                        in[coord][0] *= filter[x][0];
+                        in[coord][1] *= filter[x][1];
+                    }
+                }
             }
         }
     }

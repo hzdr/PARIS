@@ -20,8 +20,8 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
 
 #include "backend.h"
 
@@ -37,8 +37,8 @@ namespace ddafa
                                     float d_sd,
                                     float l_px_row, float l_px_col)
             {
-                auto s = ddrf::cuda::coord_x();
-                auto t = ddrf::cuda::coord_y();
+                auto s = glados::cuda::coord_x();
+                auto t = glados::cuda::coord_y();
 
                 if((s < n_row) && (t < n_col))
                 {
@@ -67,7 +67,7 @@ namespace ddafa
             auto call_weighting_kernel(float* dst, const float* src, std::uint32_t width, std::uint32_t height, std::size_t pitch,
                                        float h_min, float v_min, float d_sd, float l_px_row, float l_px_col, async_handle handle) -> void
             {
-                ddrf::cuda::launch_async(handle, width, height,
+                glados::cuda::launch_async(handle, width, height,
                                             weighting_kernel,
                                             dst, src,
                                             width, height, pitch,

@@ -34,6 +34,8 @@
 
 #include <fftw3.h>
 
+#include <glados/generic/allocator.h>
+
 #include "../reconstruction_constants.h"
 #include "../region_of_interest.h"
 #include "../subvolume_information.h"
@@ -59,7 +61,7 @@ namespace ddafa
         /*
          * Memory management
          * */
-        using allocator = void; // FIXME
+        using allocator = glados::generic::allocator<float, glados::memory_layout::pointer_2D>;
 
         template <class T>
         using host_ptr_1D = std::unique_ptr<T[]>;
@@ -170,10 +172,10 @@ namespace ddafa
         {
             constexpr auto name = "FFTW";
 
-            // FIXME
-            using bad_alloc = void;
-            using invalid_argument = void;
-            using runtime_error = void;
+            // FIXME -- we should throw our own exceptions
+            using bad_alloc = std::bad_alloc;
+            using invalid_argument = std::invalid_argument;
+            using runtime_error = std::runtime_error;
 
             using complex_type = fftwf_complex;
             using forward_plan_type = fftwf_plan;
@@ -188,12 +190,12 @@ namespace ddafa
                                 float* out, int* onembed, int ostride, int odist) -> inverse_plan_type;
         }
 
-        auto make_filter(std::uint32_t size,float tau) -> device_ptr_1D<fft::complex_type>;
+        auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>;
 
         template <class Ptr>
         auto calculate_distance(Ptr& /* p */, std::uint32_t width) -> int
         {
-            return width;
+            return static_cast<int>(width);
         }
 
         template <class In, class Out>
@@ -213,7 +215,20 @@ namespace ddafa
         template <class In, class Out, class Plan>
         auto transform(const In& /* in */, Out& /* out */, Plan& plan, async_handle&) -> void
         {
-            fftw_execute(plan);
+            fftwf_execute(plan);
+        }
+
+        namespace detail
+        {
+            auto do_filtering(fft::complex_type* in, const fft::complex_type* filter,
+                              std::uint32_t dim_x, std::uint32_t dim_y) -> void;
+        }
+
+        template <class In, class Filter>
+        auto apply_filter(In& in, const Filter& filter, std::uint32_t dim_x, std::uint32_t dim_y,
+                            async_handle& /* handle */) -> void
+        {
+            detail::do_filtering(in.get(), filter.get(), dim_x, dim_y);
         }
     }
 }

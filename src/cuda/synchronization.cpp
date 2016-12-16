@@ -20,7 +20,7 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <ddrf/cuda/utility.h>
+#include <glados/cuda/utility.h>
 
 #include "backend.h"
 
@@ -30,7 +30,7 @@ namespace ddafa
     {
         auto make_async_handle() -> async_handle
         {
-            return ddrf::cuda::create_concurrent_stream();
+            return glados::cuda::create_concurrent_stream();
         }
 
         auto destroy_async_handle(async_handle& handle) noexcept -> error_type
@@ -40,7 +40,7 @@ namespace ddafa
 
         auto synchronize(const async_handle& handle) -> void
         {
-            ddrf::cuda::synchronize_stream(handle);
+            glados::cuda::synchronize_stream(handle);
         }
     }
 }

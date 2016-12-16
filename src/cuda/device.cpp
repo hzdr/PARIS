@@ -22,7 +22,7 @@
 
 #include <vector>
 
-#include <ddrf/cuda/utility.h>
+#include <glados/cuda/utility.h>
 
 #include "backend.h"
 
@@ -32,7 +32,7 @@ namespace ddafa
     {
         auto set_device(const device_handle& device) -> void
         {
-            ddrf::cuda::set_device(device);
+            glados::cuda::set_device(device);
         }
 
         auto set_device_noexcept(const device_handle& device) noexcept -> error_type
@@ -43,7 +43,7 @@ namespace ddafa
         auto get_devices() -> std::vector<device_handle>
         {
             auto vec = std::vector<device_handle>{};
-            auto num = ddrf::cuda::get_device_count();
+            auto num = glados::cuda::get_device_count();
 
             for(auto i = 0; i < num; ++i)
                 vec.push_back(i);
