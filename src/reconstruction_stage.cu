@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -28,12 +28,12 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/algorithm.h>
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
-#include <ddrf/cuda/memory.h>
-#include <ddrf/cuda/sync_policy.h>
-#include <ddrf/cuda/utility.h>
+#include <glados/cuda/algorithm.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
+#include <glados/cuda/memory.h>
+#include <glados/cuda/sync_policy.h>
+#include <glados/cuda/utility.h>
 
 #include "exception.h"
 #include "geometry.h"
@@ -43,7 +43,7 @@
 #include "scheduler.h"
 #include "volume.h"
 
-namespace ddafa
+namespace paris
 {
     namespace
     {
@@ -95,9 +95,9 @@ namespace ddafa
         template <bool enable_roi>
         __global__ void backproject(float* __restrict__ vol, std::size_t vol_pitch, cudaTextureObject_t proj, float angle_sin, float angle_cos)
         {
-            auto k = ddrf::cuda::coord_x();
-            auto l = ddrf::cuda::coord_y();
-            auto m = ddrf::cuda::coord_z();
+            auto k = glados::cuda::coord_x();
+            auto l = glados::cuda::coord_y();
+            auto m = glados::cuda::coord_z();
 
             if((k < dev_consts__.vol_dim_x) && (l < dev_consts__.vol_dim_y) && (m < dev_consts__.vol_dim_z))
             {
@@ -149,10 +149,10 @@ namespace ddafa
             }
         }
 
-        auto download(const ddrf::cuda::pitched_device_ptr<float>& in, ddrf::cuda::pinned_host_ptr<float>& out,
+        auto download(const glados::cuda::pitched_device_ptr<float>& in, glados::cuda::pinned_host_ptr<float>& out,
                         std::uint32_t x, std::uint32_t y, std::uint32_t z) -> void
         {
-            ddrf::cuda::copy(ddrf::cuda::sync, out, in, x, y, z);
+            glados::cuda::copy(glados::cuda::sync, out, in, x, y, z);
         }
     }
 
@@ -180,7 +180,7 @@ namespace ddafa
 
         try
         {
-            ddrf::cuda::set_device(device_);
+            glados::cuda::set_device(device_);
 
             auto dim_z = std::uint32_t{};
             // if this is the lowest subvolume we need to consider the remaining slices
@@ -190,12 +190,12 @@ namespace ddafa
                 dim_z = subvol_geo_.dim_z;
 
             // create host volume
-            auto vol_h_ptr = ddrf::cuda::make_unique_pinned_host<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
-            ddrf::cuda::fill(ddrf::cuda::sync, vol_h_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
+            auto vol_h_ptr = glados::cuda::make_unique_pinned_host<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
+            glados::cuda::fill(glados::cuda::sync, vol_h_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
 
             // create device volume
-            auto vol_d_ptr = ddrf::cuda::make_unique_device<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
-            ddrf::cuda::fill(ddrf::cuda::sync, vol_d_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
+            auto vol_d_ptr = glados::cuda::make_unique_device<float>(subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
+            glados::cuda::fill(glados::cuda::sync, vol_d_ptr, 0, subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z);
 
             // calculate offset for the current subvolume
             auto offset = task_id_ * subvol_geo_.dim_z;
@@ -291,13 +291,13 @@ namespace ddafa
                 }
 
                 if(enable_roi_)
-                    ddrf::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
+                    glados::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
                                         backproject<true>, vol_d_ptr.get(), vol_d_ptr.pitch(), tex, sin, cos);
                 else
-                    ddrf::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
+                    glados::cuda::launch_async(p.stream, subvol_geo_.dim_x, subvol_geo_.dim_y, subvol_geo_.dim_z,
                                         backproject<false>, vol_d_ptr.get(), vol_d_ptr.pitch(), tex, sin, cos);
 
-                ddrf::cuda::synchronize_stream(p.stream);
+                glados::cuda::synchronize_stream(p.stream);
 
                 err = cudaDestroyTextureObject(tex);
                 if(err != cudaSuccess)
@@ -314,17 +314,17 @@ namespace ddafa
             output_(output_type{std::move(vol_h_ptr), subvol_geo_.dim_x, subvol_geo_.dim_y, dim_z, offset , true, device_});
             BOOST_LOG_TRIVIAL(info) << "Completed task #" << task_id_ << " on device #" << device_;
         }
-        catch(const ddrf::cuda::bad_alloc& ba)
+        catch(const glados::cuda::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::run() encountered a bad_alloc: " << ba.what();
             throw sre;
         }
-        catch(const ddrf::cuda::invalid_argument& ia)
+        catch(const glados::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction_stage::run() passed an invalid argument to the CUDA runtime: " << ia.what();
             throw sre;
         }
-        catch(const ddrf::cuda::runtime_error& re)
+        catch(const glados::cuda::runtime_error& re)
         {
             BOOST_LOG_TRIVIAL(fatal) << "reconstruction-stage::run() encountered a CUDA runtime error: " << re.what();
             throw sre;

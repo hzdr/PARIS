@@ -1,27 +1,27 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_RECONSTRUCTION_STAGE_H_
-#define DDAFA_RECONSTRUCTION_STAGE_H_
+#ifndef PARIS_RECONSTRUCTION_STAGE_H_
+#define PARIS_RECONSTRUCTION_STAGE_H_
 
 #include <cstdint>
 #include <functional>
@@ -29,8 +29,8 @@
 #include <utility>
 #include <vector>
 
-#include <ddrf/cuda/memory.h>
-#include <ddrf/memory.h>
+#include <glados/cuda/memory.h>
+#include <glados/memory.h>
 
 #include "geometry.h"
 #include "projection.h"
@@ -39,19 +39,19 @@
 #include "task.h"
 #include "volume.h"
 
-namespace ddafa
+namespace paris
 {
     class reconstruction_stage
     {
         private:
-            using device_allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
-            using pool_allocator = ddrf::pool_allocator<float, ddrf::memory_layout::pointer_2D, device_allocator>;
+            using device_allocator = glados::cuda::device_allocator<float, glados::memory_layout::pointer_2D>;
+            using pool_allocator = glados::pool_allocator<float, glados::memory_layout::pointer_2D, device_allocator>;
             using smart_pointer = typename pool_allocator::smart_pointer;
 
         public:
             using input_type = projection<smart_pointer>;
-            using output_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
-            using volume_type = volume<ddrf::cuda::pitched_device_ptr<float>>;
+            using output_type = volume<glados::cuda::pinned_host_ptr<float>>;
+            using volume_type = volume<glados::cuda::pitched_device_ptr<float>>;
 
         public:
             reconstruction_stage(int device) noexcept;
@@ -87,6 +87,4 @@ namespace ddafa
     };
 }
 
-
-
-#endif /* DDAFA_RECONSTRUCTION_STAGE_H_ */
+#endif /* PARIS_RECONSTRUCTION_STAGE_H_ */

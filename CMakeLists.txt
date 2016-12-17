@@ -1,37 +1,41 @@
-# This file is part of the ddafa reconstruction program.
+# This file is part of the PARIS reconstruction program.
 #
 # Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
 #
-# ddafa is free software: you can redistribute it and/or modify
+# PARIS is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# ddafa is distributed in the hope that it will be useful,
+# PARIS is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+# along with PARIS. If not, see <http://www.gnu.org/licenses/>.
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
-PROJECT(ddafa)
+PROJECT(paris)
 
 SET(Boost_USE_STATIC_LIBS OFF)
 SET(Boost_USE_STATIC_RUNTIME OFF)
 SET(Boost_USE_MULTITHREADED ON)
 ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK=1)
 
+IF(CMAKE_BUILD_TYPE MATCHES DEBUG)
+    ADD_DEFINITIONS(-DPARIS_DEBUG=1)
+ENDIF(CMAKE_BUILD_TYPE MATCHES DEBUG)
+
 FIND_PACKAGE(Boost REQUIRED COMPONENTS system filesystem log program_options)
 FIND_PACKAGE(CUDA REQUIRED)
 FIND_PACKAGE(Threads REQUIRED)
 
-IF(NOT DEFINED DDRF_INCLUDE_PATH)
+IF(NOT DEFINED GLADOS_INCLUDE_PATH)
     MESSAGE(FATAL_ERROR "You must set ddrf's include path!")
-ENDIF(NOT DEFINED DDRF_INCLUDE_PATH)
+ENDIF(NOT DEFINED GLADOS_INCLUDE_PATH)
 
-INCLUDE_DIRECTORIES(${DDRF_INCLUDE_PATH})
+INCLUDE_DIRECTORIES(${GLADOS_INCLUDE_PATH})
 
 SET(CUDA_NVCC_FLAGS
     ${CUDA_NVCC_FLAGS};

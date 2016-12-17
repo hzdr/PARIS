@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -31,25 +31,25 @@
 
 #include <cufft.h>
 
-#include <ddrf/cuda/algorithm.h>
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
-#include <ddrf/cuda/memory.h>
-#include <ddrf/cuda/sync_policy.h>
-#include <ddrf/cuda/utility.h>
-#include <ddrf/cufft/plan.h>
+#include <glados/cuda/algorithm.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
+#include <glados/cuda/memory.h>
+#include <glados/cuda/sync_policy.h>
+#include <glados/cuda/utility.h>
+#include <glados/cufft/plan.h>
 
 #include "exception.h"
 #include "geometry.h"
 #include "filter_stage.h"
 
-namespace ddafa
+namespace paris
 {
     namespace
     {
         __global__ void filter_creation_kernel(float* __restrict__ r, const std::int32_t* __restrict__ j, std::uint32_t size, float tau)
         {
-            auto x = ddrf::cuda::coord_x();
+            auto x = glados::cuda::coord_x();
 
             /*
              * r(j) with j = [ -(filter_length - 2) / 2, ..., 0, ..., filter_length / 2 ]
@@ -73,28 +73,28 @@ namespace ddafa
             }
         }
 
-        auto create_filter(std::uint32_t filter_size, float tau) -> ddrf::cuda::device_ptr<float>
+        auto create_filter(std::uint32_t filter_size, float tau) -> glados::cuda::device_ptr<float>
         {
             /*
              * for a more detailed description see filter_creation_kernel
              */
             // create j on the host and fill it with values from -(filter_size_ - 2) / 2 to filter_size / 2
-            auto h_j = ddrf::cuda::make_unique_pinned_host<std::int32_t>(filter_size);
+            auto h_j = glados::cuda::make_unique_pinned_host<std::int32_t>(filter_size);
             auto size = static_cast<std::int32_t>(filter_size);
             auto j = -(size - 2) / 2;
             std::iota(h_j.get(), h_j.get() + filter_size, j);
             BOOST_LOG_TRIVIAL(debug) << "Host filter creation succeeded";
 
             // create j on the device and copy j from the host to the device
-            auto d_j = ddrf::cuda::make_unique_device<std::int32_t>(filter_size);
-            ddrf::cuda::copy(ddrf::cuda::sync, d_j, h_j, filter_size);
+            auto d_j = glados::cuda::make_unique_device<std::int32_t>(filter_size);
+            glados::cuda::copy(glados::cuda::sync, d_j, h_j, filter_size);
             BOOST_LOG_TRIVIAL(debug) << "Copied filter from host to device";
 
             // create r on the device
-            auto d_r  = ddrf::cuda::make_unique_device<float>(filter_size);
+            auto d_r  = glados::cuda::make_unique_device<float>(filter_size);
 
             // calculate the filter values
-            ddrf::cuda::launch(filter_size, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size, tau);
+            glados::cuda::launch(filter_size, filter_creation_kernel, d_r.get(), static_cast<const std::int32_t*>(d_j.get()), filter_size, tau);
             BOOST_LOG_TRIVIAL(debug) << "Device filter creation succeeded";
 
             BOOST_LOG_TRIVIAL(debug) << "Filter creation complete";
@@ -103,7 +103,7 @@ namespace ddafa
 
         __global__ void k_creation_kernel(cufftComplex* __restrict__ data, std::uint32_t filter_size, float tau)
         {
-            auto x = ddrf::cuda::coord_x();
+            auto x = glados::cuda::coord_x();
             if(x < filter_size)
             {
                 auto result = tau * fabsf(sqrtf(powf(data[x].x, 2.f) + powf(data[x].y, 2.f)));
@@ -113,19 +113,19 @@ namespace ddafa
             }
         }
 
-        auto create_k(std::uint32_t size, float tau) -> ddrf::cuda::device_ptr<cufftComplex>
+        auto create_k(std::uint32_t size, float tau) -> glados::cuda::device_ptr<cufftComplex>
         {
             auto r = create_filter(size, tau);
 
             auto size_trans = size / 2 + 1;
-            auto k = ddrf::cuda::make_unique_device<cufftComplex>(size_trans);
+            auto k = glados::cuda::make_unique_device<cufftComplex>(size_trans);
 
             auto n = static_cast<int>(size);
 
-            auto plan = ddrf::cufft::plan<CUFFT_R2C>{n};
+            auto plan = glados::cufft::plan<CUFFT_R2C>{n};
             plan.execute(r.get(), k.get());
 
-            ddrf::cuda::launch(size_trans, k_creation_kernel, k.get(), size_trans, tau);
+            glados::cuda::launch(size_trans, k_creation_kernel, k.get(), size_trans, tau);
 
             return k;
         }
@@ -133,8 +133,8 @@ namespace ddafa
         __global__ void filter_application_kernel(cufftComplex* __restrict__ data, const cufftComplex* __restrict__ filter,
                                                     std::uint32_t filter_size, std::uint32_t data_height, std::size_t pitch)
         {
-            auto x = ddrf::cuda::coord_x();
-            auto y = ddrf::cuda::coord_y();
+            auto x = glados::cuda::coord_x();
+            auto y = glados::cuda::coord_y();
 
             if((x < filter_size) && (y < data_height))
             {
@@ -147,15 +147,15 @@ namespace ddafa
 
         auto apply_filter(cufftComplex* in, const cufftComplex* k, std::uint32_t x, std::uint32_t y, std::size_t pitch, cudaStream_t stream) -> void
         {
-            ddrf::cuda::launch_async(stream, x, y, filter_application_kernel, in, k, x, y, pitch);
+            glados::cuda::launch_async(stream, x, y, filter_application_kernel, in, k, x, y, pitch);
         }
 
         __global__ void normalization_kernel(cufftReal* dst, std::size_t dst_pitch,
                                              const cufftReal* src, std::size_t src_pitch,
                                              std::uint32_t width, std::uint32_t height, std::uint32_t filter_size)
         {
-            auto x = ddrf::cuda::coord_x();
-            auto y = ddrf::cuda::coord_y();
+            auto x = glados::cuda::coord_x();
+            auto y = glados::cuda::coord_y();
 
             if((x < width) && (y < height))
             {
@@ -169,7 +169,7 @@ namespace ddafa
         template <class In>
         auto normalize(In& in, std::uint32_t filter_size) -> void
         {
-            ddrf::cuda::launch_async(in.stream, in.width, in.height,
+            glados::cuda::launch_async(in.stream, in.width, in.height,
                                         normalization_kernel,
                                         in.ptr.get(), in.ptr.pitch(),
                                         static_cast<const cufftReal*>(in.ptr.get()), in.ptr.pitch(),
@@ -180,16 +180,16 @@ namespace ddafa
         auto expand(const In& in, Out& out, std::uint32_t x, std::uint32_t y) -> void
         {
             // reset expanded projection
-            ddrf::cuda::fill(ddrf::cuda::async, out, 0, in.stream, x, y);
+            glados::cuda::fill(glados::cuda::async, out, 0, in.stream, x, y);
 
             // copy original projection to expanded projection
-            ddrf::cuda::copy(ddrf::cuda::async, out, in.ptr, in.stream, in.width, in.height);
+            glados::cuda::copy(glados::cuda::async, out, in.ptr, in.stream, in.width, in.height);
         }
 
         template <class In, class Out>
         auto shrink(const In& in, Out& out) -> void
         {
-            ddrf::cuda::copy(ddrf::cuda::async, out.ptr, in, out.stream, out.width, out.height);
+            glados::cuda::copy(glados::cuda::async, out.ptr, in, out.stream, out.width, out.height);
         }
 
         template <class In, class Out, class Plan>
@@ -218,7 +218,7 @@ namespace ddafa
 
         try
         {
-            ddrf::cuda::set_device(device_);
+            glados::cuda::set_device(device_);
 
             // create filter
             auto k = create_k(filter_size_, tau_);
@@ -233,11 +233,11 @@ namespace ddafa
             auto batch = static_cast<int>(n_col_);
 
             // allocate memory for expanded projection (projection width -> filter_size_)
-            auto p_exp = ddrf::cuda::make_unique_device<float>(filter_size_, n_col_);
+            auto p_exp = glados::cuda::make_unique_device<float>(filter_size_, n_col_);
 
             // allocate memory for transformed projection (filter_size_ -> size_trans)
             auto size_trans = filter_size_ / 2 + 1;
-            auto p_trans = ddrf::cuda::make_unique_device<cufftComplex>(size_trans, n_col_);
+            auto p_trans = glados::cuda::make_unique_device<cufftComplex>(size_trans, n_col_);
 
             // calculate the distance between the first elements of two successive lines (needed for cuFFT)
             auto p_exp_dist = static_cast<int>(p_exp.pitch() / sizeof(float));
@@ -252,17 +252,17 @@ namespace ddafa
             auto p_trans_nembed = p_trans_dist;
 
             // create plans for forward and inverse FFT
-            auto forward = ddrf::cufft::plan<CUFFT_R2C>{rank, &n,
+            auto forward = glados::cufft::plan<CUFFT_R2C>{rank, &n,
                                                         &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                         &p_trans_nembed, p_trans_stride, p_trans_dist,
                                                         batch};
 
-            auto inverse = ddrf::cufft::plan<CUFFT_C2R>{rank, &n,
+            auto inverse = glados::cufft::plan<CUFFT_C2R>{rank, &n,
                                                         &p_trans_nembed, p_trans_stride, p_trans_dist,
                                                         &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                         batch};
 
-            ddrf::cuda::synchronize_stream();
+            glados::cuda::synchronize_stream();
 
             BOOST_LOG_TRIVIAL(debug) << "Filter setup on device #" << device_ << " completed.";
 
@@ -287,39 +287,39 @@ namespace ddafa
                 normalize(p, filter_size_);
 
                 // done
-                ddrf::cuda::synchronize_stream(p.stream);
+                glados::cuda::synchronize_stream(p.stream);
                 output_(std::move(p));
             }
 
             output_(output_type{});
             BOOST_LOG_TRIVIAL(info) << "All projections have been filtered.";
         }
-        catch(const ddrf::cuda::bad_alloc& ba)
+        catch(const glados::cuda::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() encountered a bad_alloc: " << ba.what();
             throw sre;
         }
-        catch(const ddrf::cuda::invalid_argument& ia)
+        catch(const glados::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() passed an invalid argument to the CUDA runtime: " << ia.what();
             throw sre;
         }
-        catch(const ddrf::cuda::runtime_error& re)
+        catch(const glados::cuda::runtime_error& re)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() caused a CUDA runtime error: " << re.what();
             throw sre;
         }
-        catch(const ddrf::cufft::bad_alloc& ba)
+        catch(const glados::cufft::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() encountered a bad allocation in cuFFT: " << ba.what();
             throw sre;
         }
-        catch(const ddrf::cufft::invalid_argument& ia)
+        catch(const glados::cufft::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() passed an invalid argument to cuFFT: " << ia.what();
             throw sre;
         }
-        catch(const ddrf::cufft::runtime_error& re)
+        catch(const glados::cufft::runtime_error& re)
         {
             BOOST_LOG_TRIVIAL(fatal) << "filter_stage::run() encountered a cuFFT runtime error: " << re.what();
             throw sre;

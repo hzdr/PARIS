@@ -1,45 +1,45 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 19 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_SINK_STAGE_H_
-#define DDAFA_SINK_STAGE_H_
+#ifndef PARIS_SINK_STAGE_H_
+#define PARIS_SINK_STAGE_H_
 
 #include <cstddef>
 #include <functional>
 #include <string>
 #include <utility>
 
-#include <ddrf/cuda/memory.h>
+#include <glados/cuda/memory.h>
 
 #include "geometry.h"
 #include "task.h"
 #include "volume.h"
 
-namespace ddafa
+namespace paris
 {
     class sink_stage
     {
         public:
-            using input_type = volume<ddrf::cuda::pinned_host_ptr<float>>;
+            using input_type = volume<glados::cuda::pinned_host_ptr<float>>;
             using output_type = void;
 
         public:
@@ -63,4 +63,4 @@ namespace ddafa
 
 
 
-#endif /* DDAFA_SINK_STAGE_H_ */
+#endif /* PARIS_SINK_STAGE_H_ */

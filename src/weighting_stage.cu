@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -28,17 +28,17 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/exception.h>
-#include <ddrf/cuda/launch.h>
-#include <ddrf/cuda/utility.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/exception.h>
+#include <glados/cuda/launch.h>
+#include <glados/cuda/utility.h>
 
 #include "exception.h"
 #include "geometry.h"
 #include "projection.h"
 #include "weighting_stage.h"
 
-namespace ddafa
+namespace paris
 {
     namespace
     {
@@ -48,8 +48,8 @@ namespace ddafa
                                 float d_sd,
                                 float l_px_row, float l_px_col)
         {
-            auto s = ddrf::cuda::coord_x();
-            auto t = ddrf::cuda::coord_y();
+            auto s = glados::cuda::coord_x();
+            auto t = glados::cuda::coord_y();
 
             if((s < n_row) && (t < n_col))
             {
@@ -74,7 +74,7 @@ namespace ddafa
         template <class In>
         auto weight(In& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col) -> void
         {
-            ddrf::cuda::launch_async(p.stream, p.width, p.height,
+            glados::cuda::launch_async(p.stream, p.width, p.height,
                                 weighting_kernel,
                                 p.ptr.get(), static_cast<const float*>(p.ptr.get()),
                                 p.width, p.height, p.ptr.pitch(),
@@ -103,7 +103,7 @@ namespace ddafa
 
         try
         {
-            ddrf::cuda::set_device(device_);
+            glados::cuda::set_device(device_);
             while(true)
             {
                 auto p = input_();
@@ -114,24 +114,24 @@ namespace ddafa
                 weight(p, h_min_, v_min_, d_sd_, det_geo_.l_px_row, det_geo_.l_px_col);
 
                 // done
-                ddrf::cuda::synchronize_stream(p.stream);
+                glados::cuda::synchronize_stream(p.stream);
                 output_(std::move(p));
             }
 
             output_(output_type{});
             BOOST_LOG_TRIVIAL(info) << "Weighted all projections.";
         }
-        catch(const ddrf::cuda::bad_alloc& ba)
+        catch(const glados::cuda::bad_alloc& ba)
         {
             BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() encountered a bad_alloc: " << ba.what();
             throw sre;
         }
-        catch(const ddrf::cuda::invalid_argument& ia)
+        catch(const glados::cuda::invalid_argument& ia)
         {
             BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() passed an invalid argument to the CUDA runtime: " << ia.what();
             throw sre;
         }
-        catch(const ddrf::cuda::runtime_error& re)
+        catch(const glados::cuda::runtime_error& re)
         {
             BOOST_LOG_TRIVIAL(fatal) << "weighting_stage::run() caused a CUDA runtime error: " << re.what();
             throw sre;
