@@ -1,19 +1,19 @@
-# This file is part of the ddafa reconstruction program.
+# This file is part of the PARIS reconstruction program.
 #
 # Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
 #
-# ddafa is free software: you can redistribute it and/or modify
+# PARIS is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# ddafa is distributed in the hope that it will be useful,
+# PARIS is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+# along with PARIS. If not, see <http://www.gnu.org/licenses/>.
 
 SET(COMMON_SOURCES  ddbvf.cpp
                     filesystem.cpp
@@ -29,7 +29,7 @@ SET(COMMON_SOURCES  ddbvf.cpp
                     task.cpp
                     weighting_stage.cpp)
 
-IF(DDAFA_ENABLE_CUDA)
+IF(PARIS_ENABLE_CUDA)
     SET(CUDA_NVCC_FLAGS
         ${CUDA_NVCC_FLAGS};
         -std=c++11;
@@ -56,7 +56,7 @@ IF(DDAFA_ENABLE_CUDA)
     SET(CUDA_VERBOSE_BUILD OFF)
     SET(CUDA_SEPARABLE_COMPILATION OFF)
 
-    CUDA_ADD_EXECUTABLE(ddafa.cuda
+    CUDA_ADD_EXECUTABLE(paris.cuda
                         cuda/device.cpp
                         cuda/error.cpp
                         cuda/filter_kernels.cu
@@ -66,12 +66,12 @@ IF(DDAFA_ENABLE_CUDA)
                         cuda/weighting_kernels.cu
                         ${COMMON_SOURCES})
 
-    SET_PROPERTY(TARGET ddafa.cuda PROPERTY CXX_STANDARD 11)
-    CUDA_ADD_CUFFT_TO_TARGET(ddafa.cuda)
+    SET_PROPERTY(TARGET paris.cuda PROPERTY CXX_STANDARD 11)
+    CUDA_ADD_CUFFT_TO_TARGET(paris.cuda)
 
-    TARGET_COMPILE_DEFINITIONS(ddafa.cuda PRIVATE DDAFA_ENABLE_CUDA)
+    TARGET_COMPILE_DEFINITIONS(paris.cuda PRIVATE PARIS_ENABLE_CUDA)
 
-    TARGET_LINK_LIBRARIES(ddafa.cuda
+    TARGET_LINK_LIBRARIES(paris.cuda
                             ${Boost_LIBRARIES}
                             ${CMAKE_THREAD_LIBS_INIT})
-ENDIF(DDAFA_ENABLE_CUDA)
+ENDIF(PARIS_ENABLE_CUDA)

@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 04 December 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -25,8 +25,8 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/coordinates.h>
-#include <ddrf/cuda/launch.h>
+#include <glados/cuda/coordinates.h>
+#include <glados/cuda/launch.h>
 
 #include "../exception.h"
 #include "../reconstruction_constants.h"
@@ -34,7 +34,7 @@
 
 #include "backend.h"
 
-namespace ddafa
+namespace paris
 {
     namespace cuda
     {
@@ -65,9 +65,9 @@ namespace ddafa
                                         cudaTextureObject_t proj, float angle_sin,
                                         float angle_cos)
             {
-                auto k = ddrf::cuda::coord_x();
-                auto l = ddrf::cuda::coord_y();
-                auto m = ddrf::cuda::coord_z();
+                auto k = glados::cuda::coord_x();
+                auto l = glados::cuda::coord_y();
+                auto m = glados::cuda::coord_z();
 
                 if((k < dev_consts__.vol_dim_x) &&
                    (l < dev_consts__.vol_dim_y) &&
@@ -174,10 +174,10 @@ namespace ddafa
                 }
 
                 if(enable_roi)
-                    ddrf::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<true>,
+                    glados::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<true>,
                                                 vol_ptr, vol_pitch, tex, sin, cos);
                 else
-                    ddrf::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<false>,
+                    glados::cuda::launch_async(handle, dim_x, dim_y, dim_z, backproject<false>,
                                                 vol_ptr, vol_pitch, tex, sin, cos);
 
                 err = cudaDestroyTextureObject(tex);

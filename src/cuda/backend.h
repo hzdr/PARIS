@@ -1,27 +1,27 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 30 November 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_CUDA_BACKEND_H_
-#define DDAFA_CUDA_BACKEND_H_
+#ifndef PARIS_CUDA_BACKEND_H_
+#define PARIS_CUDA_BACKEND_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -32,16 +32,16 @@
 #include <cuda_runtime.h>
 #endif
 
-#include <ddrf/cuda/algorithm.h>
-#include <ddrf/cuda/memory.h>
-#include <ddrf/cuda/sync_policy.h>
-#include <ddrf/cufft/plan.h>
+#include <glados/cuda/algorithm.h>
+#include <glados/cuda/memory.h>
+#include <glados/cuda/sync_policy.h>
+#include <glados/cufft/plan.h>
 
 #include "../reconstruction_constants.h"
 #include "../region_of_interest.h"
 #include "../subvolume_information.h"
 
-namespace ddafa
+namespace paris
 {
     namespace cuda
     {
@@ -53,68 +53,68 @@ namespace ddafa
         auto print_error(const std::string& msg, error_type err) noexcept -> void;
 
         // exceptions
-        using bad_alloc = ddrf::cuda::bad_alloc;
-        using invalid_argument = ddrf::cuda::invalid_argument;
-        using runtime_error = ddrf::cuda::runtime_error;
+        using bad_alloc = glados::cuda::bad_alloc;
+        using invalid_argument = glados::cuda::invalid_argument;
+        using runtime_error = glados::cuda::runtime_error;
 
         constexpr auto name = "CUDA";
         /*
          * Memory management
          * */
-        using allocator = ddrf::cuda::device_allocator<float, ddrf::memory_layout::pointer_2D>;
+        using allocator = glados::cuda::device_allocator<float, glados::memory_layout::pointer_2D>;
         
         template <class T>
-        using host_ptr_1D = ddrf::cuda::pinned_host_ptr<T>;
+        using host_ptr_1D = glados::cuda::pinned_host_ptr<T>;
 
         template <class T>
-        using host_ptr_2D = ddrf::cuda::pinned_host_ptr<T>;
+        using host_ptr_2D = glados::cuda::pinned_host_ptr<T>;
 
         template <class T>
-        using host_ptr_3D = ddrf::cuda::pinned_host_ptr<T>;
+        using host_ptr_3D = glados::cuda::pinned_host_ptr<T>;
 
         template <class T>
-        using device_ptr_1D = ddrf::cuda::device_ptr<T>;
+        using device_ptr_1D = glados::cuda::device_ptr<T>;
 
         template <class T>
-        using device_ptr_2D = ddrf::cuda::pitched_device_ptr<T>;
+        using device_ptr_2D = glados::cuda::pitched_device_ptr<T>;
 
         template <class T>
-        using device_ptr_3D = ddrf::cuda::pitched_device_ptr<T>;
+        using device_ptr_3D = glados::cuda::pitched_device_ptr<T>;
 
         template <class T>
         auto make_host_ptr(std::size_t n) -> host_ptr_1D<T>
         {
-            return ddrf::cuda::make_unique_pinned_host<T>(n);
+            return glados::cuda::make_unique_pinned_host<T>(n);
         }
 
         template <class T>
         auto make_host_ptr(std::size_t x, std::size_t y) -> host_ptr_2D<T>
         {
-            return ddrf::cuda::make_unique_pinned_host<T>(x, y);
+            return glados::cuda::make_unique_pinned_host<T>(x, y);
         }
 
         template <class T>
         auto make_host_ptr(std::size_t x, std::size_t y, std::size_t z) -> host_ptr_3D<T>
         {
-            return ddrf::cuda::make_unique_pinned_host<T>(x, y, z);
+            return glados::cuda::make_unique_pinned_host<T>(x, y, z);
         }
 
         template <class T>
         auto make_device_ptr(std::size_t n) -> device_ptr_1D<T>
         {
-            return ddrf::cuda::make_unique_device<T>(n);
+            return glados::cuda::make_unique_device<T>(n);
         }
 
         template <class T>
         auto make_device_ptr(std::size_t x, std::size_t y) -> device_ptr_2D<T>
         {
-            return ddrf::cuda::make_unique_device<T>(x, y);
+            return glados::cuda::make_unique_device<T>(x, y);
         }
 
         template <class T>
         auto make_device_ptr(std::size_t x, std::size_t y, std::size_t z) -> device_ptr_3D<T>
         {
-            return ddrf::cuda::make_unique_device<T>(x, y, z);
+            return glados::cuda::make_unique_device<T>(x, y, z);
         }
 
         /*
@@ -130,8 +130,8 @@ namespace ddafa
         /*
          * Synchronization
          * */
-        constexpr auto sync = ddrf::cuda::sync;
-        constexpr auto async = ddrf::cuda::async;
+        constexpr auto sync = glados::cuda::sync;
+        constexpr auto async = glados::cuda::async;
 
         using async_handle = cudaStream_t;
         constexpr auto default_async_handle = cudaStream_t{0};
@@ -147,13 +147,13 @@ namespace ddafa
         template <class SyncPolicy, class D, class S, class... Args>
         auto copy(SyncPolicy&& policy, D& dst, const S& src, Args&&... args) -> void
         {
-            ddrf::cuda::copy(std::forward<SyncPolicy>(policy), dst, src, std::forward<Args>(args)...);
+            glados::cuda::copy(std::forward<SyncPolicy>(policy), dst, src, std::forward<Args>(args)...);
         }
 
         template <class SyncPolicy, class P, class... Args>
         auto fill(SyncPolicy&& policy, P& p, int value, Args&&... args) -> void
         {
-            ddrf::cuda::fill(std::forward<SyncPolicy>(policy), p, value, std::forward<Args>(args)...);
+            glados::cuda::fill(std::forward<SyncPolicy>(policy), p, value, std::forward<Args>(args)...);
         }
 
         /*
@@ -195,9 +195,9 @@ namespace ddafa
         {
             constexpr auto name = "cuFFT";
 
-            using bad_alloc = ddrf::cufft::bad_alloc;
-            using invalid_argument = ddrf::cufft::invalid_argument;
-            using runtime_error = ddrf::cufft::runtime_error;
+            using bad_alloc = glados::cufft::bad_alloc;
+            using invalid_argument = glados::cufft::invalid_argument;
+            using runtime_error = glados::cufft::runtime_error;
 
             using complex_type = cufftComplex;
             using transformation_type = cufftType;
@@ -205,7 +205,7 @@ namespace ddafa
             constexpr auto c2r = CUFFT_C2R;
 
             template <transformation_type Type>
-            using plan_type = ddrf::cufft::plan<Type>;
+            using plan_type = glados::cufft::plan<Type>;
 
             // cuFFT doesn't need pointers to the data for plan creation -> ignore in and out ptrs
             template <transformation_type Type, class Src, class Dst>
@@ -214,7 +214,7 @@ namespace ddafa
                            Dst* /* out */, int* onembed, int ostride, int odist)
             -> plan_type<Type>
             {
-                return ddrf::cufft::plan<Type>{rank, n,
+                return glados::cufft::plan<Type>{rank, n,
                                                inembed, istride, idist,
                                                onembed, ostride, odist,
                                                batch_size};
@@ -233,10 +233,10 @@ namespace ddafa
         auto expand(const In& in, Out& out, std::uint32_t x, std::uint32_t y) -> void
         {
             // reset expanded projection
-            ddrf::cuda::fill(ddrf::cuda::async, out, 0, in.async_handle, x, y);
+            glados::cuda::fill(glados::cuda::async, out, 0, in.async_handle, x, y);
 
             // copy original projection to expanded projection
-            ddrf::cuda::copy(ddrf::cuda::async, out, in.ptr, in.async_handle, in.width, in.height);
+            glados::cuda::copy(glados::cuda::async, out, in.ptr, in.async_handle, in.width, in.height);
         }
 
         template <class In, class Out, class Plan>
@@ -282,7 +282,7 @@ namespace ddafa
         template <class In, class Out>
         auto shrink(const In& in, Out& out) -> void
         {
-            ddrf::cuda::copy(ddrf::cuda::async, out.ptr, in, out.async_handle,
+            glados::cuda::copy(glados::cuda::async, out.ptr, in, out.async_handle,
                              out.width, out.height);
         }
 
@@ -311,4 +311,4 @@ namespace ddafa
     }
 }
 
-#endif /* DDAFA_CUDA_BACKEND_H_ */
+#endif /* PARIS_CUDA_BACKEND_H_ */

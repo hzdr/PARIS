@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -37,11 +37,11 @@
 #include "region_of_interest.h"
 #include "volume.h"
 
-namespace ddafa
+namespace paris
 {
     namespace
     {
-        auto download(const ddrf::cuda::pitched_device_ptr<float>& in, ddrf::cuda::pinned_host_ptr<float>& out,
+        auto download(const backend::device_ptr_3D<float>& in, backend::host_ptr_3D<float>& out,
                         std::uint32_t x, std::uint32_t y, std::uint32_t z) -> void
         {
             backend::copy(backend::sync, out, in, x, y, z);

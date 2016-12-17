@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 21 November 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -32,12 +32,11 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/memory.h>
-
+#include "backend.h"
 #include "ddbvf.h"
 #include "volume.h"
 
-namespace ddafa
+namespace paris
 {
     namespace ddbvf
     {
@@ -179,7 +178,7 @@ namespace ddafa
             using element_type = typename decltype(volume_type::ptr)::element_type;
             auto read_size = static_cast<std::streamsize>(h->head.dim_x * h->head.dim_y * slices * sizeof(element_type));
             auto read_pos = static_cast<std::fstream::off_type>(h->head.dim_x * h->head.dim_y * first * sizeof(element_type));
-            auto ptr = ddrf::cuda::make_unique_pinned_host<element_type>(h->head.dim_x, h->head.dim_y, slices);
+            auto ptr = backend::make_host_ptr<element_type>(h->head.dim_x, h->head.dim_y, slices);
 
             // read data 
             h->stream.seekp(first_pos);

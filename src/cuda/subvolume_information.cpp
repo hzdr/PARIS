@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 28 October 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -25,16 +25,16 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <ddrf/cuda/exception.h>
-#include <ddrf/cuda/memory.h>
-#include <ddrf/cuda/utility.h>
+#include <glados/cuda/exception.h>
+#include <glados/cuda/memory.h>
+#include <glados/cuda/utility.h>
 
 #include "../exception.h"
 #include "../geometry.h"
 #include "../subvolume_information.h"
 #include "backend.h"
 
-namespace ddafa
+namespace paris
 {
     namespace cuda
     {
@@ -62,7 +62,7 @@ namespace ddafa
 
         auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) -> subvolume_info
         {
-            auto sce = ddafa::stage_construction_error{"create_subvolume_information() failed"};
+            auto sce = paris::stage_construction_error{"create_subvolume_information() failed"};
 
             try
             {
@@ -70,7 +70,7 @@ namespace ddafa
                 auto info = memory_info(vol_geo, det_geo);
                 auto mem_needed = info.vol + static_cast<std::size_t>(proj_num) * info.proj;
 
-                auto devices = ddrf::cuda::get_device_count();
+                auto devices = glados::cuda::get_device_count();
                 auto d_s = static_cast<std::size_t>(devices);
                 mem_needed /= d_s;
 
@@ -78,13 +78,13 @@ namespace ddafa
 
                 for(auto d = 0; d < devices; ++d)
                 {
-                    ddrf::cuda::set_device(d);
+                    glados::cuda::set_device(d);
 
                     auto mem_dev = mem_needed;
 
                     auto mem_free = std::size_t{};
                     auto mem_total = std::size_t{};
-                    ddrf::cuda::get_memory_info(mem_free, mem_total);
+                    glados::cuda::get_memory_info(mem_free, mem_total);
 
                     while(std::max(mem_dev, mem_free) == mem_dev)
                     {
@@ -95,12 +95,12 @@ namespace ddafa
                     // FIXME: nasty exception abuse
                     try
                     {
-                        ddrf::cuda::make_unique_device<float>(vol_geo.dim_x,
+                        glados::cuda::make_unique_device<float>(vol_geo.dim_x,
                                                                 vol_geo.dim_y,
                                                                 vol_geo.dim_z / vols_needed);
                         BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
                     }
-                    catch(const ddrf::cuda::bad_alloc& ba)
+                    catch(const glados::cuda::bad_alloc& ba)
                     {
                         BOOST_LOG_TRIVIAL(info) << "Test allocation failed, reducing subvolume size.";
                         mem_dev /= 2;
@@ -116,17 +116,17 @@ namespace ddafa
 
                 return subvol_info;
             }
-            catch(const ddrf::cuda::bad_alloc& ba)
+            catch(const glados::cuda::bad_alloc& ba)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "create_subvolume_geometry() encountered a bad_alloc: " << ba.what();
                 throw sce;
             }
-            catch(const ddrf::cuda::invalid_argument& ia)
+            catch(const glados::cuda::invalid_argument& ia)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "create_subvolume_geometry() passed an invalid argument to the CUDA runtime: " << ia.what();
                 throw sce;
             }
-            catch(const ddrf::cuda::runtime_error& re)
+            catch(const glados::cuda::runtime_error& re)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "create_subvolume_geometry() caused a CUDA runtime error: " << re.what();
                 throw sce;
