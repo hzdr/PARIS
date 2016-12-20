@@ -1,27 +1,27 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 04 December 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_OPENMP_BACKEND_H_
-#define DDAFA_OPENMP_BACKEND_H_
+#ifndef PARIS_OPENMP_BACKEND_H_
+#define PARIS_OPENMP_BACKEND_H_
 
 #include <algorithm>
 #include <cstddef>
@@ -40,7 +40,7 @@
 #include "../region_of_interest.h"
 #include "../subvolume_information.h"
 
-namespace ddafa
+namespace paris
 {
     namespace openmp
     {
@@ -49,7 +49,7 @@ namespace ddafa
          * */
         using error_type = int;
         constexpr auto success = 1;
-        auto print_error(const std::string& msg, error_type err) noexcept -> void;
+        inline auto print_error(const std::string& msg, error_type err) noexcept -> void {}
 
         // exceptions
         using bad_alloc = std::bad_alloc;
@@ -125,7 +125,7 @@ namespace ddafa
         constexpr auto set_device(const device_handle&) {}
         constexpr auto set_device_noexcept(const device_handle&) noexcept { return success; }
 
-        auto get_devices() { return std::vector<device_handle>{0}; }
+        inline auto get_devices() { return std::vector<device_handle>{0}; }
 
         /*
          * Synchronization
@@ -134,20 +134,93 @@ namespace ddafa
         constexpr auto async = int{};
 
         using async_handle = int;
-        constexpr auto default_async_handle = 0;
+        constexpr auto default_async_handle = async_handle{0};
 
-        auto make_async_handle() { return async_handle{0}; }
-        auto destroy_async_handle(async_handle&) noexcept { return success; }
+        inline auto make_async_handle() { return async_handle{0}; }
+        inline auto destroy_async_handle(async_handle&) noexcept { return success; }
 
-        auto synchronize(const async_handle&) {}
+        inline auto synchronize(const async_handle&) {}
 
         /*
          * Basic algorithms
          * */
+        namespace detail
+        {
+            template <class D, class S>
+            auto copy(D& dst, const S& src, std::size_t n) noexcept -> void
+            {
+                std::copy_n(src.get(), n, dst.get());
+            }
+
+            template <class D, class S>
+            auto copy(D& dst, const S& src, std::size_t x, std::size_t y) noexcept -> void
+            {
+                std::copy_n(src.get(), x * y, dst.get());
+            }
+
+            template <class D, class S>
+            auto copy(D& dst, const S& src, std::size_t x, std::size_t y, std::size_t z) noexcept -> void
+            {
+                std::copy_n(src.get(), x * y * z, dst.get());
+            }
+
+            template <class D>
+            auto fill(D& dst, int value, std::size_t n) noexcept -> void
+            {
+                auto bytes = sizeof(typename D::element_type) * n;
+                auto ptr = reinterpret_cast<char*>(dst.get());
+                std::fill_n(ptr, bytes, value);
+            }
+
+            template <class D>
+            auto fill(D& dst, int value, std::size_t x, std::size_t y) noexcept -> void
+            {
+                auto bytes = sizeof(typename D::element_type) * x * y;
+                auto ptr = reinterpret_cast<char*>(dst.get());
+                std::fill_n(ptr, bytes, value);
+            }
+
+            template <class D>
+            auto fill(D& dst, int value, std::size_t x, std::size_t y, std::size_t z) noexcept -> void
+            {
+                auto bytes = sizeof(typename D::element_type) * x * y * z;
+                auto ptr = reinterpret_cast<char*>(dst.get());
+                std::fill_n(ptr, bytes, value);
+            }
+        }
+
         template <class SyncPolicy, class D, class S, class... Args>
         auto copy(SyncPolicy&& /* policy */ , D& dst, const S& src, Args&&... args) -> void
         {
+            detail::copy(dst, src, std::forward<Args>(args)...);
         }
+
+        // remove async_handle
+        template <class SyncPolicy, class D, class S, class... Args>
+        auto copy(SyncPolicy&& /* policy */, D& dst, const S& src, async_handle& /* handle */, Args&&... args) -> void
+        {
+            detail::copy(dst, src, std::forward<Args>(args)...);
+        }
+
+        template <class SyncPolicy, class D, class... Args>
+        auto fill(SyncPolicy&& /* policy */, D& dst, int value, Args&&... args) -> void
+        {
+            detail::fill(dst, value, std::forward<Args>(args)...);
+        }
+
+        /*
+         * Subvolume information
+         * */
+        /*
+         * Based on the target volume dimensions, the detector geometry and the number of projections in the pipeline
+         * this function creates subvolume geometries according to the following algorithm:
+         *
+         * 1) Divide the volume by the number of available devices
+         * 2) Check if the subvolume and proj_num projections fit into device memory
+         *      a) if yes, return
+         *      b) else, divide the volume by 2 until it fits
+         */
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) noexcept -> subvolume_info;
 
         /*
          * Weighting
@@ -177,6 +250,7 @@ namespace ddafa
             using invalid_argument = std::invalid_argument;
             using runtime_error = std::runtime_error;
 
+            using real_type = float;
             using complex_type = fftwf_complex;
             using forward_plan_type = fftwf_plan;
             using inverse_plan_type = fftwf_plan;
@@ -188,9 +262,34 @@ namespace ddafa
             auto make_inverse_plan(int rank, int* n, int batch_size,
                                 complex_type* in, int* inembed, int istride, int idist,
                                 float* out, int* onembed, int ostride, int odist) -> inverse_plan_type;
+
+            struct deleter
+            {
+                auto operator()(void* p) noexcept -> void
+                {
+                    fftwf_free(p);
+                }
+            };
+
+            template <class T>
+            using pointer = std::unique_ptr<T[], deleter>;
+
+            template <class T>
+            auto make_ptr(std::size_t n) -> pointer<T>
+            {
+                auto p = reinterpret_cast<T*>(fftwf_malloc(n * sizeof(T)));
+                return pointer<T>{p};
+            }
+
+            template <class T>
+            auto make_ptr(std::size_t x, std::size_t y) -> pointer<T>
+            {
+                auto p = reinterpret_cast<T*>(fftwf_malloc(x * y  * sizeof(T)));
+                return pointer<T>{p};
+            }
         }
 
-        auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>;
+        auto make_filter(std::uint32_t size, float tau) -> fft::pointer<fft::complex_type>;
 
         template <class Ptr>
         auto calculate_distance(Ptr& /* p */, std::uint32_t width) -> int
@@ -204,12 +303,15 @@ namespace ddafa
             auto in_ptr = in.ptr.get();
             auto out_ptr = out.get();
 
-            // reset expanded projection
-            std::fill_n(out_ptr, dim_x, 0.f);
-
             // copy original projection to expanded projection
-            for(auto y = 0u; y < dim_y; ++y)
-                std::copy_n(in_ptr, in.width, out_ptr);
+            #pragma omp parallel for collapse(2)
+            for(auto y = 0u; y < in.height; ++y)
+            {
+                for(auto x = 0u; x < in.width; ++x)
+                {
+                    out_ptr[x + y * dim_x] = in_ptr[x + y * in.width];
+                }
+            }
         }
 
         template <class In, class Out, class Plan>
@@ -230,8 +332,61 @@ namespace ddafa
         {
             detail::do_filtering(in.get(), filter.get(), dim_x, dim_y);
         }
+
+        template <class In, class Out>
+        auto shrink(const In& in, Out& out, std::uint32_t filter_size) -> void
+        {
+            auto in_ptr = in.get();
+            auto out_ptr = out.ptr.get();
+            // copy expanded projection to original projection
+            #pragma omp parallel for collapse(2)
+            for(auto y = 0u; y < out.height; ++y)
+            {
+                for(auto x = 0u; x < out.width; ++x)
+                {
+                    auto coord = x + y * out.width;
+                    out_ptr[x + y * out.width] = in_ptr[x + y * filter_size];
+                }
+            }
+        }
+
+        template <class In>
+        auto normalize(In& in, std::uint32_t filter_size) -> void
+        {
+            auto in_ptr = in.ptr.get();
+
+            #pragma omp parallel for collapse(2)
+            for(auto y = 0; y < in.height; ++y)
+            {
+                for(auto x = 0; x < in.width; ++x)
+                {
+                    in_ptr[x + y * in.width] /= filter_size;
+                }
+            }
+        }
+
+        /*
+         * Reconstruction
+         * */
+        auto set_reconstruction_constants(const reconstruction_constants& rc) noexcept -> error_type;
+        auto set_roi(const region_of_interest& roi) noexcept -> error_type;
+
+
+        namespace detail
+        {
+            auto do_backprojection(float* vol_ptr, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z,
+                                   const float* p_ptr, std::uint32_t p_dim_x, std::uint32_t p_dim_y,
+                                   float sin, float cos, bool enable_roi) noexcept -> void;
+        }
+
+        template <class Vol, class Proj>
+        auto backproject(async_handle& /* handle */,
+                         Vol& vol, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z,
+                         Proj& p, float sin, float cos, bool enable_roi) noexcept -> void
+        {
+            detail::do_backprojection(vol.get(), dim_x, dim_y, dim_z, p.ptr.get(), p.width, p.height, sin, cos, enable_roi);
+        }
     }
 }
 
 #endif
-

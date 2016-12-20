@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 27 October 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -29,7 +29,7 @@
 #include "geometry.h"
 #include "region_of_interest.h"
 
-namespace ddafa
+namespace paris
 {
     namespace
     {
@@ -98,6 +98,14 @@ namespace ddafa
             auto dim_x = x2 - x1;
             auto dim_y = y2 - y1;
             auto dim_z = z2 - z1;
+
+            if(x1 == 0)
+                ++dim_x;
+            if(y1 == 0)
+                ++dim_y;
+            if(z1 == 0)
+                ++dim_z;
+
             if(check_dims(dim_x, vol_geo.dim_x) && check_dims(dim_y, vol_geo.dim_y) && check_dims(dim_z, vol_geo.dim_z))
             {
                 roi_geo.dim_x = dim_x;

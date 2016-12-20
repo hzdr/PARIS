@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -34,7 +34,7 @@
 #include "geometry.h"
 #include "filter_stage.h"
 
-namespace ddafa
+namespace paris
 {
     filter_stage::filter_stage(const backend::device_handle& device) noexcept
     : device_{device}
@@ -68,11 +68,11 @@ namespace ddafa
             auto batch = static_cast<int>(n_col_);
 
             // allocate memory for expanded projection (projection width -> filter_size_)
-            auto p_exp = backend::make_device_ptr<float>(filter_size_, n_col_);
+            auto p_exp = backend::fft::make_ptr<backend::fft::real_type>(filter_size_, n_col_);
 
             // allocate memory for transformed projection (filter_size_ -> size_trans)
             auto size_trans = filter_size_ / 2 + 1;
-            auto p_trans = backend::make_device_ptr<backend::fft::complex_type>(size_trans, n_col_);
+            auto p_trans = backend::fft::make_ptr<backend::fft::complex_type>(size_trans, n_col_);
 
             // calculate the distance between the first elements of two successive lines
             auto p_exp_dist = backend::calculate_distance(p_exp, filter_size_);
@@ -116,7 +116,7 @@ namespace ddafa
                 backend::transform(p_trans, p_exp, inverse, p.async_handle);
 
                 // shrink to original size and normalize
-                backend::shrink(p_exp, p);
+                backend::shrink(p_exp, p, filter_size_);
                 backend::normalize(p, filter_size_);
 
                 // done

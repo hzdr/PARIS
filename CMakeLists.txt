@@ -1,22 +1,22 @@
-# This file is part of the ddafa reconstruction program.
+# This file is part of the PARIS reconstruction program.
 #
 # Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
 #
-# ddafa is free software: you can redistribute it and/or modify
+# PARIS is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# ddafa is distributed in the hope that it will be useful,
+# PARIS is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+# along with PARIS. If not, see <http://www.gnu.org/licenses/>.
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
-PROJECT(ddafa)
+PROJECT(paris)
 
 IF(NOT DEFINED GLADOS_INCLUDE_PATH)
     MESSAGE(FATAL_ERROR "You must set GLADOS' include path!")
@@ -37,19 +37,23 @@ FIND_PACKAGE(OpenCL 1.2)
 FIND_PACKAGE(OpenMP)
 
 IF(CUDA_FOUND)
-    SET(DDAFA_ENABLE_CUDA TRUE)
+    SET(PARIS_ENABLE_CUDA TRUE)
 ENDIF(CUDA_FOUND)
 
 IF(OPENCL_FOUND)
-    SET(DDAFA_ENABLE_OPENCL TRUE)
+    SET(PARIS_ENABLE_OPENCL TRUE)
 ENDIF(OPENCL_FOUND)
 
 IF(OPENMP_FOUND)
     SET(FFTW_USE_OPENMP ON)
     SET(FFTW_DOUBLE_PRECISION OFF)
-    FIND_PACKAGE(FFTW REQUIRED)
-    INCLUDE_DIRECTORIES(${FFTW_INCLUDE_DIR})
-    SET(DDAFA_ENABLE_OPENMP TRUE)
+    FIND_PACKAGE(FFTW)
+    IF(FFTW_FOUND)
+        INCLUDE_DIRECTORIES(${FFTW_INCLUDE_DIR})
+        SET(PARIS_ENABLE_OPENMP TRUE)
+    ELSE(FFTW_FOUND)
+        MESSAGE(WARNING "FFTW not found - disabling OpenMP port")
+    ENDIF(FFTW_FOUND)
 ENDIF(OPENMP_FOUND)
 
 INCLUDE_DIRECTORIES(${GLADOS_INCLUDE_PATH})

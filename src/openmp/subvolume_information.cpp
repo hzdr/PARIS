@@ -16,23 +16,29 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 02 December 2016
- * Authors: Jan Stephan
+ * Date: 19 December 2016
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <string>
-
-#include <boost/log/trivial.hpp>
-
+#include "../geometry.h"
+#include "../subvolume_information.h"
 #include "backend.h"
 
 namespace paris
 {
-    namespace cuda
+    namespace openmp
     {
-        auto print_error(const std::string& msg, error_type err) noexcept -> void
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) noexcept -> subvolume_info
         {
-            BOOST_LOG_TRIVIAL(fatal) << msg << cudaGetErrorString(err);
+            auto subvol_info = subvolume_info{};
+
+            subvol_info.geo.dim_x = vol_geo.dim_x;
+            subvol_info.geo.dim_y = vol_geo.dim_y;
+            subvol_info.geo.dim_z = vol_geo.dim_z;
+            subvol_info.geo.remainder = 0u;
+            subvol_info.num = 1;
+
+            return subvol_info;
         }
     }
 }

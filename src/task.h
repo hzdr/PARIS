@@ -1,27 +1,27 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 07 November 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef DDAFA_TASK_H_
-#define DDAFA_TASK_H_
+#ifndef PARIS_TASK_H_
+#define PARIS_TASK_H_
 
 #include <cstdint>
 #include <string>
@@ -32,7 +32,7 @@
 #include "region_of_interest.h"
 #include "subvolume_information.h"
 
-namespace ddafa
+namespace paris
 {
     struct task
     {
@@ -58,6 +58,4 @@ namespace ddafa
     -> std::queue<task>;
 }
 
-
-
-#endif /* DDAFA_TASK_H_ */
+#endif /* PARIS_TASK_H_ */

@@ -1,20 +1,20 @@
 /*
- * This file is part of the ddafa reconstruction program.
+ * This file is part of the PARIS reconstruction program.
  *
  * Copyright (C) 2016 Helmholtz-Zentrum Dresden-Rossendorf
  *
- * ddafa is free software: you can redistribute it and/or modify
+ * PARIS is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * ddafa is distributed in the hope that it will be useful,
+ * PARIS is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with ddafa. If not, see <http://www.gnu.org/licenses/>.
+ * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
  * Date: 05 December 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
@@ -29,7 +29,7 @@
 
 #include "backend.h"
 
-namespace ddafa
+namespace paris
 {
     namespace openmp
     {
@@ -58,53 +58,56 @@ namespace ddafa
 
         namespace
         {
-            auto make_filter_real(std::uint32_t size, float tau) -> device_ptr_1D<float>
+            auto make_filter_real(fft::pointer<fft::real_type>& r, std::uint32_t size, float tau) -> void
             {
                 auto js = make_device_ptr<std::int32_t>(size);
-                auto size_i = static_cast<std::int32_t>(size);
                 auto j = -(size - 2) / 2;
                 std::iota(js.get(), js.get() + size, j);
-
-                auto r = std::make_device_ptr<float>(size);
 
                 #pragma omp parallel for
                 for(auto x = 0u; x < size; ++x)
                 {
-                    if(j[x] == 0)
+                    if(js[x] == 0)
                         r[x] = (1.f / 8.f) * (1.f / std::pow(tau, 2.f));
                     else
                     {
-                        if(j[x] % 2 == 0)
+                        if(js[x] % 2 == 0)
                             r[x] = 0.f;
                         else
-                            r[x] = -(1.f / (2.f * std::pow(j[x], 2.f)
-                                   * std::pow(M_PI, 2.f)
+                            r[x] = -(1.f / (2.f * std::pow(static_cast<fft::real_type>(js[x]), 2.f)
+                                   * std::pow(static_cast<fft::real_type>(M_PI), 2.f)
                                    * std::pow(tau, 2.f)));
                     }
                 }
             }   
         }
 
-        auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>
+        auto make_filter(std::uint32_t size, float tau) -> fft::pointer<fft::complex_type>
         {
-            auto r = make_filter_real(size, tau);
-
+            // Note some FFTW quirks: Input initialization has to be done AFTER plan creation,
+            // otherwise it will be overwritten
             auto size_trans = size / 2 + 1;
-            auto k = make_device_ptr<fft::complex_type>(size_trans);
-
             auto n = static_cast<int>(size);
 
+            auto r = fft::make_ptr<fft::real_type>(size);
+            auto k = fft::make_ptr<fft::complex_type>(size_trans);
+
             auto plan = fftwf_plan_dft_r2c_1d(n, r.get(), k.get(), FFTW_MEASURE | FFTW_PRESERVE_INPUT);
+
+            make_filter_real(r, size, tau);
+
             fftwf_execute(plan);
             
             #pragma omp parallel for
             for(auto x = 0u; x < size_trans; ++x)
             {
-                auto result = tau * std::abs(std::sqrt(std::pow(k[x][0], 2.f) + std::powf(k[x][1], 2.f)));
+                auto result = tau * std::abs(std::sqrt(std::pow(k[x][0], 2.f) + std::pow(k[x][1], 2.f)));
 
                 k[x][0] = result;
                 k[x][1] = result;
             }
+
+            return k;
         }
     
         namespace detail
