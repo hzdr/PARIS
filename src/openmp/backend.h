@@ -310,9 +310,12 @@ namespace paris
             #pragma omp parallel for collapse(2)
             for(auto y = 0u; y < in.height; ++y)
             {
-                for(auto x = 0u; x < in.width; ++x)
+                for(auto x = 0u; x < dim_x; ++x)
                 {
-                    out_ptr[x + y * dim_x] = in_ptr[x + y * in.width];
+                    if(x < in.width)
+                        out_ptr[x + y * dim_x] = in_ptr[x + y * in.width];
+                    else
+                        out_ptr[x + y * dim_x] = 0;
                 }
             }
         }

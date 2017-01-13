@@ -53,6 +53,7 @@ namespace paris
                                               in, inembed, istride, idist,
                                               out, onembed, ostride, odist,
                                               FFTW_MEASURE | FFTW_DESTROY_INPUT);
+                
             }
         }
 
@@ -115,7 +116,7 @@ namespace paris
             auto do_filtering(fft::complex_type* in, const fft::complex_type* filter,
                               std::uint32_t dim_x, std::uint32_t dim_y) -> void
             {
-                #pragma omp parallel for collapse(2)
+                 #pragma omp parallel for collapse(2)
                 for(auto y = 0u; y < dim_y; ++y)
                 {
                     for(auto x = 0u; x < dim_x; ++x)
