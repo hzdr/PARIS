@@ -24,6 +24,7 @@
 #define PARIS_OPENMP_BACKEND_H_
 
 #include <algorithm>
+#include <cmath> // remove me
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -31,6 +32,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <boost/log/trivial.hpp> // remove me
 
 #include <fftw3.h>
 
@@ -122,7 +125,7 @@ namespace paris
          * */
         using device_handle = int;
 
-        constexpr auto set_device(const device_handle&) {}
+        constexpr auto set_device(const device_handle&) { return 0; } // dummy return to satisfy icc
         constexpr auto set_device_noexcept(const device_handle&) noexcept { return success; }
 
         inline auto get_devices() { return std::vector<device_handle>{0}; }

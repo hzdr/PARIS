@@ -43,35 +43,40 @@ namespace paris
             inline auto vol_centered_coordinate(std::uint32_t coord, std::uint32_t dim, float size) noexcept -> float
             {
                 auto size2 = size / 2.f;
-                return -(dim * size2) + size2 + coord * size;
+                return -(static_cast<float>(dim) * size2) + size2 + static_cast<float>(coord) * size;
             }
 
             inline auto proj_real_coordinate(float coord, std::uint32_t dim, float size, float offset) noexcept -> float
             {
                 auto size2 = size / 2.f;
-                auto min = -(dim * size2) - offset;
+                auto min = -(static_cast<float>(dim) * size2) - offset;
                 return (coord - min) / size - (1.f / 2.f);
             }
 
             auto interpolate(const float* p, float x, float y, std::uint32_t dim_x, std::uint32_t dim_y) noexcept -> float
             {
-                auto x1 = static_cast<std::int32_t>(std::floor(x));
-                auto x2 = x1 + 1;
-                auto y1 = static_cast<std::int32_t>(std::floor(y));
-                auto y2 = y1 + 1;
+                auto x1 = std::floor(x);
+                auto x2 = x1 + 1.f;
+                auto y1 = std::floor(y);
+                auto y2 = y1 + 1.f;
 
-                auto x1_valid = x1 >= 0;
-                auto x2_valid = x2 < dim_x;
-                auto y1_valid = y1 >= 0;
-                auto y2_valid = y2 < dim_y;
+                auto x1u = static_cast<std::uint32_t>(x1);
+                auto x2u = static_cast<std::uint32_t>(x2);
+                auto y1u = static_cast<std::uint32_t>(y1);
+                auto y2u = static_cast<std::uint32_t>(y2);
+
+                auto x1_valid = x1 >= 0.f;
+                auto x2_valid = x2 < static_cast<float>(dim_x);
+                auto y1_valid = y1 >= 0.f;
+                auto y2_valid = y2 < static_cast<float>(dim_y);
 
                 auto interp = 0.f;
                 if(x1_valid && x2_valid && y1_valid && y2_valid)
                 {
-                    auto q11 = p[x1 + y1 * dim_x];
-                    auto q12 = p[x1 + y2 * dim_x];
-                    auto q21 = p[x2 + y1 * dim_x];
-                    auto q22 = p[x2 + y2 * dim_x];
+                    auto q11 = p[x1u + y1u * dim_x];
+                    auto q12 = p[x1u + y2u * dim_x];
+                    auto q21 = p[x2u + y1u * dim_x];
+                    auto q22 = p[x2u + y2u * dim_x];
                     auto interp_y1 = (x2 - x) / (x2 - x1) * q11 + (x - x1) / (x2 - x1) * q21;
                     auto interp_y2 = (x2 - x) / (x2 - x1) * q12 + (x - x1) / (x2 - x1) * q22;
 

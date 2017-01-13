@@ -61,7 +61,7 @@ namespace paris
             auto make_filter_real(fft::pointer<fft::real_type>& r, std::uint32_t size, float tau) -> void
             {
                 auto js = make_device_ptr<std::int32_t>(size);
-                auto j = -(size - 2) / 2;
+                auto j = -(static_cast<std::int32_t>(size) - 2) / 2;
                 std::iota(js.get(), js.get() + size, j);
 
                 #pragma omp parallel for
