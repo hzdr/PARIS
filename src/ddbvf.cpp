@@ -80,8 +80,7 @@ namespace paris
             // the first 32 bytes are reserved for the file header
             h->head.offset = first_pos - sizeof(ddbvf_id) - sizeof(ddbvf_version) - sizeof(h->head);
 
-            // the move is needed to satisfy icc
-            h->stream = std::move(std::fstream{full_path.c_str(), std::ios::out | std::ios::binary | std::ios::trunc});
+            h->stream = std::fstream{full_path.c_str(), std::ios::out | std::ios::binary | std::ios::trunc};
 
             // write file header
             h->stream.write(reinterpret_cast<const char*>(&ddbvf_id), sizeof(ddbvf_id));
@@ -104,7 +103,7 @@ namespace paris
         {
             auto h = handle_type{new handle};
 
-            h->stream = std::move(std::fstream{path.c_str(), std::ios::in | std::ios::out | std::ios::binary});
+            h->stream = std::fstream{path.c_str(), std::ios::in | std::ios::out | std::ios::binary};
 
             auto id = std::uint32_t{};
             auto version = std::uint16_t{};
