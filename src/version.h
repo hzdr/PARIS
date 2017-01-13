@@ -27,7 +27,7 @@
 
 namespace paris
 {
-    std::string version = std::string{"0.2.97"};
+    std::string version = std::string{"0.2.98"};
 }
 
 #endif /* PARIS_VERSION_H_ */

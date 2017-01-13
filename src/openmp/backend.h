@@ -24,7 +24,6 @@
 #define PARIS_OPENMP_BACKEND_H_
 
 #include <algorithm>
-#include <cmath> // remove me
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -32,8 +31,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <boost/log/trivial.hpp> // remove me
 
 #include <fftw3.h>
 
