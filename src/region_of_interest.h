@@ -38,6 +38,4 @@ namespace paris
     };
 }
 
-
-
 #endif /* PARIS_REGION_OF_INTEREST_H_ */

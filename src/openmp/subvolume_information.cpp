@@ -16,20 +16,29 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 18 August 2016
+ * Date: 19 December 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_FILESYSTEM_H_
-#define PARIS_FILESYSTEM_H_
-
-#include <string>
-#include <vector>
+#include "../geometry.h"
+#include "../subvolume_information.h"
+#include "backend.h"
 
 namespace paris
 {
-	auto read_directory(const std::string&) -> std::vector<std::string>;
-	auto create_directory(const std::string&) -> bool;
-}
+    namespace openmp
+    {
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) noexcept -> subvolume_info
+        {
+            auto subvol_info = subvolume_info{};
 
-#endif /* PARIS_FILESYSTEM_H_ */
+            subvol_info.geo.dim_x = vol_geo.dim_x;
+            subvol_info.geo.dim_y = vol_geo.dim_y;
+            subvol_info.geo.dim_z = vol_geo.dim_z;
+            subvol_info.geo.remainder = 0u;
+            subvol_info.num = 1;
+
+            return subvol_info;
+        }
+    }
+}

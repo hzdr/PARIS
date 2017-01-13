@@ -39,6 +39,4 @@ namespace paris
     }
 }
 
-
-
 #endif /* PARIS_HIS_LOADER_H_ */

@@ -58,6 +58,4 @@ namespace paris
     -> std::queue<task>;
 }
 
-
-
 #endif /* PARIS_TASK_H_ */

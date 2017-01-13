@@ -68,15 +68,15 @@ namespace paris
             auto batch = static_cast<int>(n_col_);
 
             // allocate memory for expanded projection (projection width -> filter_size_)
-            auto p_exp = backend::make_device_ptr<float>(filter_size_, n_col_);
+            auto p_exp = backend::fft::make_ptr<backend::fft::real_type>(filter_size_, n_col_);
 
             // allocate memory for transformed projection (filter_size_ -> size_trans)
             auto size_trans = filter_size_ / 2 + 1;
-            auto p_trans = backend::make_device_ptr<backend::fft::complex_type>(size_trans, n_col_);
+            auto p_trans = backend::fft::make_ptr<backend::fft::complex_type>(size_trans, n_col_);
 
             // calculate the distance between the first elements of two successive lines
-            auto p_exp_dist = backend::calculate_distance(p_exp);
-            auto p_trans_dist = backend::calculate_distance(p_trans);
+            auto p_exp_dist = backend::calculate_distance(p_exp, filter_size_);
+            auto p_trans_dist = backend::calculate_distance(p_trans, size_trans);
 
             // set the distance between two successive elements
             constexpr auto p_exp_stride = 1;
@@ -87,11 +87,11 @@ namespace paris
             auto p_trans_nembed = p_trans_dist;
 
             // create plans for forward and inverse FFT
-            auto forward = backend::fft::make_plan<backend::fft::r2c>(rank, &n, batch,
+            auto forward = backend::fft::make_forward_plan(rank, &n, batch,
                                                         p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                         p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist);
 
-            auto inverse = backend::fft::make_plan<backend::fft::c2r>(rank, &n, batch,
+            auto inverse = backend::fft::make_inverse_plan(rank, &n, batch,
                                                         p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist,
                                                         p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist);
 
@@ -116,7 +116,7 @@ namespace paris
                 backend::transform(p_trans, p_exp, inverse, p.async_handle);
 
                 // shrink to original size and normalize
-                backend::shrink(p_exp, p);
+                backend::shrink(p_exp, p, filter_size_);
                 backend::normalize(p, filter_size_);
 
                 // done

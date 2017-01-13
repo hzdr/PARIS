@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <utility>
 
 #include <boost/log/trivial.hpp>
 

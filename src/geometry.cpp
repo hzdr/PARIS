@@ -98,6 +98,14 @@ namespace paris
             auto dim_x = x2 - x1;
             auto dim_y = y2 - y1;
             auto dim_z = z2 - z1;
+
+            if(x1 == 0)
+                ++dim_x;
+            if(y1 == 0)
+                ++dim_y;
+            if(z1 == 0)
+                ++dim_z;
+
             if(check_dims(dim_x, vol_geo.dim_x) && check_dims(dim_y, vol_geo.dim_y) && check_dims(dim_z, vol_geo.dim_z))
             {
                 roi_geo.dim_x = dim_x;

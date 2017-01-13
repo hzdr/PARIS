@@ -25,6 +25,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -58,6 +59,7 @@ namespace paris
         using runtime_error = glados::cuda::runtime_error;
 
         constexpr auto name = "CUDA";
+
         /*
          * Memory management
          * */
@@ -199,32 +201,39 @@ namespace paris
             using invalid_argument = glados::cufft::invalid_argument;
             using runtime_error = glados::cufft::runtime_error;
 
+            using real_type = float;
             using complex_type = cufftComplex;
-            using transformation_type = cufftType;
-            constexpr auto r2c = CUFFT_R2C;
-            constexpr auto c2r = CUFFT_C2R;
-
-            template <transformation_type Type>
-            using plan_type = glados::cufft::plan<Type>;
+            using forward_plan_type = glados::cufft::plan<CUFFT_R2C>;
+            using inverse_plan_type = glados::cufft::plan<CUFFT_C2R>;
 
             // cuFFT doesn't need pointers to the data for plan creation -> ignore in and out ptrs
-            template <transformation_type Type, class Src, class Dst>
-            auto make_plan(int rank, int *n, int batch_size,
-                           Src* /* in */, int* inembed, int istride, int idist,
-                           Dst* /* out */, int* onembed, int ostride, int odist)
-            -> plan_type<Type>
+            auto make_forward_plan(int rank, int *n, int batch_size,
+                           float* /* in */, int* inembed, int istride, int idist,
+                           complex_type* /* out */, int* onembed, int ostride, int odist)
+            -> forward_plan_type;
+
+            auto make_inverse_plan(int rank, int *n, int batch_size,
+                           complex_type* /* in */, int* inembed, int istride, int idist,
+                           float* /* out */, int* onembed, int ostride, int odist)
+            -> inverse_plan_type;
+
+            template <class T>
+            auto make_ptr(std::size_t n) -> device_ptr_1D<T>
             {
-                return glados::cufft::plan<Type>{rank, n,
-                                               inembed, istride, idist,
-                                               onembed, ostride, odist,
-                                               batch_size};
+                return glados::cuda::make_unique_device<T>(n);
+            }
+
+            template <class T>
+            auto make_ptr(std::size_t x, std::size_t y) -> device_ptr_2D<T>
+            {
+                return glados::cuda::make_unique_device<T>(x, y);
             }
         }
 
         auto make_filter(std::uint32_t size, float tau) -> device_ptr_1D<fft::complex_type>;
 
         template <class Ptr>
-        auto calculate_distance(Ptr& p) -> int
+        auto calculate_distance(Ptr& p, std::uint32_t /* width */) -> int
         {
             return static_cast<int>(p.pitch() / sizeof(typename Ptr::element_type));
         }
@@ -280,7 +289,7 @@ namespace paris
         }
 
         template <class In, class Out>
-        auto shrink(const In& in, Out& out) -> void
+        auto shrink(const In& in, Out& out, std::uint32_t /* filter_size */) -> void
         {
             glados::cuda::copy(glados::cuda::async, out.ptr, in, out.async_handle,
                              out.width, out.height);

@@ -56,6 +56,4 @@ namespace paris
     };
 }
 
-
-
 #endif /* PARIS_SOURCE_STAGE_H_ */

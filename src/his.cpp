@@ -192,7 +192,7 @@ namespace paris
 
                 auto w = static_cast<std::size_t>(width);
                 auto h = static_cast<std::size_t>(height);
-                vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, cudaStream_t{});
+                vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, backend::async_handle{});
             }
             return vec;
         }
