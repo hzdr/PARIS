@@ -29,32 +29,29 @@ namespace paris
 {
     namespace openmp
     {
-        namespace detail
+        auto weight(projection_device_type& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col)
+            noexcept
+            -> void
         {
-            auto do_weighting(float* out, const float* in, std::uint32_t dim_x, std::uint32_t dim_y,
-                              float h_min, float v_min, float d_sd, float l_px_row, float l_px_col) noexcept -> void
+            #pragma omp parallel for collapse(2)
+            for(auto t = 0u; t < p.dim_y; ++t)
             {
-                #pragma omp parallel for collapse(2)
-                for(auto t = 0u; t < dim_y; ++t)
+                for(auto s = 0u; s < p.dim_x; ++s)
                 {
-                    for(auto s = 0u; s < dim_x; ++s)
-                    {
-                        auto coord = s + t * dim_x;
-                        auto val = in[coord];
+                    const auto coord = s + t * p.dim_x;
 
-                        // prevent conversion warnings
-                        auto s_f = static_cast<float>(s);
-                        auto t_f = static_cast<float>(t);
+                    // prevent conversion warnings
+                    const auto s_f = static_cast<float>(s);
+                    const auto t_f = static_cast<float>(t);
 
-                        // detector coordinates in mm
-                        auto h_s = (l_px_row / 2) + s_f * l_px_row + h_min;
-                        auto v_t = (l_px_col / 2) + t_f * l_px_col + v_min;
+                    // detector coordinates in mm
+                    const auto h_s = (l_px_row / 2) + s_f * l_px_row + h_min;
+                    const auto v_t = (l_px_col / 2) + t_f * l_px_col + v_min;
 
-                        // calculate weight
-                        auto w_st = d_sd / std::sqrt(std::pow(d_sd, 2.f) + std::pow(h_s, 2.f) + std::pow(v_t, 2.f));
+                    // calculate weight
+                    const auto w_st = d_sd / std::sqrt(d_sd * d_sd + h_s * h_s + v_t * v_t);
 
-                        out[coord] = val * w_st;
-                    }
+                    p.buf[coord] *= w_st;
                 }
             }
         }

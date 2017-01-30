@@ -38,15 +38,12 @@ namespace paris
         struct handle_deleter { auto operator()(handle* h) noexcept -> void; };
         using handle_type = std::unique_ptr<handle, handle_deleter>;
 
-        using volume_type = volume<backend::host_ptr_3D<float>>;
+        using volume_type = backend::volume_host_type;
 
         auto open(const std::string& path) -> handle_type;
-        auto create(const std::string& path, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> handle_type;
-
+        auto create(const std::string& path, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z)
+            -> handle_type;
         auto write(handle_type& h, const volume_type& vol, std::uint32_t first) -> void;
-        auto read(handle_type& h, std::uint32_t first) -> volume_type;
-        auto read(handle_type& h, std::uint32_t first, std::uint32_t last) -> volume_type;
-
     }
 }
 

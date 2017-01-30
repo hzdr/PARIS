@@ -16,34 +16,22 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 09 September 2016
+ * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_PROJECTION_H_
-#define PARIS_PROJECTION_H_
+#ifndef PARIS_WEIGHTING_H_
+#define PARIS_WEIGHTING_H_
 
-#include <cstdint>
-#include <utility>
+#include "backend.h"
+#include "geometry.h"
+#include "projection.h"
 
 namespace paris
 {
-    template <typename BufferType, typename Metadata>
-    struct projection
-    {
-        projection() noexcept = default;
-
-        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, Metadata m) noexcept
-        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, meta(std::move(m))
-        {}
-
-        BufferType buf = BufferType{};
-        std::uint32_t dim_x = 0;
-        std::uint32_t dim_y = 0;
-        std::uint32_t idx = 0;
-        float phi = 0.f;
-        Metadata meta = Metadata{};
-    };
+    auto weight(backend::projection_device_type& p, const detector_geometry& det_geo)
+        noexcept(true && noexcept(backend::weight))
+        -> void; 
 }
 
-#endif /* PARIS_PROJECTION_H_ */
+#endif /* PARIS_WEIGHTING_H_ */

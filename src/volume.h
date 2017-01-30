@@ -23,27 +23,25 @@
 #ifndef PARIS_VOLUME_H_
 #define PARIS_VOLUME_H_
 
-#include <cstddef>
 #include <cstdint>
 #include <utility>
 
 namespace paris
 {
-    template <class Ptr>
+    template <class BufferType>
     struct volume
     {
         volume() noexcept = default;
 
-        volume(Ptr p, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t o, bool v) noexcept
-        : ptr{std::move(p)}, width{w}, height{h}, depth{d}, offset{o}, valid{v}
+        volume(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t z, std::uint32_t o) noexcept
+        : buf{std::move(b)}, dim_x{x}, dim_y{y}, dim_z{z}, off{o}
         {}
 
-        Ptr ptr = nullptr;
-        std::uint32_t width = 0;
-        std::uint32_t height = 0;
-        std::uint32_t depth = 0;
-        std::uint32_t offset = 0;
-        bool valid = false;
+        BufferType buf = BufferType{};
+        std::uint32_t dim_x = 0;
+        std::uint32_t dim_y = 0;
+        std::uint32_t dim_z = 0;
+        std::uint32_t off = 0;
     };
 }
 

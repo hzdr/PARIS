@@ -60,7 +60,8 @@ namespace paris
             }
         }
 
-        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) -> subvolume_info
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo)
+            -> subvolume_info
         {
             auto sce = paris::stage_construction_error{"create_subvolume_information() failed"};
 
@@ -68,7 +69,7 @@ namespace paris
             {
                 auto subvol_info = subvolume_info{};
                 auto info = memory_info(vol_geo, det_geo);
-                auto mem_needed = info.vol + static_cast<std::size_t>(proj_num) * info.proj;
+                auto mem_needed = info.vol + 10u * info.proj;
 
                 auto devices = glados::cuda::get_device_count();
                 auto d_s = static_cast<std::size_t>(devices);

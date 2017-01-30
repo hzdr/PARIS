@@ -10,3 +10,5 @@ CMakeFiles
 /SanitizeAddress/
 /SanitizeLeak/
 /SanitizeUndefined/
+.vimrc
+/build/

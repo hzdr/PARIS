@@ -20,44 +20,31 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_SINK_STAGE_H_
-#define PARIS_SINK_STAGE_H_
+#ifndef PARIS_SINK_H_
+#define PARIS_SINK_H_
 
-#include <cstddef>
-#include <functional>
 #include <string>
-#include <utility>
 
 #include "backend.h"
+#include "ddbvf.h"
 #include "geometry.h"
-#include "task.h"
 #include "volume.h"
 
 namespace paris
 {
-    class sink_stage
+    class sink
     {
         public:
-            using input_type = volume<backend::host_ptr_3D<float>>;
-            using output_type = void;
-
-        public:
-            sink_stage(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo, std::size_t tasks);
-
-            auto assign_task(task t) noexcept -> void;
-            auto run() -> void;
-            auto set_input_function(std::function<input_type(void)> input) noexcept -> void;
+            sink(const std::string& path, const std::string& prefix, const volume_geometry& vol_geo);
+            auto save(const backend::volume_device_type& v) -> void;
 
         private:
-            std::function<input_type(void)> input_;
-
             std::string path_;
             std::string prefix_;
-
-            std::size_t tasks_;
+            ddbvf::handle_type handle_;
 
             volume_geometry vol_geo_;
     };
 }
 
-#endif /* PARIS_SINK_STAGE_H_ */
+#endif /* PARIS_SINK_H_ */

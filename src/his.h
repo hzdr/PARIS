@@ -34,7 +34,7 @@ namespace paris
 {
     namespace his
     {
-        using image_type = projection<backend::host_ptr_2D<float>>;
+        using image_type = backend::projection_host_type;
         auto load(const std::string& path) -> std::vector<image_type>;
     }
 }

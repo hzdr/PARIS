@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 04 December 2016
+ * Date: 28 January 2017
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_OPENMP_BACKEND_H_
-#define PARIS_OPENMP_BACKEND_H_
+#ifndef PARIS_GENERIC_BACKEND_H_
+#define PARIS_GENERIC_BACKEND_H_
 
 #include <cstdint>
 #include <memory>
@@ -37,7 +37,7 @@
 
 namespace paris
 {
-    namespace openmp
+    namespace generic
     {
         using projection_host_buffer_type = std::unique_ptr<float[]>;
         using projection_device_buffer_type = std::unique_ptr<float[]>;
@@ -57,29 +57,28 @@ namespace paris
         auto make_volume_host(std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> volume_host_type;
         auto make_volume_device(std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> volume_device_type;
 
-        auto copy_h2d(const projection_host_type& h_p, projection_device_type& d_p) noexcept -> void;
-        auto copy_d2h(const projection_device_type& d_p, projection_host_type& h_p) noexcept -> void;
+        auto copy_h2d(const projection_host_type& h_p, projection_device_type& d_p) -> void;
+        auto copy_d2h(const projection_device_type& d_p, projection_host_type& h_p) -> void;
 
-        auto copy_h2d(const volume_host_type& h_v, volume_device_type& d_v) noexcept -> void;
-        auto copy_d2h(const volume_device_type& d_v, volume_host_type& h_v) noexcept -> void;
+        auto copy_h2d(const volume_host_type& h_v, volume_device_type& d_v) -> void;
+        auto copy_d2h(const volume_device_type& d_v, volume_host_type& h_v) -> void;
 
-        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo) noexcept
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo)
             -> subvolume_info;
 
         auto weight(projection_device_type& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col)
-            noexcept
             -> void;
 
         struct fftw_deleter { auto operator()(void* p) noexcept -> void; };
-        using filter_buffer_type = std::unique_ptr<fftwf_complex[], fftw_deleter>;
+        using filter_buffer_type = std::unique_ptr<float[], fftw_deleter>;
         auto make_filter(std::uint32_t size, float tau) -> filter_buffer_type;
         auto apply_filter(projection_device_type& p, const filter_buffer_type& k, std::uint32_t filter_size,
                           std::uint32_t n_col) -> void;
 
         auto backproject(const projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
                          const detector_geometry& det_geo, const volume_geometry& vol_geo, 
-                         bool enable_roi, const region_of_interest& roi, float sin, float cos,
-                         float delta_s, float delta_t) noexcept -> void;
+                         bool enable_roi, const region_of_interest& roi,
+                         float sin, float cos, float delta_s, float delta_t) -> void;
 
         /**
          * Device management
@@ -90,4 +89,4 @@ namespace paris
     }
 }
 
-#endif
+#endif /* PARIS_GENERIC_BACKEND_H_ */

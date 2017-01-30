@@ -20,40 +20,42 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_SOURCE_STAGE_H_
-#define PARIS_SOURCE_STAGE_H_
+#ifndef PARIS_SOURCE_H_
+#define PARIS_SOURCE_H_
 
 #include <cstdint>
-#include <functional>
 #include <string>
+#include <queue>
 #include <vector>
 
-#include "his.h"
-#include "task.h"
+#include "backend.h"
+#include "projection.h"
 
 namespace paris
 {
-    class source_stage
+    class source
     {
-        public:
-            using input_type = void;
-            using output_type = his::image_type;
+        private:
+            using output_type = backend::projection_host_type;
 
         public:
-            source_stage() noexcept;
-            auto assign_task(task t) noexcept -> void;
-            auto run() -> void;
-            auto set_output_function(std::function<void(output_type)> output) noexcept -> void;
+            source(const std::string& proj_dir,
+                   bool enable_angles = false,
+                   const std::string& angle_file = "",
+                   std::uint16_t quality = 1) noexcept;
+
+            auto load_next() -> output_type;
+            auto drained() const noexcept -> bool;
 
         private:
-            std::function<void(output_type)> output_;
-            std::string directory_;
+            std::vector<std::string> paths_;
+            std::queue<output_type> queue_;
+            bool drained_;
             
             bool enable_angles_;
-            std::string angle_path_;
-
+            std::vector<float> angles_;
             std::uint16_t quality_;
     };
 }
 
-#endif /* PARIS_SOURCE_STAGE_H_ */
+#endif /* PARIS_SOURCE_H_ */

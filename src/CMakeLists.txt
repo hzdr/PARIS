@@ -15,19 +15,20 @@
 # You should have received a copy of the GNU General Public License
 # along with PARIS. If not, see <http://www.gnu.org/licenses/>.
 
-SET(COMMON_SOURCES  ddbvf.cpp
+SET(COMMON_SOURCES  backprojection.cpp
+                    ddbvf.cpp
                     filesystem.cpp
-                    filter_stage.cpp
+                    filtering.cpp
                     geometry.cpp
                     his.cpp
+                    loader.cpp
                     main.cpp
-                    preloader_stage.cpp
+                    make_volume.cpp
                     program_options.cpp
-                    reconstruction_stage.cpp
-                    sink_stage.cpp
-                    source_stage.cpp
+                    sink.cpp
+                    source.cpp
                     task.cpp
-                    weighting_stage.cpp)
+                    weighting.cpp)
 
 IF(PARIS_ENABLE_CUDA)
     SET(CUDA_NVCC_FLAGS
@@ -57,14 +58,13 @@ IF(PARIS_ENABLE_CUDA)
     SET(CUDA_SEPARABLE_COMPILATION OFF)
 
     CUDA_ADD_EXECUTABLE(paris.cuda
+                        cuda/backprojection.cu
                         cuda/device.cpp
-                        cuda/error.cpp
-                        cuda/filtering.cpp
-                        cuda/filter_kernels.cu
-                        cuda/reconstruction_kernels.cu
+                        cuda/filtering.cu
+                        cuda/memory.cpp
+                        cuda/stream.cpp
                         cuda/subvolume_information.cpp
-                        cuda/synchronization.cpp
-                        cuda/weighting_kernels.cu
+                        cuda/weighting.cu
                         ${COMMON_SOURCES})
 
     SET_PROPERTY(TARGET paris.cuda PROPERTY CXX_STANDARD 11)
@@ -79,8 +79,9 @@ ENDIF(PARIS_ENABLE_CUDA)
 
 IF(PARIS_ENABLE_OPENMP)
     ADD_EXECUTABLE(paris.openmp
+                   openmp/backprojection.cpp
                    openmp/filtering.cpp
-                   openmp/reconstruction.cpp
+                   openmp/memory.cpp
                    openmp/subvolume_information.cpp
                    openmp/weighting.cpp
                    ${COMMON_SOURCES})

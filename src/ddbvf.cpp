@@ -33,7 +33,6 @@
 
 #include <boost/log/trivial.hpp>
 
-#include "backend.h"
 #include "ddbvf.h"
 #include "volume.h"
 
@@ -80,7 +79,7 @@ namespace paris
             // the first 32 bytes are reserved for the file header
             h->head.offset = first_pos - sizeof(ddbvf_id) - sizeof(ddbvf_version) - sizeof(h->head);
 
-            h->stream = std::fstream{full_path.c_str(), std::ios::out | std::ios::binary | std::ios::trunc};
+            h->stream.open(full_path.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
             // write file header
             h->stream.write(reinterpret_cast<const char*>(&ddbvf_id), sizeof(ddbvf_id));
@@ -103,7 +102,7 @@ namespace paris
         {
             auto h = handle_type{new handle};
 
-            h->stream = std::fstream{path.c_str(), std::ios::in | std::ios::out | std::ios::binary};
+            h->stream.open(path.c_str(), std::ios::in | std::ios::out | std::ios::binary);
 
             auto id = std::uint32_t{};
             auto version = std::uint16_t{};
@@ -128,69 +127,29 @@ namespace paris
 
         auto write(handle_type& h, const volume_type& vol, std::uint32_t first) -> void
         {
-            if(h == nullptr || vol.ptr == nullptr)
+            if(h == nullptr || vol.buf == nullptr)
                 return;
 
             // check dimensions
             if(first >= h->head.dim_z)
                 throw std::runtime_error{"ddbvf::write(): Starting position out of bounds"};
 
-            if(vol.width != h->head.dim_x || vol.height != h->head.dim_y || vol.depth > h->head.dim_z)
+            if(vol.dim_x != h->head.dim_x || vol.dim_y != h->head.dim_y || vol.dim_z > h->head.dim_z)
                 throw std::runtime_error{"ddbvf::write(): Attempting to save volume to file with wrong dimensions"};
 
             // calculate size and offset for writing
-            using element_type = typename decltype(volume_type::ptr)::element_type;
-            auto write_size = static_cast<std::streamsize>(vol.width * vol.height * vol.depth * sizeof(element_type));
-            auto write_pos = static_cast<std::fstream::off_type>(vol.width * vol.height * first * sizeof(element_type));
+            using element_type = typename decltype(volume_type::buf)::element_type;
+            auto write_size = static_cast<std::streamsize>(vol.dim_x * vol.dim_y * vol.dim_z * sizeof(element_type));
+            auto write_pos = static_cast<std::fstream::off_type>(vol.dim_x * vol.dim_y * first * sizeof(element_type));
 
             // write data
             h->stream.seekp(first_pos);
             h->stream.seekp(write_pos, std::ios_base::cur);
-            h->stream.write(reinterpret_cast<char*>(vol.ptr.get()), write_size);
+            h->stream.write(reinterpret_cast<char*>(vol.buf.get()), write_size);
 
             // check for errors
             if(!h->stream)
                 throw std::system_error{errno, std::generic_category()};
-        }
-
-
-        auto read(handle_type& h, std::uint32_t first) -> volume_type
-        {
-            if(h == nullptr)
-                return volume_type{};
-
-            return read(h, first, h->head.dim_z);
-        }
-
-        auto read(handle_type& h, std::uint32_t first, std::uint32_t last) -> volume_type
-        {
-            if(h == nullptr)
-                return volume_type{};
-
-            // check dimensions
-            if(first >= h->head.dim_z)
-                throw std::runtime_error{"ddbvf::read(): Starting position out of bounds"};
-
-            if(last > h->head.dim_z)
-                throw std::runtime_error{"ddbvf::read(): Last position out of bounds"};
-
-            // calculate size and offset for reading
-            auto slices = last - first;
-            using element_type = typename decltype(volume_type::ptr)::element_type;
-            auto read_size = static_cast<std::streamsize>(h->head.dim_x * h->head.dim_y * slices * sizeof(element_type));
-            auto read_pos = static_cast<std::fstream::off_type>(h->head.dim_x * h->head.dim_y * first * sizeof(element_type));
-            auto ptr = backend::make_host_ptr<element_type>(h->head.dim_x, h->head.dim_y, slices);
-
-            // read data 
-            h->stream.seekp(first_pos);
-            h->stream.seekp(read_pos, std::ios_base::cur);
-            h->stream.read(reinterpret_cast<char*>(ptr.get()), read_size);
-
-            // check for errors
-            if(!h->stream)
-                throw std::system_error{errno, std::generic_category()};
-
-            return volume_type{std::move(ptr), h->head.dim_x, h->head.dim_y, slices, 0, true};
         }
     }
 }
