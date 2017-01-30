@@ -38,20 +38,20 @@ namespace paris
             auto vol_geo = volume_geometry{};
 
             /* Casts and removing some boilerplate code from the calculations below*/
-            auto n_row = static_cast<float>(det_geo.n_row);
-            auto l_px_row = det_geo.l_px_row;
-            auto delta_s = std::abs(det_geo.delta_s * l_px_row); // the offset in det_geo is measured in pixels!
+            const auto n_row = static_cast<float>(det_geo.n_row);
+            const auto l_px_row = det_geo.l_px_row;
+            const auto delta_s = std::abs(det_geo.delta_s * l_px_row); // the offset in det_geo is measured in pixels!
 
-            auto n_col = static_cast<float>(det_geo.n_col);
-            auto l_px_col = det_geo.l_px_col;
-            auto delta_t = std::abs(det_geo.delta_t * l_px_col);
+            const auto n_col = static_cast<float>(det_geo.n_col);
+            const auto l_px_col = det_geo.l_px_col;
+            const auto delta_t = std::abs(det_geo.delta_t * l_px_col);
 
-            auto d_so = std::abs(det_geo.d_so);
-            auto d_sd = std::abs(det_geo.d_od) + d_so;
+            const auto d_so = std::abs(det_geo.d_so);
+            const auto d_sd = std::abs(det_geo.d_od) + d_so;
 
             /* Calculate slice dimensions */
-            auto alpha = std::atan((((n_row * l_px_row) / 2.f) + delta_s) / d_sd);
-            auto r = d_so * std::sin(alpha);
+            const auto alpha = std::atan((((n_row * l_px_row) / 2.f) + delta_s) / d_sd);
+            const auto r = d_so * std::sin(alpha);
 
             vol_geo.l_vx_x = r / ((((n_row * l_px_row) / 2.f) + delta_s) / l_px_row);
             vol_geo.l_vx_y = vol_geo.l_vx_x;
@@ -72,9 +72,9 @@ namespace paris
     {
         auto vol_geo = make_volume_geometry(det_geo);
 
-        auto dim_x_mm = static_cast<float>(vol_geo.dim_x) * vol_geo.l_vx_x;
-        auto dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
-        auto dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
+        const auto dim_x_mm = static_cast<float>(vol_geo.dim_x) * vol_geo.l_vx_x;
+        const auto dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
+        const auto dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
 
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
@@ -112,9 +112,9 @@ namespace paris
                 roi_geo.dim_y = dim_y;
                 roi_geo.dim_z = dim_z;
 
-                auto dim_x_mm = static_cast<float>(roi_geo.dim_x) * roi_geo.l_vx_x;
-                auto dim_y_mm = static_cast<float>(roi_geo.dim_y) * roi_geo.l_vx_y;
-                auto dim_z_mm = static_cast<float>(roi_geo.dim_z) * roi_geo.l_vx_z;
+                const auto dim_x_mm = static_cast<float>(roi_geo.dim_x) * roi_geo.l_vx_x;
+                const auto dim_y_mm = static_cast<float>(roi_geo.dim_y) * roi_geo.l_vx_y;
+                const auto dim_z_mm = static_cast<float>(roi_geo.dim_z) * roi_geo.l_vx_z;
 
                 BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << roi_geo.dim_x << " x " << roi_geo.dim_y << " x " << roi_geo.dim_z;

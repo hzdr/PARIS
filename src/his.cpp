@@ -158,7 +158,7 @@ namespace paris
                 auto img_header = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[header.image_header_size]};
                 read_entry(file, img_header.get(), header.image_header_size);
 
-                auto img_buffer = backend::make_host_ptr<float>(width, height);
+                auto img = backend::make_projection_host(width, height);
 
                 auto w16 = static_cast<std::uint16_t>(width);
                 auto h16 = static_cast<std::uint16_t>(height);
@@ -166,23 +166,23 @@ namespace paris
                 switch(header.number_type)
                 {
                     case static_cast<num_type>(data::type_uchar):
-                        copy_to_buf<std::uint8_t>(file, img_buffer.get(), w16, h16);
+                        copy_to_buf<std::uint8_t>(file, img.buf.get(), w16, h16);
                         break;
 
                     case static_cast<num_type>(data::type_ushort):
-                        copy_to_buf<std::uint16_t>(file, img_buffer.get(), w16, h16);
+                        copy_to_buf<std::uint16_t>(file, img.buf.get(), w16, h16);
                         break;
 
                     case static_cast<num_type>(data::type_dword):
-                        copy_to_buf<std::uint32_t>(file, img_buffer.get(), w16, h16);
+                        copy_to_buf<std::uint32_t>(file, img.buf.get(), w16, h16);
                         break;
 
                     case static_cast<num_type>(data::type_double):
-                        copy_to_buf<double>(file, img_buffer.get(), w16, h16);
+                        copy_to_buf<double>(file, img.buf.get(), w16, h16);
                         break;
 
                     case static_cast<num_type>(data::type_float):
-                        copy_to_buf<float>(file, img_buffer.get(), w16, h16);
+                        copy_to_buf<float>(file, img.buf.get(), w16, h16);
                         break;
 
                     default:
@@ -190,9 +190,9 @@ namespace paris
                         return vec;
                 }
 
-                auto w = static_cast<std::size_t>(width);
-                auto h = static_cast<std::size_t>(height);
-                vec.emplace_back(std::move(img_buffer), w, h, 0, 0.f, true, backend::async_handle{});
+                img.dim_x = static_cast<std::uint32_t>(width);
+                img.dim_y = static_cast<std::uint32_t>(height);
+                vec.push_back(std::move(img));
             }
             return vec;
         }

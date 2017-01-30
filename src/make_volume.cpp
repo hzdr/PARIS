@@ -16,34 +16,24 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 09 September 2016
+ * Date: 27 January 2017
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_PROJECTION_H_
-#define PARIS_PROJECTION_H_
-
-#include <cstdint>
-#include <utility>
+#include "backend.h"
+#include "geometry.h"
+#include "make_volume.h"
+#include "volume.h"
 
 namespace paris
 {
-    template <typename BufferType, typename Metadata>
-    struct projection
+    auto make_volume(const subvolume_geometry& subvol_geo, bool last) -> backend::volume_device_type
     {
-        projection() noexcept = default;
+        auto dim_z = subvol_geo.dim_z;
+        if(last)
+            dim_z += subvol_geo.remainder;
 
-        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, Metadata m) noexcept
-        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, meta(std::move(m))
-        {}
-
-        BufferType buf = BufferType{};
-        std::uint32_t dim_x = 0;
-        std::uint32_t dim_y = 0;
-        std::uint32_t idx = 0;
-        float phi = 0.f;
-        Metadata meta = Metadata{};
-    };
+        return backend::make_volume_device(subvol_geo.dim_x, subvol_geo.dim_y, dim_z);
+    }
 }
 
-#endif /* PARIS_PROJECTION_H_ */

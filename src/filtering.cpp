@@ -16,31 +16,31 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 02 December 2016
+ * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <glados/cuda/utility.h>
+#include <cmath>
+#include <cstdint>
 
 #include "backend.h"
+#include "filtering.h"
+#include "geometry.h"
 
 namespace paris
 {
-    namespace cuda
+    auto filter(backend::projection_device_type& p, const detector_geometry& det_geo)
+        noexcept(true && noexcept(backend::apply_filter))
+        -> void
     {
-        auto make_async_handle() -> async_handle
-        {
-            return glados::cuda::create_concurrent_stream();
-        }
+        // the following variables are static and global -> initialise once
+        static const auto filter_size = static_cast<std::uint32_t>(2 * std::pow(2.f, std::ceil(std::log2(det_geo.n_row))));
+        static const auto n_col = det_geo.n_col;
+        static const auto tau = det_geo.l_px_row;
 
-        auto destroy_async_handle(async_handle& handle) noexcept -> error_type
-        {
-            return cudaStreamDestroy(handle);
-        }
+        // the following variable is static and thread local -> initialise once per thread (= device)
+        thread_local static const auto k = backend::make_filter(filter_size, tau);
 
-        auto synchronize(const async_handle& handle) -> void
-        {
-            glados::cuda::synchronize_stream(handle);
-        }
+        backend::apply_filter(p, k, filter_size, n_col);
     }
 }

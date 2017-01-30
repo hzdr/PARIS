@@ -16,23 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 02 December 2016
- * Authors: Jan Stephan
+ * Date: 18 August 2016
+ * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#include <string>
-
-#include <boost/log/trivial.hpp>
+#ifndef PARIS_LOADER_H_
+#define PARIS_LOADER_H_
 
 #include "backend.h"
+#include "projection.h"
 
 namespace paris
 {
-    namespace cuda
-    {
-        auto print_error(const std::string& msg, error_type err) noexcept -> void
-        {
-            BOOST_LOG_TRIVIAL(fatal) << msg << cudaGetErrorString(err);
-        }
-    }
+    auto load(const backend::projection_host_type& p) -> backend::projection_device_type;
 }
+
+#endif /* PARIS_LOADER_H_ */

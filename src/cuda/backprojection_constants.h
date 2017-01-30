@@ -20,15 +20,15 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_RECONSTRUCTION_CONSTANTS_H_
-#define PARIS_RECONSTRUCTION_CONSTANTS_H_
+#ifndef PARIS_BACKPROJECTION_CONSTANTS_H_
+#define PARIS_BACKPROJECTION_CONSTANTS_H_
 
 #include <cstdint>
 
 namespace paris
 {
         // constants for the current subvolume -- these never change between kernel executions
-        struct reconstruction_constants
+        struct backprojection_constants
         {
             std::uint32_t vol_dim_x;
             std::uint32_t vol_dim_x_full;

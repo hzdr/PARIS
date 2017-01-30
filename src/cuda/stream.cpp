@@ -16,34 +16,27 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 09 September 2016
+ * Date: 30 November 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_PROJECTION_H_
-#define PARIS_PROJECTION_H_
+#include <cuda_runtime.h>
 
-#include <cstdint>
-#include <utility>
+#include <glados/cuda/utility.h>
+
+#include "backend.h"
 
 namespace paris
 {
-    template <typename BufferType, typename Metadata>
-    struct projection
+    namespace cuda
     {
-        projection() noexcept = default;
-
-        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, Metadata m) noexcept
-        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, meta(std::move(m))
+        cuda_stream::cuda_stream()
+        : stream{glados::cuda::create_concurrent_stream()}
         {}
 
-        BufferType buf = BufferType{};
-        std::uint32_t dim_x = 0;
-        std::uint32_t dim_y = 0;
-        std::uint32_t idx = 0;
-        float phi = 0.f;
-        Metadata meta = Metadata{};
-    };
+        cuda_stream::~cuda_stream()
+        {
+            cudaStreamDestroy(stream);
+        }
+    }
 }
-
-#endif /* PARIS_PROJECTION_H_ */

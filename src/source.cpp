@@ -22,19 +22,19 @@
 
 #include <algorithm>
 #include <fstream>
-#include <functional>
+#include <iterator>
 #include <string>
-#include <system_error>
 #include <utility>
 #include <vector>
 
 #include <boost/log/trivial.hpp>
 
+#include "backend.h"
 #include "exception.h"
 #include "filesystem.h"
 #include "his.h"
-#include "source_stage.h"
-#include "task.h"
+#include "projection.h"
+#include "source.h"
 
 namespace paris
 {
@@ -72,81 +72,65 @@ namespace paris
         }
     }
 
-    source_stage::source_stage() noexcept
-    : output_{}
+    source::source(const std::string& proj_dir,
+                   bool enable_angles, const std::string& angle_file,
+                   std::uint16_t quality) noexcept
+    : drained_{true}, enable_angles_{enable_angles}, quality_{quality}
     {
-    }
+        paths_ = read_directory(proj_dir);
+        if(!paths_.empty())
+            drained_ = false;
 
-    auto source_stage::assign_task(task t) noexcept -> void
-    {
-        directory_ = t.input_path;
-
-        enable_angles_ = t.enable_angles;
-        angle_path_ = t.angle_path;
-
-        quality_ = t.quality;
-    }
-
-    auto source_stage::run() -> void
-    {
-        auto i = 0u;
-
-        auto paths = std::vector<std::string>{};
-
-        try
-        {
-            paths = read_directory(directory_);
-        }
-        catch(const std::runtime_error& e)
-        {
-            BOOST_LOG_TRIVIAL(fatal) << "source_stage::source_stage() failed to obtain file paths: " << e.what();
-            throw stage_construction_error{"source_stage::source_stage() failed"};
-        }
-
-        auto angles = std::vector<float>{};
         if(enable_angles_)
-            angles = read_angles(angle_path_);
+            angles_ = read_angles(angle_file);
+    }
 
-        for(const auto& s : paths)
+    auto source::load_next() -> output_type
+    {
+        thread_local static auto i = 0u;
+        if(queue_.empty())
         {
-            try
+            auto done = false;
+            while(!done)
             {
-                auto vec = his::load(s);
-
+                auto vec = his::load(paths_[0u]);
                 if(vec.empty())
-                    BOOST_LOG_TRIVIAL(warning) << "Skipping invalid file at " << s;
+                {
+                    BOOST_LOG_TRIVIAL(warning) << "Skipping invalid file at " << paths_[0u];
+                }
                 else
                 {
-                    for(auto&& img : vec)
+                    for(auto&& p : vec)
                     {
-                        if(i % quality_ == 0)
+                        if(i % quality_ == 0u)
                         {
-                            img.idx = i;
+                            p.idx = i;
 
-                            if(enable_angles_ && !angles.empty())
-                                img.phi = angles.at(i);
+                            if(enable_angles_ && !angles_.empty())
+                                p.phi = angles_[i];
 
-                            output_(std::move(img));
+                            queue_.push(std::move(p));
                         }
                         ++i;
                     }
+                    done = true;
                 }
 
-            }
-            catch(const std::system_error& e)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "source_stage::run(): Could not open file at " << s << " : " << e.what();
-                throw stage_runtime_error{"source_stage::run() failed"};
+                paths_.erase(std::begin(paths_));
             }
         }
 
-        // all frames loaded, send empty image
-        output_(output_type{});
-        BOOST_LOG_TRIVIAL(info) << "All projections loaded.";
+        auto p = std::move(queue_.front());
+        queue_.pop();
+
+        if(paths_.empty() && queue_.empty())
+            drained_ = true;
+
+        return p;
     }
 
-    auto source_stage::set_output_function(std::function<void(output_type)> output) noexcept -> void
+    auto source::drained() const noexcept -> bool
     {
-        output_ = output;
+        return drained_;
     }
 }

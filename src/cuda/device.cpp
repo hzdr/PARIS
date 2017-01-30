@@ -30,14 +30,9 @@ namespace paris
 {
     namespace cuda
     {
-        auto set_device(const device_handle& device) -> void
+        auto set_device(device_handle& device) -> void
         {
             glados::cuda::set_device(device);
-        }
-
-        auto set_device_noexcept(const device_handle& device) noexcept -> error_type
-        {
-            return cudaSetDevice(device);
         }
 
         auto get_devices() -> std::vector<device_handle>

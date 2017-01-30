@@ -38,21 +38,22 @@
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
 
-#include <glados/pipeline/pipeline.h>
+#include <glados/pipeline/task_queue.h>
 
 #include "backend.h"
+#include "backprojection.h"
 #include "exception.h"
-#include "filter_stage.h"
+#include "filtering.h"
 #include "geometry.h"
-#include "preloader_stage.h"
+#include "loader.h"
+#include "make_volume.h"
 #include "program_options.h"
-#include "reconstruction_stage.h"
-#include "sink_stage.h"
-#include "source_stage.h"
+#include "sink.h"
+#include "source.h"
 #include "subvolume_information.h"
 #include "task.h"
 #include "version.h"
-#include "weighting_stage.h"
+#include "weighting.h"
 
 namespace
 {
@@ -75,23 +76,36 @@ namespace
         std::exit(EXIT_FAILURE);
     }
 
-    auto launch_pipeline(glados::pipeline::task_queue<paris::task>* queue, int device,
-                         glados::pipeline::stage<paris::sink_stage>& sink, std::size_t input_limit,
-                         std::size_t parallel_projections) -> void
+    auto reconstruct(glados::pipeline::task_queue<paris::task>* queue,
+                     std::size_t task_num,
+                     paris::backend::device_handle& device,
+                     paris::sink& sink) -> void
     {
         if(queue == nullptr)
             return;
 
-        auto pipeline = glados::pipeline::task_pipeline<paris::task>{queue};
-        auto source = pipeline.make_stage<paris::source_stage>();
-        auto preloader = pipeline.make_stage<paris::preloader_stage>(input_limit, parallel_projections, device);
-        auto weighting = pipeline.make_stage<paris::weighting_stage>(input_limit, device);
-        auto filter = pipeline.make_stage<paris::filter_stage>(input_limit, device);
-        auto reconstruction = pipeline.make_stage<paris::reconstruction_stage>(input_limit, device);
+        paris::backend::set_device(device);
 
-        pipeline.connect(source, preloader, weighting, filter, reconstruction, sink);
-        pipeline.run(source, preloader, weighting, filter, reconstruction);
-        pipeline.wait();
+        while(!queue->empty())
+        {
+            auto t = queue->pop();
+            auto last = (task_num - t.id) > 1 ? false : true;
+            auto source = paris::source(t.input_path, t.enable_angles, t.angle_path, t.quality);
+
+            auto v = paris::make_volume(t.subvol_geo, last);
+            auto offset = t.id * t.subvol_geo.dim_z;
+
+            while(!source.drained())
+            {
+                auto p = source.load_next();
+                auto d_p = paris::load(p);
+                paris::weight(d_p, t.det_geo);
+                paris::filter(d_p, t.det_geo);
+                paris::backproject(d_p, v, offset, t.det_geo, t.vol_geo, t.enable_angles, t.enable_roi, t.roi); 
+            }
+
+            sink.save(v);
+        }
     }
 }
 
@@ -106,9 +120,6 @@ auto main(int argc, char** argv) -> int
 
     try
     {
-        constexpr auto parallel_projections = std::size_t{5}; // number of projections present in the pipeline at the same time
-        constexpr auto input_limit = std::size_t{1}; // input limit per stage
-
         auto vol_geo = paris::calculate_volume_geometry(po.det_geo);
 
         auto roi_geo = vol_geo;
@@ -123,36 +134,39 @@ auto main(int argc, char** argv) -> int
             auto start = std::chrono::high_resolution_clock::now();
 
             // split the volume into subvolumes
-            auto subvol_info = paris::backend::make_subvolume_information(roi_geo, po.det_geo, parallel_projections);
+            auto subvol_info = paris::backend::make_subvolume_information(roi_geo, po.det_geo);
 
             // generate tasks
             auto tasks = paris::make_tasks(po, vol_geo, subvol_info);
             auto&& task_queue = glados::pipeline::task_queue<paris::task>(tasks);
+            auto task_num = tasks.size();
 
             // get devices
             auto devices = paris::backend::get_devices();
 
-            // create shared sink
-            auto sink = glados::pipeline::stage<paris::sink_stage>(po.output_path, po.prefix, roi_geo, tasks.size());
-
-            // pipeline futures
+            // reconstruction futures
             auto futures = std::vector<std::future<void>>{};
 
             auto task_string = tasks.size() == 1 ? "task" : "tasks";
-            BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices.size() << " devices";
+            auto device_string = devices.size() == 1 ? "device" : "devices";
+            BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices.size() << ' ' << device_string;
 
-            // launch a pipeline for each available device
-            for(auto&& d : devices)
-                futures.emplace_back(std::async(std::launch::async, launch_pipeline,
-                                                &task_queue, d, std::ref(sink), input_limit, parallel_projections));
+            // create sink
+            auto sink = paris::sink{po.output_path, po.prefix, roi_geo};
 
-            auto sink_future = std::async(std::launch::async, &glados::pipeline::stage<paris::sink_stage>::run, &sink);
+            if(devices.size() > 1)
+            {
+                // launch a reconstruction thread for each available device
+                for(auto&& d : devices)
+                    futures.emplace_back(std::async(std::launch::async, reconstruct, &task_queue, task_num,
+                                                                        std::ref(d), std::ref(sink)));
 
-            // wait for the end of execution
-            for(auto&& f : futures)
-                f.get();
-
-            sink_future.get();
+                // wait for the end of execution
+                for(auto&& f : futures)
+                    f.get();
+            }
+            else
+                reconstruct(&task_queue, task_num, devices[0], sink);
 
             auto stop = std::chrono::high_resolution_clock::now();
 
@@ -160,7 +174,7 @@ auto main(int argc, char** argv) -> int
             auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
             auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
 
-            BOOST_LOG_TRIVIAL(info) << "Reconstruction finished. Time elapsed: "
+            BOOST_LOG_TRIVIAL(info) << "Program terminated. Time elapsed: "
                     << minutes.count() << ":" << std::setfill('0') << std::setw(2) << seconds.count() % 60 << " minutes";
         }
     }

@@ -16,7 +16,7 @@
 # along with PARIS. If not, see <http://www.gnu.org/licenses/>.
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
-PROJECT(paris)
+PROJECT(paris CXX)
 
 IF(NOT DEFINED GLADOS_INCLUDE_PATH)
     MESSAGE(FATAL_ERROR "You must set GLADOS' include path!")
@@ -58,16 +58,31 @@ ENDIF(OPENMP_FOUND)
 
 INCLUDE_DIRECTORIES(${GLADOS_INCLUDE_PATH})
 
-SET(BASIC_WARNINGS "-Wall -Wextra -pedantic")
-SET(NUMERICAL_WARNINGS "-Wfloat-equal -Wconversion -Wnarrowing -Wsign-conversion")
-SET(DISABLED_WARNINGS "-Wno-missing-field-initializers")
-SET(CLASS_WARNINGS "-Wctor-dtor-privacy -Wdelete-non-virtual-dtor -Wnon-virtual-dtor -Woverloaded-virtual")
-SET(COMPAT_WARNINGS "-Wabi -Wvla")
-SET(BUG_WARNINGS "-Wnoexcept -Wswitch-enum -Wuninitialized -Wshadow -Wcast-qual -Wcast-align")
+IF(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    SET(BASIC_WARNINGS "-Wall -Wextra -pedantic")
+    SET(NUMERICAL_WARNINGS "-Wfloat-equal -Wconversion -Wnarrowing -Wsign-conversion")
+    SET(DISABLED_WARNINGS "-Wno-missing-field-initializers")
+    SET(CLASS_WARNINGS "-Wctor-dtor-privacy -Wdelete-non-virtual-dtor -Wnon-virtual-dtor -Woverloaded-virtual")
+    SET(COMPAT_WARNINGS "-Wabi -Wvla")
+    SET(BUG_WARNINGS "-Wnoexcept -Wswitch-enum -Wuninitialized -Wshadow -Wcast-qual -Wcast-align")
+
+    SET(OPTIMIZATION_REPORTS "-fopt-info-vec-missed=vec_missed")
+ENDIF(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+
+IF(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+    SET(BASIC_WARNINGS "-Wall -Wextra -pedantic")
+    SET(NUMERICAL_WARNINGS "-Wfloat-equal -Wconversion -Wnarrowing -Wsign-conversion")
+    SET(DISABLED_WARNINGS "-Wno-missing-field-initializers")
+    SET(CLASS_WARNINGS "-Wnon-virtual-dtor -Woverloaded-virtual")
+    SET(COMPAT_WARNINGS "-Wabi")
+    SET(BUG_WARNINGS "-Wuninitialized -Wshadow -Wcast-qual")
+
+    SET(OPTIMIZATION_REPORTS "-qopt-report -qopt-report-phase=vec")
+ENDIF(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BASIC_WARNINGS} ${NUMERICAL_WARNINGS} ${CLASS_WARNINGS} ${COMPAT_WARNINGS} ${BUG_WARNINGS} ${DISABLED_WARNINGS}")
 SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ggdb -fno-omit-frame-pointer")
-SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-omit-frame-pointer")
+SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fno-omit-frame-pointer ${OPTIMIZATION_REPORTS}")
 
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug")
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")

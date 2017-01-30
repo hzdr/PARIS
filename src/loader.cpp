@@ -16,34 +16,19 @@
  * You should have received a copy of the GNU General Public License
  * along with PARIS. If not, see <http://www.gnu.org/licenses/>.
  *
- * Date: 09 September 2016
+ * Date: 18 August 2016
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
-#ifndef PARIS_PROJECTION_H_
-#define PARIS_PROJECTION_H_
-
-#include <cstdint>
-#include <utility>
+#include "backend.h"
+#include "projection.h"
 
 namespace paris
 {
-    template <typename BufferType, typename Metadata>
-    struct projection
+    auto load(const backend::projection_host_type& p) -> backend::projection_device_type
     {
-        projection() noexcept = default;
-
-        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, Metadata m) noexcept
-        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, meta(std::move(m))
-        {}
-
-        BufferType buf = BufferType{};
-        std::uint32_t dim_x = 0;
-        std::uint32_t dim_y = 0;
-        std::uint32_t idx = 0;
-        float phi = 0.f;
-        Metadata meta = Metadata{};
-    };
+        auto d_p = backend::make_projection_device(p.dim_x, p.dim_y);
+        backend::copy_h2d(p, d_p);
+        return d_p;
+    }
 }
-
-#endif /* PARIS_PROJECTION_H_ */

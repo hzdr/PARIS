@@ -28,7 +28,8 @@ namespace paris
 {
     namespace openmp
     {
-        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& det_geo, int proj_num) noexcept -> subvolume_info
+        auto make_subvolume_information(const volume_geometry& vol_geo, const detector_geometry& /* det_geo */) noexcept
+            -> subvolume_info
         {
             auto subvol_info = subvolume_info{};
 
