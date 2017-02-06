@@ -36,7 +36,7 @@ namespace paris
 
         cuda_stream::~cuda_stream()
         {
-            cudaStreamDestroy(stream);
+            // cudaStreamDestroy(stream);
         }
     }
 }

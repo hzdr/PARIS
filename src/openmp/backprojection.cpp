@@ -153,9 +153,9 @@ namespace paris
             }
         }
 
-        auto backproject(const projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
+        auto backproject(projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
                          const detector_geometry& det_geo, const volume_geometry& vol_geo,
-                         bool enable_roi, const region_of_interest& roi, float sin, float cos,
+                         bool enable_roi, const region_of_interest& roi,
                          float delta_s, float delta_t) noexcept -> void
         {
             // constants for the backprojection - these never change
@@ -178,6 +178,9 @@ namespace paris
 
             // variable for the backprojection - this might change between subvolumes
             thread_local static auto offset = v_offset;
+
+            auto sin = std::sin(p.phi);
+            auto cos = std::cos(p.phi);
 
             // backproject and apply ROI as needed
             if(enable_roi)

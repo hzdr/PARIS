@@ -22,6 +22,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 #include <boost/log/trivial.hpp>
 
@@ -128,12 +131,84 @@ namespace paris
                     row[k] = old_val + 0.5f * det * u * u;
                 }
             }
+
+            auto do_backprojection(std::mutex& m, std::queue<projection_device_type>& q,
+                                   volume_device_type& v, bool enable_roi, const region_of_interest& roi) -> void
+            {
+                auto&& lock = std::unique_lock<std::mutex>(m, std::defer_lock);
+
+                while(true)
+                {
+                    while(q.empty())
+                        std::this_thread::yield();
+
+                    // acquire projection
+                    lock.lock();
+                    auto p = std::move(q.front());
+                    q.pop();
+                    lock.unlock();
+
+                    auto sin = std::sin(p.phi);
+                    auto cos = std::cos(p.phi);
+
+                    // ensure all previous operations on the projection are complete
+                    glados::cuda::synchronize_stream(p.meta.stream);
+
+                    // create a CUDA texture from the projection
+                    auto res_desc = cudaResourceDesc{};
+                    res_desc.resType = cudaResourceTypePitch2D;
+                    res_desc.res.pitch2D.desc = cudaCreateChannelDesc<float>();
+                    res_desc.res.pitch2D.devPtr = reinterpret_cast<void*>(p.buf.get());
+                    res_desc.res.pitch2D.width = p.dim_x;
+                    res_desc.res.pitch2D.height = p.dim_y;
+                    res_desc.res.pitch2D.pitchInBytes = p.buf.pitch();
+
+                    auto tex_desc = cudaTextureDesc{};
+                    tex_desc.addressMode[0] = cudaAddressModeBorder;
+                    tex_desc.addressMode[1] = cudaAddressModeBorder;
+                    tex_desc.filterMode = cudaFilterModeLinear;
+                    tex_desc.readMode = cudaReadModeElementType;
+                    tex_desc.normalizedCoords = 0;
+
+                    auto tex = cudaTextureObject_t{0};
+                    auto err = cudaCreateTextureObject(&tex, &res_desc, &tex_desc, nullptr);
+                    if(err != cudaSuccess)
+                    {
+                        BOOST_LOG_TRIVIAL(fatal) << "Could not create CUDA texture: " << cudaGetErrorString(err);
+                        throw stage_runtime_error{"backproject() failed"};
+                    }
+
+                    // apply ROI as needed and backproject
+                    if(enable_roi)
+                    {
+                        err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, v.meta.stream);
+                        if(err != cudaSuccess)
+                        {
+                            BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device ROI: " << cudaGetErrorString(err);
+                            throw stage_runtime_error{"backproject() failed"};
+                        }
+
+                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<true>,
+                                                   v.buf.get(), v.buf.pitch(), tex, sin, cos);
+                    }
+                    else
+                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<false>,
+                                                   v.buf.get(), v.buf.pitch(), tex, sin, cos);
+
+                    err = cudaDestroyTextureObject(tex);
+                    if(err != cudaSuccess)
+                    {
+                        BOOST_LOG_TRIVIAL(fatal) << "Could not destroy CUDA texture: " << cudaGetErrorString(err);
+                        throw stage_runtime_error{"backproject() failed"};
+                    }
+                }
+            }
         }
 
-        auto backproject(const projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
+        auto backproject(projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
                          const detector_geometry& det_geo, const volume_geometry& vol_geo,
                          bool enable_roi, const region_of_interest& roi,
-                         float sin, float cos, float delta_s, float delta_t)  -> void
+                         float delta_s, float delta_t)  -> void
         {
             // constants for the backprojection - these never change
             static const auto v_dim_x_full = vol_geo.dim_x;
@@ -159,9 +234,6 @@ namespace paris
             // variable for the backprojection - might change between subvolumes
             thread_local static auto offset = v_offset;
 
-            // local stream
-            thread_local static auto s = cuda_stream{};
-
             // initialise device constants
             thread_local static auto consts = backprojection_constants {
                 v.dim_x,
@@ -185,61 +257,29 @@ namespace paris
             };
 
             auto err = cudaMemcpyToSymbolAsync(dev_consts__, &consts, sizeof(consts), 0u, cudaMemcpyHostToDevice,
-                                               s.stream);
+                                               v.meta.stream);
             if(err != cudaSuccess)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device constants: " << cudaGetErrorString(err);
                 throw stage_runtime_error{"backproject() failed"};
             }
 
-            // create a CUDA texture from the projection
-            auto res_desc = cudaResourceDesc{};
-            res_desc.resType = cudaResourceTypePitch2D;
-            res_desc.res.pitch2D.desc = cudaCreateChannelDesc<float>();
-            res_desc.res.pitch2D.devPtr = reinterpret_cast<void*>(p.buf.get());
-            res_desc.res.pitch2D.width = p.dim_x;
-            res_desc.res.pitch2D.height = p.dim_y;
-            res_desc.res.pitch2D.pitchInBytes = p.buf.pitch();
+            thread_local static auto p_queue = std::queue<projection_device_type>{};
+            thread_local static auto&& m = std::mutex{};
+            thread_local static auto&& lock = std::unique_lock<std::mutex>{m, std::defer_lock};
 
-            auto tex_desc = cudaTextureDesc{};
-            tex_desc.addressMode[0] = cudaAddressModeBorder;
-            tex_desc.addressMode[1] = cudaAddressModeBorder;
-            tex_desc.filterMode = cudaFilterModeLinear;
-            tex_desc.readMode = cudaReadModeElementType;
-            tex_desc.normalizedCoords = 0;
-
-            auto tex = cudaTextureObject_t{0};
-            err = cudaCreateTextureObject(&tex, &res_desc, &tex_desc, nullptr);
-            if(err != cudaSuccess)
+            thread_local static auto started_worker = false;
+            if(!started_worker)
             {
-                BOOST_LOG_TRIVIAL(fatal) << "Could not create CUDA texture: " << cudaGetErrorString(err);
-                throw stage_runtime_error{"backproject() failed"};
+                auto bp_worker = std::thread{do_backprojection, std::ref(m), std::ref(p_queue),
+                                                             std::ref(v), enable_roi, std::ref(roi)};
+                bp_worker.detach();
+                started_worker = true;
             }
 
-            // apply ROI as needed and backproject
-            if(enable_roi)
-            {
-                err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, s.stream);
-                if(err != cudaSuccess)
-                {
-                    BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device ROI: " << cudaGetErrorString(err);
-                    throw stage_runtime_error{"backproject() failed"};
-                }
-
-                glados::cuda::launch_async(s.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<true>,
-                                           v.buf.get(), v.buf.pitch(), tex, sin, cos);
-            }
-            else
-                glados::cuda::launch_async(s.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<false>,
-                                           v.buf.get(), v.buf.pitch(), tex, sin, cos);
-
-            glados::cuda::synchronize_stream(s.stream);
-            err = cudaDestroyTextureObject(tex);
-            if(err != cudaSuccess)
-            {
-                BOOST_LOG_TRIVIAL(fatal) << "Could not destroy CUDA texture: " << cudaGetErrorString(err);
-                throw stage_runtime_error{"backproject() failed"};
-            }
+            lock.lock();
+            p_queue.push(std::move(p));
+            lock.unlock();
         }
     }
 }

@@ -32,28 +32,39 @@ namespace paris
     {
         namespace
         {
-            __global__ void weighting_kernel(float* p, std::uint32_t dim_x, std::uint32_t dim_y, std::size_t pitch,
-                                             float h_min, float v_min, float d_sd, float l_px_row, float l_px_col)
+            __global__ void matrix_generation_kernel(float* m, std::uint32_t dim_x, std::uint32_t dim_y,
+                                                      std::size_t pitch, float h_min, float v_min, float d_sd,
+                                                      float l_px_row, float l_px_col)
             {
                 auto s = glados::cuda::coord_x();
                 auto t = glados::cuda::coord_y();
 
                 if((s < dim_x) && (t < dim_y))
                 {
-                    auto row = reinterpret_cast<float*>(reinterpret_cast<char*>(p) + t * pitch);
-
-                    // enable parallel global memory fetch while calculating
-                    const auto val = row[s];
+                    auto row = reinterpret_cast<float*>(reinterpret_cast<char*>(m) + t * pitch);
 
                     // detector coordinates in mm
                     const auto h_s = (l_px_row / 2.f) + s * l_px_row + h_min;
                     const auto v_t = (l_px_col / 2.f) + t * l_px_col + v_min;
 
                     // calculate weight
-                    const auto w_st = d_sd * rsqrtf(powf(d_sd, 2) + powf(h_s, 2) + powf(v_t, 2));
+                    row[s] = d_sd * rsqrtf(d_sd * d_sd + h_s * h_s + v_t * v_t);
+                }
+            }
+
+            __global__ void weighting_kernel(float* p, const float* m, std::uint32_t dim_x, std::uint32_t dim_y,
+                                             std::size_t p_pitch, std::size_t m_pitch)
+            {
+                auto s = glados::cuda::coord_x();
+                auto t = glados::cuda::coord_y();
+
+                if((s < dim_x) && (t < dim_y))
+                {
+                    auto p_row = reinterpret_cast<float*>(reinterpret_cast<char*>(p) + t * p_pitch);
+                    auto m_row = reinterpret_cast<const float*>(reinterpret_cast<const char*>(m) + t * m_pitch);
 
                     // write value
-                    row[s] = val * w_st;
+                    p_row[s] *= m_row[s];
                 }
             }
 
@@ -62,14 +73,22 @@ namespace paris
         auto weight(projection_device_type& p, float h_min, float v_min, float d_sd, float l_px_row, float l_px_col)
             -> void
         {
-            thread_local static auto s = cuda_stream{};
-            
-            glados::cuda::launch_async(s.stream, p.dim_x, p.dim_y,
-                                        weighting_kernel,
-                                        p.buf.get(), p.dim_x, p.dim_y, p.buf.pitch(),
-                                        h_min, v_min, d_sd, l_px_row, l_px_col);
+            thread_local static auto matrix = glados::cuda::pitched_device_ptr<float>(nullptr);
+            thread_local static auto generated_matrix = false;
+            if(!generated_matrix)
+            {
+                matrix = glados::cuda::make_unique_device<float>(p.dim_x, p.dim_y);
+                glados::cuda::launch_async(p.meta.stream, p.dim_x, p.dim_y,
+                                           matrix_generation_kernel,
+                                           matrix.get(), p.dim_x, p.dim_y, matrix.pitch(), h_min, v_min, d_sd,
+                                           l_px_row, l_px_col);
+                generated_matrix = true;
+            }
 
-            glados::cuda::synchronize_stream(s.stream);
+            glados::cuda::launch_async(p.meta.stream, p.dim_x, p.dim_y,
+                                        weighting_kernel,
+                                        p.buf.get(), static_cast<const float*>(matrix.get()),
+                                        p.dim_x, p.dim_y, p.buf.pitch(), matrix.pitch());
         }
         
     }

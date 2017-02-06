@@ -233,17 +233,16 @@ namespace paris
                                                                 &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                                 batch};
 
-            // create stream for filtering and assign to plans
-            thread_local static auto s = cuda_stream{};
-            forward.set_stream(s.stream);
-            inverse.set_stream(s.stream);
+            // assign projection stream to plans
+            forward.set_stream(p.meta.stream);
+            inverse.set_stream(p.meta.stream);
 
             // expand and transform the projection
-            expand(p.buf, p.dim_x, p_exp, filter_size, n_col, s.stream);
+            expand(p.buf, p.dim_x, p_exp, filter_size, n_col, p.meta.stream);
             forward.execute(p_exp.get(), p_trans.get());
 
             // apply filter to transformed projection
-            glados::cuda::launch_async(s.stream, size_trans, n_col,
+            glados::cuda::launch_async(p.meta.stream, size_trans, n_col,
                                        filter_application_kernel,
                                        p_trans.get(), static_cast<const cufftComplex*>(k.get()),
                                        size_trans, n_col, p_trans.pitch());
@@ -252,12 +251,10 @@ namespace paris
             inverse.execute(p_trans.get(), p_exp.get());
 
             // shrink to original size and normalize
-            shrink(p_exp, p.buf, p.dim_x, n_col, s.stream);
-            glados::cuda::launch_async(s.stream, p.dim_x, p.dim_y,
+            shrink(p_exp, p.buf, p.dim_x, n_col, p.meta.stream);
+            glados::cuda::launch_async(p.meta.stream, p.dim_x, p.dim_y,
                                        normalization_kernel,
                                        p.buf.get(), p.buf.pitch(), p.dim_x, p.dim_y, filter_size);
-
-            glados::cuda::synchronize_stream(s.stream);
         }
     }
 }

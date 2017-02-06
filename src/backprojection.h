@@ -33,7 +33,7 @@
 
 namespace paris
 {
-    auto backproject(const backend::projection_device_type& p,
+    auto backproject(backend::projection_device_type& p,
                      backend::volume_device_type& v,
                      std::uint32_t v_offset,
                      const detector_geometry& det_geo,

@@ -33,7 +33,7 @@ namespace paris
         auto make_projection_host(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_host_type
         {
             auto ptr = std::make_unique<float[]>(dim_x * dim_y);
-            return projection<projection_host_buffer_type, metadata>{std::move(ptr), dim_x, dim_y, 0, 0.f, metadata{}}; 
+            return projection<projection_host_buffer_type>{std::move(ptr), dim_x, dim_y, 0, 0.f}; 
         }
 
         auto make_projection_device(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_device_type
@@ -59,7 +59,6 @@ namespace paris
             std::copy_n(h_p.buf.get(), h_p.dim_x * h_p.dim_y, d_p.buf.get());
             d_p.idx = h_p.idx;
             d_p.phi = h_p.phi;
-            d_p.meta = h_p.meta;
         }
 
         auto copy_d2h(const projection_device_type& d_p, projection_host_type& h_p) noexcept -> void

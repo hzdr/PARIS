@@ -59,7 +59,7 @@ namespace
 {
     auto init_log() -> void
     {
-    #ifdef PARIS_DEBUG
+    #ifdef DEBUG
         boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
     #else
         boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);

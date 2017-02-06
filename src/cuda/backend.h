@@ -56,15 +56,13 @@ namespace paris
         {
             cuda_stream();
             ~cuda_stream();
-
             cudaStream_t stream;
         };
-        using metadata = cuda_stream*;
 
-        using projection_host_type = projection<projection_host_buffer_type, metadata>;
-        using projection_device_type = projection<projection_device_buffer_type, metadata>;
-        using volume_host_type = volume<volume_host_buffer_type>;
-        using volume_device_type = volume<volume_device_buffer_type>;
+        using projection_host_type = projection<projection_host_buffer_type, cuda_stream>;
+        using projection_device_type = projection<projection_device_buffer_type, cuda_stream>;
+        using volume_host_type = volume<volume_host_buffer_type, cuda_stream>;
+        using volume_device_type = volume<volume_device_buffer_type, cuda_stream>;
 
         auto make_projection_host(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_host_type;
         auto make_projection_device(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_device_type;
@@ -89,10 +87,10 @@ namespace paris
         auto apply_filter(projection_device_type& p, const filter_buffer_type& k, std::uint32_t filter_size,
                           std::uint32_t n_col) -> void;
 
-        auto backproject(const projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
+        auto backproject(projection_device_type& p, volume_device_type& v, std::uint32_t v_offset,
                          const detector_geometry& det_geo, const volume_geometry& vol_geo, 
                          bool enable_roi, const region_of_interest& roi,
-                         float sin, float cos, float delta_s, float delta_t) -> void;
+                         float delta_s, float delta_t) -> void;
 
         /**
          * Device management

@@ -34,7 +34,7 @@
 
 namespace paris
 {
-    auto backproject(const backend::projection_device_type& p,
+    auto backproject(backend::projection_device_type& p,
                      backend::volume_device_type& v,
                      std::uint32_t v_offset,
                      const detector_geometry& det_geo,
@@ -50,21 +50,15 @@ namespace paris
         static const auto delta_t = det_geo.delta_t * det_geo.l_px_col;
 
         // get angular position of the current projection
-        auto phi = 0.f;
-        if(enable_angles)
-            phi = p.phi;
-        else
-            phi = static_cast<float>(p.idx) * det_geo.delta_phi;
+        if(!enable_angles)
+            p.phi = static_cast<float>(p.idx) * det_geo.delta_phi;
 
         // transform to radians
-        phi *= static_cast<float>(M_PI) / 180.f;
-
-        auto sin = std::sin(phi);
-        auto cos = std::cos(phi);
+        p.phi *= static_cast<float>(M_PI) / 180.f;
 
         if(p.idx % 10u == 0u)
             BOOST_LOG_TRIVIAL(info) << "Processing projection #" << p.idx;
 
-        backend::backproject(p, v, v_offset, det_geo, vol_geo, enable_roi, roi, sin, cos, delta_s, delta_t);
+        backend::backproject(p, v, v_offset, det_geo, vol_geo, enable_roi, roi, delta_s, delta_t);
     }
 }
