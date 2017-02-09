@@ -113,10 +113,9 @@ namespace paris
                         }
                         ++i;
                     }
-                    done = true;
                 }
-
                 paths_.erase(std::begin(paths_));
+                done = !queue_.empty();
             }
         }
 
