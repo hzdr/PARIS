@@ -77,7 +77,7 @@ IF(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     SET(COMPAT_WARNINGS "-Wabi")
     SET(BUG_WARNINGS "-Wuninitialized -Wshadow -Wcast-qual")
 
-    SET(OPTIMIZATION_REPORTS "-qopt-report -qopt-report-phase=vec")
+    SET(OPTIMIZATION_REPORTS "-qopt-report=4 -qopt-report-phase=vec -qopt-report-phase=ipo")
 ENDIF(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${BASIC_WARNINGS} ${NUMERICAL_WARNINGS} ${CLASS_WARNINGS} ${COMPAT_WARNINGS} ${BUG_WARNINGS} ${DISABLED_WARNINGS}")

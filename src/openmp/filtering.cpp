@@ -20,6 +20,7 @@
  * Authors: Jan Stephan <j.stephan@hzdr.de>
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -76,15 +77,13 @@ namespace paris
                               float* dst, std::uint32_t dst_dim_x, std::uint32_t dim_y) noexcept -> void
             {
                 // copy original projection to expanded projection
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for
                 for(auto y = 0u; y < dim_y; ++y)
                 {
-                    for(auto x = 0u; x < dst_dim_x; ++x)
+                    #pragma omp simd
+                    for(auto x = 0u; x < src_dim_x; ++x)
                     {
-                        if(x < src_dim_x)
                             dst[x + y * dst_dim_x] = src[x + y * src_dim_x];
-                        else
-                            dst[x + y * dst_dim_x] = 0.f;
                     }
                 }
             }
@@ -92,9 +91,10 @@ namespace paris
             auto do_filtering(fftwf_complex* in, const fftwf_complex* filter,
                               std::uint32_t dim_x, std::uint32_t dim_y) noexcept -> void
             {
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for
                 for(auto y = 0u; y < dim_y; ++y)
                 {
+                    #pragma omp simd
                     for(auto x = 0u; x < dim_x; ++x)
                     {
                         auto coord = x + y * dim_x;
@@ -104,28 +104,16 @@ namespace paris
                 }
             }
 
-            auto shrink(const float* src, std::uint32_t src_dim_x,
-                              float* dst, std::uint32_t dst_dim_x, std::uint32_t dim_y) noexcept -> void
+            auto shrink_and_normalize(const float* src, std::uint32_t src_dim_x, // = filter_size
+                                            float* dst, std::uint32_t dst_dim_x, std::uint32_t dim_y) noexcept -> void
             {
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for
                 for(auto y = 0u; y < dim_y; ++y)
                 {
+                    #pragma omp simd
                     for(auto x = 0u; x < dst_dim_x; ++x)
                     {
-                        dst[x + y * dst_dim_x] = src[x + y * src_dim_x];
-                    }
-                }
-            }
-
-            auto normalize(float* src, std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t filter_size) noexcept
-                -> void
-            {
-                #pragma omp parallel for collapse(2)
-                for(auto y = 0u; y < dim_y; ++y)
-                {
-                    for(auto x = 0u; x < dim_x; ++x)
-                    {
-                        src[x + y * dim_x] /= static_cast<float>(filter_size);
+                        dst[x + y * dst_dim_x] = src[x + y * src_dim_x] / static_cast<float>(src_dim_x);
                     }
                 }
             }
@@ -177,11 +165,12 @@ namespace paris
             static const auto batch = static_cast<int>(n_col);
 
             // allocate memory for expanded projection (projection width -> filter size)
-            thread_local static auto p_exp = make_ptr<float>(filter_size, n_col);
+            static auto p_exp = make_ptr<float>(filter_size, n_col);
+            std::fill_n(p_exp.get(), filter_size * n_col, 0.f);
 
             // allocate memory for transformed projection
             static const auto size_trans = filter_size / 2 + 1;
-            thread_local static auto p_trans = make_ptr<fftwf_complex>(size_trans, n_col);
+            static auto p_trans = make_ptr<fftwf_complex>(size_trans, n_col);
 
             // set distance between the first elements of two successive lines
             static const auto p_exp_dist = static_cast<int>(filter_size);
@@ -196,9 +185,12 @@ namespace paris
             static const auto p_trans_nembed = static_cast<int>(p_trans_dist);
 
             // create plans for forward and inverse FFT
-            thread_local static auto forward = fftwf_plan_many_dft_r2c(rank, &n, batch, p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist, p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist, FFTW_MEASURE | FFTW_PRESERVE_INPUT);
+            static auto forward = fftwf_plan_many_dft_r2c(rank, &n, batch,
+                                                          p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist,
+                                                          p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist,
+                                                          FFTW_MEASURE | FFTW_PRESERVE_INPUT);
 
-            thread_local static auto inverse = fftwf_plan_many_dft_c2r(rank, &n, batch,
+            static auto inverse = fftwf_plan_many_dft_c2r(rank, &n, batch,
                                                           p_trans.get(), &p_trans_nembed, p_trans_stride, p_trans_dist,
                                                           p_exp.get(), &p_exp_nembed, p_exp_stride, p_exp_dist,
                                                           FFTW_MEASURE | FFTW_DESTROY_INPUT);
@@ -214,8 +206,7 @@ namespace paris
             fftwf_execute(inverse);
 
             // shrink to original size and normalize
-            shrink(p_exp.get(), filter_size, p.buf.get(), p.dim_x, n_col);
-            normalize(p.buf.get(), p.dim_x, p.dim_y, filter_size);
+            shrink_and_normalize(p_exp.get(), filter_size, p.buf.get(), p.dim_x, n_col);
         }
     }
 }
