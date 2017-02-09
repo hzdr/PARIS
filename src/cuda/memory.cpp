@@ -39,7 +39,7 @@ namespace paris
 
         auto make_projection_device(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_device_type
         {
-            thread_local static auto allocator = detail::pool{};
+            thread_local static auto allocator = detail::pool{30};
             auto ptr = allocator.allocate_smart(dim_x, dim_y);
             return projection_device_type{std::move(ptr), dim_x, dim_y, 0u, 0.f, cuda_stream{}};
         }

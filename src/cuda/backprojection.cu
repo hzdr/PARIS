@@ -201,6 +201,12 @@ namespace paris
                         BOOST_LOG_TRIVIAL(fatal) << "Could not destroy CUDA texture: " << cudaGetErrorString(err);
                         throw stage_runtime_error{"backproject() failed"};
                     }
+
+                    // release projection stream
+                    cudaStreamDestroy(p.meta.stream);
+
+                    // synchronize backprojection kernel
+                    glados::cuda::synchronize_stream(v.meta.stream);
                 }
             }
         }
