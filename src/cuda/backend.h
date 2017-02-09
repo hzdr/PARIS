@@ -98,6 +98,8 @@ namespace paris
         using device_handle = int;
         auto get_devices() -> std::vector<device_handle>;
         auto set_device(device_handle& device) -> void;
+
+        auto shutdown() -> void;
     }
 }
 

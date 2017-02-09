@@ -45,5 +45,10 @@ namespace paris
 
             return vec;
         }
+
+        auto shutdown() -> void
+        {
+            cudaDeviceReset();
+        }
     }
 }

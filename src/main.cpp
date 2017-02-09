@@ -106,6 +106,8 @@ namespace
 
             sink.save(v);
         }
+
+        paris::backend::shutdown();
     }
 }
 

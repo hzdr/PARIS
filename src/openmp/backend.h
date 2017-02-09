@@ -86,6 +86,8 @@ namespace paris
         using device_handle = int;
         inline auto get_devices() -> std::vector<device_handle> { return std::vector<device_handle>{0}; }
         constexpr auto set_device(device_handle&) noexcept -> int { return 0; }
+
+        inline auto shutdown() noexcept -> void {}
     }
 }
 
