@@ -103,7 +103,6 @@ namespace
                 paris::filter(d_p, t.det_geo);
                 paris::backproject(d_p, v, offset, t.det_geo, t.vol_geo, t.enable_angles, t.enable_roi, t.roi); 
             }
-
             sink.save(v);
         }
 

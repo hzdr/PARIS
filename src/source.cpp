@@ -93,28 +93,40 @@ namespace paris
             auto done = false;
             while(!done)
             {
-                auto vec = his::load(paths_[0u]);
+                auto path = std::move(paths_[0u]);
+                paths_.erase(std::begin(paths_));
+
+                if(i % quality_ != 0)
+                {
+                    ++i;
+                    continue;
+                }
+
+                auto vec = his::load(path);
                 if(vec.empty())
                 {
                     BOOST_LOG_TRIVIAL(warning) << "Skipping invalid file at " << paths_[0u];
+                    --i;
+                    continue;
                 }
-                else
+
+                for(auto&& p : vec)
                 {
-                    for(auto&& p : vec)
+                    if(i % quality_ != 0)
                     {
-                        if(i % quality_ == 0u)
-                        {
-                            p.idx = i;
-
-                            if(enable_angles_ && !angles_.empty())
-                                p.phi = angles_[i];
-
-                            queue_.push(std::move(p));
-                        }
                         ++i;
+                        continue;
                     }
+
+                    p.idx = i;
+
+                    if(enable_angles_ && !angles_.empty())
+                        p.phi = angles_[i];
+
+                    queue_.push(std::move(p));
+                    ++i;
                 }
-                paths_.erase(std::begin(paths_));
+
                 done = !queue_.empty();
             }
         }
@@ -122,7 +134,7 @@ namespace paris
         auto p = std::move(queue_.front());
         queue_.pop();
 
-        if(paths_.empty() && queue_.empty())
+        if((paths_.size() < quality_) && queue_.empty())
             drained_ = true;
 
         return p;
