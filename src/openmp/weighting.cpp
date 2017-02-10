@@ -68,7 +68,7 @@ namespace paris
                 generate_matrix(matrix.get(), p.dim_x, p.dim_y, h_min, v_min, d_sd, l_px_row, l_px_col);
             }
 
-            #pragma omp parallel for schedule(dynamic)
+            #pragma omp parallel for schedule(static)
             for(auto t = 0u; t < p.dim_y; ++t)
             {
                 #pragma omp simd

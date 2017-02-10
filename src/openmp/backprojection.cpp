@@ -92,7 +92,7 @@ namespace paris
                                    float l_px_x, float l_px_y, float d_so, float d_sd, float delta_s, float delta_t,
                                    float sin, float cos, const region_of_interest& roi) noexcept -> void
             {
-                #pragma omp parallel for collapse(3) schedule(dynamic)
+                #pragma omp parallel for collapse(3) schedule(static)
                 for(auto m = 0u; m < v_dim_z; ++m)
                 {
                     for(auto l = 0u; l < v_dim_y; ++l)

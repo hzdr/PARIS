@@ -77,7 +77,7 @@ namespace paris
                               float* dst, std::uint32_t dst_dim_x, std::uint32_t dim_y) noexcept -> void
             {
                 // copy original projection to expanded projection
-                #pragma omp parallel for schedule(dynamic)
+                #pragma omp parallel for schedule(static)
                 for(auto y = 0u; y < dim_y; ++y)
                 {
                     #pragma omp simd
@@ -91,7 +91,7 @@ namespace paris
             auto do_filtering(fftwf_complex* in, const fftwf_complex* filter,
                               std::uint32_t dim_x, std::uint32_t dim_y) noexcept -> void
             {
-                #pragma omp parallel for schedule(dynamic)
+                #pragma omp parallel for schedule(static)
                 for(auto y = 0u; y < dim_y; ++y)
                 {
                     #pragma omp simd
@@ -107,7 +107,7 @@ namespace paris
             auto shrink_and_normalize(const float* src, std::uint32_t src_dim_x, // = filter_size
                                             float* dst, std::uint32_t dst_dim_x, std::uint32_t dim_y) noexcept -> void
             {
-                #pragma omp parallel for schedule(dynamic)
+                #pragma omp parallel for schedule(static)
                 for(auto y = 0u; y < dim_y; ++y)
                 {
                     #pragma omp simd
