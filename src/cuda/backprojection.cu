@@ -140,7 +140,12 @@ namespace paris
                 while(true)
                 {
                     while(q.empty())
+                    {
+                        v.meta.valid = true; // this is just asking for trouble....
                         std::this_thread::yield();
+                    }
+
+                    v.meta.valid = false;
 
                     // acquire projection
                     lock.lock();
@@ -181,18 +186,18 @@ namespace paris
                     // apply ROI as needed and backproject
                     if(enable_roi)
                     {
-                        err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, v.meta.stream);
+                        err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, v.meta.s.stream);
                         if(err != cudaSuccess)
                         {
                             BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device ROI: " << cudaGetErrorString(err);
                             throw stage_runtime_error{"backproject() failed"};
                         }
 
-                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<true>,
+                        glados::cuda::launch_async(v.meta.s.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<true>,
                                                    v.buf.get(), v.buf.pitch(), tex, sin, cos);
                     }
                     else
-                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<false>,
+                        glados::cuda::launch_async(v.meta.s.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<false>,
                                                    v.buf.get(), v.buf.pitch(), tex, sin, cos);
 
                     err = cudaDestroyTextureObject(tex);
@@ -206,7 +211,7 @@ namespace paris
                     cudaStreamDestroy(p.meta.stream);
 
                     // synchronize backprojection kernel
-                    glados::cuda::synchronize_stream(v.meta.stream);
+                    glados::cuda::synchronize_stream(v.meta.s.stream);
                 }
             }
         }
@@ -263,7 +268,7 @@ namespace paris
             };
 
             auto err = cudaMemcpyToSymbolAsync(dev_consts__, &consts, sizeof(consts), 0u, cudaMemcpyHostToDevice,
-                                               v.meta.stream);
+                                               v.meta.s.stream);
             if(err != cudaSuccess)
             {
                 BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device constants: " << cudaGetErrorString(err);

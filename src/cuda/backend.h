@@ -59,10 +59,16 @@ namespace paris
             cudaStream_t stream;
         };
 
+        struct volume_metadata
+        {
+            cuda_stream s = cuda_stream{};
+            bool valid = false;
+        };
+
         using projection_host_type = projection<projection_host_buffer_type, cuda_stream>;
         using projection_device_type = projection<projection_device_buffer_type, cuda_stream>;
-        using volume_host_type = volume<volume_host_buffer_type, cuda_stream>;
-        using volume_device_type = volume<volume_device_buffer_type, cuda_stream>;
+        using volume_host_type = volume<volume_host_buffer_type, volume_metadata>;
+        using volume_device_type = volume<volume_device_buffer_type, volume_metadata>;
 
         auto make_projection_host(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_host_type;
         auto make_projection_device(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_device_type;

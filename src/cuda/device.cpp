@@ -48,6 +48,7 @@ namespace paris
 
         auto shutdown() -> void
         {
+            cudaDeviceSynchronize();
             cudaDeviceReset();
         }
     }

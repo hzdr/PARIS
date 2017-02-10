@@ -34,15 +34,15 @@ namespace paris
         volume() = default;
 
         volume(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t z, std::uint32_t o, Metadata m) 
-        : buf{std::move(b)}, dim_x{x}, dim_y{y}, dim_z{z}, off{o}, meta{m}
+        : buf(std::move(b)), dim_x{x}, dim_y{y}, dim_z{z}, off{o}, meta(m)
         {}
 
-        BufferType buf = BufferType{};
+        BufferType buf = BufferType();
         std::uint32_t dim_x = 0;
         std::uint32_t dim_y = 0;
         std::uint32_t dim_z = 0;
         std::uint32_t off = 0;
-        Metadata meta = Metadata{};
+        Metadata meta = Metadata();
     };
 }
 
