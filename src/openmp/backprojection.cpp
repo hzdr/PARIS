@@ -52,10 +52,10 @@ namespace paris
             auto interpolate(const float* p, float x, float y, std::uint32_t dim_x, std::uint32_t dim_y) noexcept
                 -> float
             {
-                auto x1 = std::floor(x);
-                auto x2 = x1 + 1.f;
-                auto y1 = std::floor(y);
-                auto y2 = y1 + 1.f;
+                float x1 = std::floor(x);
+                float x2 = x1 + 1.f;
+                float y1 = std::floor(y);
+                float y2 = y1 + 1.f;
 
                 auto x1u = static_cast<std::uint32_t>(x1);
                 auto x2u = static_cast<std::uint32_t>(x2);
@@ -67,15 +67,15 @@ namespace paris
                 auto y1_valid = y1 >= 0.f;
                 auto y2_valid = y2 < static_cast<float>(dim_y);
 
-                auto interp = 0.f;
+                float interp = 0.f;
                 if(x1_valid && x2_valid && y1_valid && y2_valid)
                 {
-                    auto q11 = p[x1u + y1u * dim_x];
-                    auto q12 = p[x1u + y2u * dim_x];
-                    auto q21 = p[x2u + y1u * dim_x];
-                    auto q22 = p[x2u + y2u * dim_x];
-                    auto interp_y1 = (x2 - x) / (x2 - x1) * q11 + (x - x1) / (x2 - x1) * q21;
-                    auto interp_y2 = (x2 - x) / (x2 - x1) * q12 + (x - x1) / (x2 - x1) * q22;
+                    float q11 = p[x1u + y1u * dim_x];
+                    float q12 = p[x1u + y2u * dim_x];
+                    float q21 = p[x2u + y1u * dim_x];
+                    float q22 = p[x2u + y2u * dim_x];
+                    float interp_y1 = (x2 - x) / (x2 - x1) * q11 + (x - x1) / (x2 - x1) * q21;
+                    float interp_y2 = (x2 - x) / (x2 - x1) * q12 + (x - x1) / (x2 - x1) * q22;
 
                     interp = (y2 - y) / (y2 - y1) * interp_y1 + (y - y1) / (y2 - y1) * interp_y2;
                 }
