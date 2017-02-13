@@ -92,63 +92,43 @@ namespace paris
                                    float l_px_x, float l_px_y, float d_so, float d_sd, float delta_s, float delta_t,
                                    float sin, float cos, const region_of_interest& roi) noexcept -> void
             {
-                #pragma omp parallel for collapse(3) schedule(static)
-                for(auto m = 0u; m < v_dim_z; ++m)
+                // Schleifen zusammenfassen (3 -> 1)
+                #pragma omp parallel for simd schedule(static)
+                for(auto i = 0u; i < v_dim_x * v_dim_y * v_dim_z; ++i)
                 {
-                    for(auto l = 0u; l < v_dim_y; ++l)
-                    {
-                        for(auto k = 0u; k < v_dim_x; ++k)
-                        {
-                            const auto coord = k + l * v_dim_x + m * v_dim_x * v_dim_y;
+                    // calculate volume coordinates
+                    auto k = (i % v_dim_x) + roi.x1;
+                    auto l = ((i / v_dim_x) % v_dim_y) + roi.y1;
+                    auto m = (i / (v_dim_x * v_dim_y)) + roi.z1;
+//                    auto m = (i - (k + l * v_dim_x)) / (v_dim_x * v_dim_y) + roi.z1;
 
-                            // add ROI offset -- this should get optimized away for enable_roi == false
-                            if(enable_roi)
-                            {
-                                k += roi.x1;
-                                l += roi.y1;
-                                m += roi.z1;
-                            }
+                    // get centered coordinates -- volume center is at (0, 0, 0)
+                    const auto x_k = vol_centered_coordinate(k, v_dim_x_full, l_vx_x);
+                    const auto y_l = vol_centered_coordinate(l, v_dim_y_full, l_vx_y);
+                    const auto z_m = vol_centered_coordinate(m, v_dim_z_full, l_vx_z);
 
-                            // add offset for the current subvolume
-                            m += offset;
+                    // rotate coordinates
+                    const auto s = x_k * cos + y_l * sin;
+                    const auto t = -x_k * sin + y_l * cos;
 
-                            // get centered coordinates -- volume center is at (0, 0, 0)
-                            const auto x_k = vol_centered_coordinate(k, v_dim_x_full, l_vx_x);
-                            const auto y_l = vol_centered_coordinate(l, v_dim_y_full, l_vx_y);
-                            const auto z_m = vol_centered_coordinate(m, v_dim_z_full, l_vx_z);
+                    // project rotated coordinates
+                    const auto factor = d_sd / (s + d_so);
+                    const auto h = proj_real_coordinate(t * factor,
+                                                        p_dim_x,
+                                                        l_px_x,
+                                                        delta_s);
+                    const auto v = proj_real_coordinate(z_m * factor,
+                                                        p_dim_y,
+                                                        l_px_y,
+                                                        delta_t);
+                    
+                    // get projection value through interpolation
+                    const auto det = interpolate(p_ptr, h, v, p_dim_x, p_dim_y);
+                    
+                    // backproject
+                    const auto u = -(d_so / (s + d_so));
+                    vol_ptr[i] += 0.5f * det * u * u;
 
-                            // rotate coordinates
-                            const auto s = x_k * cos + y_l * sin;
-                            const auto t = -x_k * sin + y_l * cos;
-
-                            // project rotated coordinates
-                            const auto factor = d_sd / (s + d_so);
-                            const auto h = proj_real_coordinate(t * factor,
-                                                                p_dim_x,
-                                                                l_px_x,
-                                                                delta_s);
-                            const auto v = proj_real_coordinate(z_m * factor,
-                                                                p_dim_y,
-                                                                l_px_y,
-                                                                delta_t);
-                            
-                            // get projection value through interpolation
-                            const auto det = interpolate(p_ptr, h, v, p_dim_x, p_dim_y);
-                            
-                            // backproject
-                            const auto u = -(d_so / (s + d_so));
-                            vol_ptr[coord] += 0.5f * det * u * u;
-
-                            // restore old coordinates
-                            m -= offset;
-                            if(enable_roi)
-                            {
-                                k -= roi.x1;
-                                l -= roi.y1;
-                                m -= roi.z1;
-                            }
-                        }
-                    }
                 }
             }
         }
