@@ -27,6 +27,9 @@ namespace paris
 {
     auto load(const backend::projection_host_type& p) -> backend::projection_device_type
     {
+        if(!p.valid)
+            return backend::projection_device_type{};
+
         auto d_p = backend::make_projection_device(p.dim_x, p.dim_y);
         backend::copy_h2d(p, d_p);
         return d_p;

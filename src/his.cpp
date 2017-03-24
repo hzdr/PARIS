@@ -192,6 +192,7 @@ namespace paris
 
                 img.dim_x = static_cast<std::uint32_t>(width);
                 img.dim_y = static_cast<std::uint32_t>(height);
+                img.valid = true;
                 vec.push_back(std::move(img));
             }
             return vec;

@@ -33,8 +33,8 @@ namespace paris
     {
         projection() = default;
 
-        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, Metadata m)
-        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, meta{m}
+        projection(BufferType b, std::uint32_t x, std::uint32_t y, std::uint32_t i, float ph, bool v, Metadata m)
+        : buf(std::move(b)), dim_x{x}, dim_y{y}, idx{i}, phi{ph}, valid{v}, meta{m}
         {}
 
         BufferType buf = BufferType{};
@@ -42,6 +42,7 @@ namespace paris
         std::uint32_t dim_y = 0;
         std::uint32_t idx = 0;
         float phi = 0.f;
+        bool valid = false;
         Metadata meta = Metadata{};
     };
 }

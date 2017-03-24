@@ -75,7 +75,7 @@ namespace paris
     source::source(const std::string& proj_dir,
                    bool enable_angles, const std::string& angle_file,
                    std::uint16_t quality) noexcept
-    : drained_{true}, enable_angles_{enable_angles}, quality_{quality}
+    : drained_{true}, enable_angles_{enable_angles}, quality_{quality}, used_poison_{false}
     {
         paths_ = read_directory(proj_dir);
         if(!paths_.empty())
@@ -135,7 +135,15 @@ namespace paris
         queue_.pop();
 
         if((paths_.size() < quality_) && queue_.empty())
-            drained_ = true;
+        {
+            if(!used_poison_)
+            {
+                queue_.emplace(backend::projection_host_type{});
+                used_poison_ = true;
+            }
+            else
+                drained_ = true;
+        }
 
         return p;
     }

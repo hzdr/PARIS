@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <future>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -133,9 +134,15 @@ namespace paris
             }
 
             auto do_backprojection(std::mutex& m, std::queue<projection_device_type>& q,
-                                   volume_device_type& v, bool enable_roi, const region_of_interest& roi) -> void
+                                   float* v, std::size_t v_pitch, std::uint32_t dim_x, std::uint32_t dim_y,
+                                   std::uint32_t dim_z, cudaStream_t v_stream, bool enable_roi,
+                                   const region_of_interest& roi, std::promise<void> done_promise) -> void
             {
+                if(v == nullptr)
+                    return;
+
                 auto&& lock = std::unique_lock<std::mutex>(m, std::defer_lock);
+
 
                 while(true)
                 {
@@ -147,6 +154,9 @@ namespace paris
                     auto p = std::move(q.front());
                     q.pop();
                     lock.unlock();
+
+                    if(!p.valid)
+                        break;
 
                     auto sin = std::sin(p.phi);
                     auto cos = std::cos(p.phi);
@@ -178,22 +188,30 @@ namespace paris
                         throw stage_runtime_error{"backproject() failed"};
                     }
 
+                    auto block_size = dim3{16, 8, 2};
+                    auto blocks_x = (dim_x + 16 - (dim_x % 16)) / 16;
+                    auto blocks_y = (dim_y + 8 - (dim_y % 8)) / 8;
+                    auto blocks_z = (dim_z + 2 - (dim_z % 2)) / 2;
+                    auto grid_size = dim3{blocks_x, blocks_y, blocks_z};
+
                     // apply ROI as needed and backproject
                     if(enable_roi)
                     {
-                        err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, v.meta.stream);
+                        err = cudaMemcpyToSymbolAsync(dev_roi__, &roi, sizeof(roi), 0u, cudaMemcpyHostToDevice, v_stream);
                         if(err != cudaSuccess)
                         {
                             BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device ROI: " << cudaGetErrorString(err);
                             throw stage_runtime_error{"backproject() failed"};
                         }
 
-                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<true>,
-                                                   v.buf.get(), v.buf.pitch(), tex, sin, cos);
+                        /*glados::cuda::launch_async(v_stream, dim_x, dim_y, dim_z, backprojection_kernel<true>,
+                                                   v, v_pitch, tex, sin, cos);*/
+                        backprojection_kernel<true><<<grid_size, block_size, 0u, v_stream>>>(v, v_pitch, tex, sin, cos);
                     }
                     else
-                        glados::cuda::launch_async(v.meta.stream, v.dim_x, v.dim_y, v.dim_z, backprojection_kernel<false>,
-                                                   v.buf.get(), v.buf.pitch(), tex, sin, cos);
+                        backprojection_kernel<false><<<grid_size, block_size, 0u, v_stream>>>(v, v_pitch, tex, sin, cos);
+/*                        glados::cuda::launch_async(v_stream, dim_x, dim_y, dim_z, backprojection_kernel<false>,
+                                                   v, v_pitch, tex, sin, cos);*/
 
                     err = cudaDestroyTextureObject(tex);
                     if(err != cudaSuccess)
@@ -204,10 +222,10 @@ namespace paris
 
                     // release projection stream
                     cudaStreamDestroy(p.meta.stream);
-
-                    // synchronize backprojection kernel
-                    glados::cuda::synchronize_stream(v.meta.stream);
                 }
+                // synchronize backprojection kernel
+                // glados::cuda::synchronize_stream(v_stream);
+                done_promise.set_value_at_thread_exit(); // notify waiting threads
             }
         }
 
@@ -238,49 +256,61 @@ namespace paris
             static const auto d_sd = std::abs(det_geo.d_so) + std::abs(det_geo.d_od);
 
             // variable for the backprojection - might change between subvolumes
-            thread_local static auto offset = v_offset;
+            thread_local static auto offset = std::uint32_t{-1};
 
-            // initialise device constants
-            thread_local static auto consts = backprojection_constants {
-                v.dim_x,
-                v_dim_x_full,
-                v.dim_y,
-                v_dim_y_full,
-                v.dim_z,
-                v_dim_z_full,
-                offset,
-                l_vx_x,
-                l_vx_y,
-                l_vx_z,
-                p_dim_x,
-                p_dim_y,
-                l_px_x,
-                l_px_y,
-                d_s,
-                d_t,
-                d_so,
-                d_sd
-            };
-
-            auto err = cudaMemcpyToSymbolAsync(dev_consts__, &consts, sizeof(consts), 0u, cudaMemcpyHostToDevice,
-                                               v.meta.stream);
-            if(err != cudaSuccess)
+            thread_local static auto consts = backprojection_constants{};
+            auto consts_changed = (offset != v_offset);
+            if(consts_changed)
             {
-                BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device constants: " << cudaGetErrorString(err);
-                throw stage_runtime_error{"backproject() failed"};
+                offset = v_offset;
+
+                consts = backprojection_constants {
+                    v.dim_x,
+                    v_dim_x_full,
+                    v.dim_y,
+                    v_dim_y_full,
+                    v.dim_z,
+                    v_dim_z_full,
+                    offset,
+                    l_vx_x,
+                    l_vx_y,
+                    l_vx_z,
+                    p_dim_x,
+                    p_dim_y,
+                    l_px_x,
+                    l_px_y,
+                    d_s,
+                    d_t,
+                    d_so,
+                    d_sd
+                };
+
+                // initialise device constants
+                auto err = cudaMemcpyToSymbolAsync(dev_consts__, &consts, sizeof(consts), 0u, cudaMemcpyHostToDevice,
+                                                   v.meta.s.stream);
+                if(err != cudaSuccess)
+                {
+                    BOOST_LOG_TRIVIAL(fatal) << "Could not initialise device constants: " << cudaGetErrorString(err);
+                    throw stage_runtime_error{"backproject() failed"};
+                }
             }
 
             thread_local static auto p_queue = std::queue<projection_device_type>{};
             thread_local static auto&& m = std::mutex{};
             thread_local static auto&& lock = std::unique_lock<std::mutex>{m, std::defer_lock};
 
-            thread_local static auto started_worker = false;
-            if(!started_worker)
+            thread_local static auto old_ptr = static_cast<float*>(nullptr);
+            if(old_ptr != v.buf.get()) // are we still operating on the same volume?
             {
+                old_ptr = v.buf.get();
+                auto&& done_promise = std::promise<void>{};
+                v.meta.done_future = done_promise.get_future();
+
                 auto bp_worker = std::thread{do_backprojection, std::ref(m), std::ref(p_queue),
-                                                             std::ref(v), enable_roi, std::ref(roi)};
+                                                             v.buf.get(), v.buf.pitch(), v.dim_x, v.dim_y, v.dim_z,
+                                                             v.meta.s.stream, enable_roi, std::ref(roi),
+                                                             std::move(done_promise)};
                 bp_worker.detach();
-                started_worker = true;
             }
 
             lock.lock();
