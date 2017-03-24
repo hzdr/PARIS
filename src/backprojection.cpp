@@ -56,7 +56,7 @@ namespace paris
         // transform to radians
         p.phi *= static_cast<float>(M_PI) / 180.f;
 
-        if(p.idx % 10u == 0u)
+        if(p.idx % 10u == 0u && p.valid)
             BOOST_LOG_TRIVIAL(info) << "Processing projection #" << p.idx;
 
         backend::backproject(p, v, v_offset, det_geo, vol_geo, enable_roi, roi, delta_s, delta_t);

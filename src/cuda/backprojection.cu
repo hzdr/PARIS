@@ -136,13 +136,13 @@ namespace paris
             auto do_backprojection(std::mutex& m, std::queue<projection_device_type>& q,
                                    float* v, std::size_t v_pitch, std::uint32_t dim_x, std::uint32_t dim_y,
                                    std::uint32_t dim_z, cudaStream_t v_stream, bool enable_roi,
-                                   const region_of_interest& roi, std::promise<void> done_promise) -> void
+                                   const region_of_interest& roi, std::promise<void> done_promise, int device) -> void
             {
                 if(v == nullptr)
                     return;
 
                 auto&& lock = std::unique_lock<std::mutex>(m, std::defer_lock);
-
+                cudaSetDevice(device);
 
                 while(true)
                 {
@@ -295,6 +295,9 @@ namespace paris
                 }
             }
 
+            thread_local static auto device = int{};
+            cudaGetDevice(&device);
+
             thread_local static auto p_queue = std::queue<projection_device_type>{};
             thread_local static auto&& m = std::mutex{};
             thread_local static auto&& lock = std::unique_lock<std::mutex>{m, std::defer_lock};
@@ -309,7 +312,7 @@ namespace paris
                 auto bp_worker = std::thread{do_backprojection, std::ref(m), std::ref(p_queue),
                                                              v.buf.get(), v.buf.pitch(), v.dim_x, v.dim_y, v.dim_z,
                                                              v.meta.s.stream, enable_roi, std::ref(roi),
-                                                             std::move(done_promise)};
+                                                             std::move(done_promise), device};
                 bp_worker.detach();
             }
 

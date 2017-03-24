@@ -35,6 +35,7 @@ IF(PARIS_ENABLE_CUDA)
         ${CUDA_NVCC_FLAGS};
         -std=c++11;
         -gencode arch=compute_61,code=sm_61;
+        -gencode arch=compute_35,code=sm_35;
         --default-stream per-thread;
         -prec-div=true;
         -prec-sqrt=true;

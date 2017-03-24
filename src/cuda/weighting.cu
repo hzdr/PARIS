@@ -22,7 +22,10 @@
 
 #include <glados/cuda/coordinates.h>
 #include <glados/cuda/launch.h>
+#include <glados/cuda/memory.h>
 #include <glados/cuda/utility.h>
+
+#include <boost/log/trivial.hpp>
 
 #include "backend.h"
 
