@@ -51,6 +51,7 @@ namespace paris
             std::vector<std::string> paths_;
             std::queue<output_type> queue_;
             bool drained_;
+            bool used_poison_;
             
             bool enable_angles_;
             std::vector<float> angles_;

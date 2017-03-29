@@ -94,19 +94,32 @@ namespace paris
                     }
 
                     // FIXME: nasty exception abuse
-                    try
+                    while(true)
                     {
-                        glados::cuda::make_unique_device<float>(vol_geo.dim_x,
-                                                                vol_geo.dim_y,
-                                                                vol_geo.dim_z / vols_needed);
-                        BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
+                        BOOST_LOG_TRIVIAL(info) << "Test volume size: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z / vols_needed;
+
+                        auto extent = make_cudaExtent(vol_geo.dim_x * sizeof(float), vol_geo.dim_y, vol_geo.dim_z / vols_needed);
+                        auto ptr = cudaPitchedPtr{};
+                        auto err = cudaMalloc3D(&ptr, extent);
+                        if(err == cudaErrorMemoryAllocation)
+                        {
+                            BOOST_LOG_TRIVIAL(info) << "Test allocation failed, reducing subvolume size.";
+                            vols_needed *= 2;
+                        }
+                        else if(err == cudaSuccess)
+                        {
+                            BOOST_LOG_TRIVIAL(info) << "Test allocation successful.";
+                            cudaFree(ptr.ptr);
+                            break;
+                        }
+                        else
+                            glados::cuda::detail::throw_error(err); // this should be replaced ASAP
                     }
-                    catch(const glados::cuda::bad_alloc& ba)
-                    {
-                        BOOST_LOG_TRIVIAL(info) << "Test allocation failed, reducing subvolume size.";
-                        mem_dev /= 2;
-                        vols_needed *= 2;
-                    }
+
+                    // reset cudaError to cudaSuccess
+                    auto err = cudaGetLastError();
+                    if(err != cudaSuccess)
+                        BOOST_LOG_TRIVIAL(warning) << "Resetting CUDA error state";
                 }
 
                 subvol_info.geo.dim_x = vol_geo.dim_x;

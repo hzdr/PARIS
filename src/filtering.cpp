@@ -33,6 +33,9 @@ namespace paris
         noexcept(true && noexcept(backend::apply_filter))
         -> void
     {
+        if(!p.valid)
+            return;
+
         // the following variables are static and global -> initialise once
         static const auto filter_size = static_cast<std::uint32_t>(2 * std::pow(2.f, std::ceil(std::log2(det_geo.n_row))));
         static const auto n_col = det_geo.n_col;

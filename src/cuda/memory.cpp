@@ -36,27 +36,27 @@ namespace paris
         auto make_projection_host(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_host_type
         {
             auto ptr = glados::cuda::make_unique_pinned_host<float>(dim_x, dim_y);
-            return projection_host_type{std::move(ptr), dim_x, dim_y, 0u, 0.f, cuda_stream{}};
+            return projection_host_type{std::move(ptr), dim_x, dim_y, 0u, 0.f, true, cuda_stream{}};
         }
 
         auto make_projection_device(std::uint32_t dim_x, std::uint32_t dim_y) -> projection_device_type
         {
-            thread_local static auto allocator = detail::pool{30};
+            thread_local static auto allocator = detail::pool{5};
             auto ptr = allocator.allocate_smart(dim_x, dim_y);
-            return projection_device_type{std::move(ptr), dim_x, dim_y, 0u, 0.f, cuda_stream{}};
+            return projection_device_type{std::move(ptr), dim_x, dim_y, 0u, 0.f, true, cuda_stream{}};
         }
 
         auto make_volume_host(std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> volume_host_type
         {
             auto ptr = glados::cuda::make_unique_pinned_host<float>(dim_x, dim_y, dim_z);
-            return volume_host_type{std::move(ptr), dim_x, dim_y, dim_z, 0u, volume_metadata()};
+            return volume_host_type{std::move(ptr), dim_x, dim_y, dim_z, 0u, volume_metadata{}};
         }
 
         auto make_volume_device(std::uint32_t dim_x, std::uint32_t dim_y, std::uint32_t dim_z) -> volume_device_type
         {
             auto ptr = glados::cuda::make_unique_device<float>(dim_x, dim_y, dim_z);
             glados::cuda::fill(glados::cuda::sync, ptr, 0, dim_x, dim_y, dim_z);
-            return volume_device_type{std::move(ptr), dim_x, dim_y, dim_z, 0u, volume_metadata()};
+            return volume_device_type{std::move(ptr), dim_x, dim_y, dim_z, 0u, volume_metadata{}};
         }
 
         auto copy_h2d(const projection_host_type& h_p, projection_device_type& d_p) -> void
@@ -75,14 +75,17 @@ namespace paris
 
         auto copy_h2d(const volume_host_type& h_v, volume_device_type& d_v) -> void
         {
+            if(h_v.meta.done_future.valid())
+                h_v.meta.done_future.wait();
+
             glados::cuda::copy(glados::cuda::async, d_v.buf, h_v.buf, d_v.meta.s.stream, h_v.dim_x, h_v.dim_y, h_v.dim_z);
             d_v.off = h_v.off;
         }
 
         auto copy_d2h(const volume_device_type& d_v, volume_host_type& h_v) -> void
         {
-            while(!d_v.meta.valid)
-                std::this_thread::yield();
+            if(d_v.meta.done_future.valid())
+                d_v.meta.done_future.wait();
 
             glados::cuda::copy(glados::cuda::async, h_v.buf, d_v.buf, d_v.meta.s.stream, d_v.dim_x, d_v.dim_y, d_v.dim_z);
             glados::cuda::synchronize_stream(d_v.meta.s.stream);

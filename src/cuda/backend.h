@@ -24,6 +24,7 @@
 #define PARIS_CUDA_BACKEND_H_
 
 #include <cstdint>
+#include <future>
 #include <vector>
 
 #include <cufft.h>
@@ -61,8 +62,8 @@ namespace paris
 
         struct volume_metadata
         {
-            cuda_stream s = cuda_stream{};
-            bool valid = false;
+            cuda_stream s;
+            std::future<void> done_future;
         };
 
         using projection_host_type = projection<projection_host_buffer_type, cuda_stream>;

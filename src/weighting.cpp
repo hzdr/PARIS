@@ -33,6 +33,9 @@ namespace paris
         noexcept(true && noexcept(backend::weight))
         -> void
     {
+        if(!p.valid)
+            return;
+
         // the following variables are static and valid for the entire program -> initialise once
         static const auto n_row_f = static_cast<float>(det_geo.n_row);
         static const auto n_col_f = static_cast<float>(det_geo.n_col);
