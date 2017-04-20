@@ -41,6 +41,7 @@ namespace paris
             const auto n_row = static_cast<float>(det_geo.n_row);
             const auto l_px_row = det_geo.l_px_row;
             const auto delta_s = std::abs(det_geo.delta_s * l_px_row); // the offset in det_geo is measured in pixels!
+            BOOST_LOG_TRIVIAL(info) << "delta_h = " << delta_s;
 
             const auto n_col = static_cast<float>(det_geo.n_col);
             const auto l_px_col = det_geo.l_px_col;
@@ -52,12 +53,16 @@ namespace paris
             /* Calculate slice dimensions */
             const auto alpha = std::atan((((n_row * l_px_row) / 2.f) + delta_s) / d_sd);
             const auto r = d_so * std::sin(alpha);
+            BOOST_LOG_TRIVIAL(info) << "alpha = " << alpha;
+            BOOST_LOG_TRIVIAL(info) << "r = " << r;
 
             vol_geo.l_vx_x = r / ((((n_row * l_px_row) / 2.f) + delta_s) / l_px_row);
             vol_geo.l_vx_y = vol_geo.l_vx_x;
+            BOOST_LOG_TRIVIAL(info) << "d_x = " << vol_geo.l_vx_x;
 
             vol_geo.dim_x = static_cast<std::uint32_t>((2.f * r) / vol_geo.l_vx_x);
             vol_geo.dim_y = vol_geo.dim_x;
+            BOOST_LOG_TRIVIAL(info) << "N_x = " << vol_geo.dim_x;
 
             /* Calculate number of slices */
             vol_geo.l_vx_z = vol_geo.l_vx_x;

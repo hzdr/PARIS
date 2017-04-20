@@ -147,12 +147,7 @@ namespace paris
                 while(true)
                 {
                     while(q.empty())
-                    {
-                        v.meta.valid = true; // this is just asking for trouble....
                         std::this_thread::yield();
-                    }
-
-                    v.meta.valid = false;
 
                     // acquire projection
                     lock.lock();
