@@ -25,7 +25,11 @@
 #include <mutex>
 #include <utility>
 
+#ifdef NO_BOOST_LOG
+#include <iostream>
+#else
 #include <boost/log/trivial.hpp>
+#endif
 
 #include "backend.h"
 #include "exception.h"
@@ -48,7 +52,11 @@ namespace paris
             auto s = create_directory(path);
             if(!s)
             {
+#ifdef NO_BOOST_LOG
+                std::cerr << "sink::sink() failed to create output directory at " << path << "\n";
+#else
                 BOOST_LOG_TRIVIAL(fatal) << "sink::sink() failed to create output directory at " << path;
+#endif
                 throw stage_construction_error{"sink::sink() failed"};
             }
 
@@ -56,14 +64,23 @@ namespace paris
         }
         catch(const std::system_error& se)
         {
+#ifdef NO_BOOST_LOG
+            std::cerr << "sink::sink(): system error while creating volume: " << se.code() << " - " << se.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << "sink::sink(): system error while creating volume: "
                                         << se.code() << " - " << se.what();
+#endif
             throw stage_runtime_error{"sink::sink() failed"};
         }
         catch(const std::runtime_error& re)
         {
+#ifdef NO_BOOST_LOG
+            std::cerr << "sink::sink() encountered a runtime error\n";
+            std::cerr << re.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << "sink::sink() encountered a runtime error";
             BOOST_LOG_TRIVIAL(fatal) << re.what();
+#endif
             throw stage_construction_error{"sink::sink() failed"};
         }
 
@@ -82,13 +99,21 @@ namespace paris
         }
         catch(const std::system_error& se)
         {
+#ifdef NO_BOOST_LOG
+            std::cerr << "sink::save(): system error while saving volume: " << se.code() << " - " << se.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << "sink::save(): system error while saving volume: "
                                         << se.code() << " - " << se.what();
+#endif
             throw stage_runtime_error{"sink::save() failed"};
         }
         catch(const std::runtime_error& re)
         {
+#ifdef NO_BOOST_LOG
+            std::cerr << "sink::save(): runtime error while saving volume: " << re.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << "sink::save(): runtime error while saving volume: " << re.what();
+#endif
             throw stage_runtime_error{"sink::save() failed"};
         }
     }

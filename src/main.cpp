@@ -33,10 +33,13 @@
 #include <vector>
 
 #include <execinfo.h>
+#include <unistd.h>
 
+#ifndef NO_BOOST_LOG
 #include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/expressions.hpp>
+#endif
 
 #include <glados/pipeline/task_queue.h>
 
@@ -59,11 +62,13 @@ namespace
 {
     auto init_log() -> void
     {
+#ifndef NO_BOOST_LOG
     #ifdef PARIS_DEBUG
         boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
     #else
         boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::info);
     #endif
+#endif
     }
 
     [[noreturn]] auto signal_handler(int sig) -> void
@@ -71,7 +76,11 @@ namespace
         void* array[10];
         auto size = backtrace(array, 10);
 
+#ifdef NO_BOOST_LOG
+        std::cerr << "Signal " << sig << "\n";
+#else
         BOOST_LOG_TRIVIAL(error) << "Signal " << sig;
+#endif
         backtrace_symbols_fd(array, size, STDERR_FILENO);
         std::exit(EXIT_FAILURE);
     }
@@ -149,7 +158,11 @@ auto main(int argc, char** argv) -> int
 
             auto task_string = tasks.size() == 1 ? "task" : "tasks";
             auto device_string = devices.size() == 1 ? "device" : "devices";
+#ifdef NO_BOOST_LOG
+            std::cout << "Created " << tasks.size() << " " << task_string << " for " << devices.size() << ' ' << device_string << "\n";
+#else
             BOOST_LOG_TRIVIAL(info) << "Created " << tasks.size() << " " << task_string << " for " << devices.size() << ' ' << device_string;
+#endif
 
             // create sink
             auto sink = paris::sink{po.output_path, po.prefix, roi_geo};
@@ -174,20 +187,35 @@ auto main(int argc, char** argv) -> int
             auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
             auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
 
+#ifdef NO_BOOST_LOG
+            std::cout << "Program terminated. Time elapsed: " << minutes.count() << ":" << std::setfill('0')
+                << std::setw(2) << seconds.count() % 60 << " minutes\n";
+#else
             BOOST_LOG_TRIVIAL(info) << "Program terminated. Time elapsed: "
                     << minutes.count() << ":" << std::setfill('0') << std::setw(2) << seconds.count() % 60 << " minutes";
+#endif
         }
     }
     catch(const paris::stage_construction_error& sce)
     {
+#ifdef NO_BOOST_LOG
+        std::cerr << "main(): Pipeline construction failed: " << sce.what() << "\n";
+        std::cerr << "Aborting.\n";
+#else
         BOOST_LOG_TRIVIAL(fatal) << "main(): Pipeline construction failed: " << sce.what();
         BOOST_LOG_TRIVIAL(fatal) << "Aborting.";
+#endif
         std::exit(EXIT_FAILURE);
     }
     catch(const paris::stage_runtime_error& sre)
     {
+#ifdef NO_BOOST_LOG
+        std::cerr << "main(): Pipeline execution failed: " << sre.what() << "\n";
+        std::cerr << "Aborting.\n";
+#else
         BOOST_LOG_TRIVIAL(fatal) << "main(): Pipeline execution failed: " << sre.what();
         BOOST_LOG_TRIVIAL(fatal) << "Aborting.";
+#endif
         std::exit(EXIT_FAILURE);
     }
 

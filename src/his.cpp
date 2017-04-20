@@ -31,7 +31,11 @@
 #include <utility>
 #include <vector>
 
+#ifdef NO_BOOST_LOG
+#include <iostream>
+#else
 #include <boost/log/trivial.hpp>
+#endif
 
 #include "backend.h"
 #include "his.h"
@@ -111,7 +115,11 @@ namespace paris
             auto&& file = std::ifstream{path.c_str(), std::ios_base::binary};
             if(!file.is_open())
             {
+#ifdef NO_BOOST_LOG
+                std::cout << "his_loader::load() failed to open file at " << path << "\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "his_loader::load() failed to open file at " << path;
+#endif
                 throw std::system_error{errno, std::generic_category()};
             }
 
@@ -132,17 +140,29 @@ namespace paris
 
             if(header.file_type != file_id)
             {
+#ifdef NO_BOOST_LOG
+                std::cout << "his_loader::load() could not open non-HIS file at " << path << "\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "his_loader::load() could not open non-HIS file at " << path;
+#endif
                 return vec;
             }
             if(header.header_size != file_header_size)
             {
+#ifdef NO_BOOST_LOG
+                std::cout << "his_loader::load() encountered a file header size mismatch at " << path << "\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "his_loader::load() encountered a file header size mismatch at " << path;
+#endif
                 return vec;
             }
             if(header.number_type == static_cast<std::uint16_t>(data::type_not_implemented))
             {
+#ifdef NO_BOOST_LOG
+                std::cout << "his_loader::load() encountered an unsupported data type at " << path << "\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "his_loader::load() encountered an unsupported data type at " << path;
+#endif
                 return vec;
             }
 
@@ -186,7 +206,11 @@ namespace paris
                         break;
 
                     default:
+#ifdef NO_BOOST_LOG
+                        std::cout << "his_loader::load() tried to load an unsupported data type.\n";
+#else
                         BOOST_LOG_TRIVIAL(warning) << "his_loader::load() tried to load an unsupported data type.";
+#endif
                         return vec;
                 }
 

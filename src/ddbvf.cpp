@@ -31,8 +31,6 @@
 #include <system_error>
 #include <utility>
 
-#include <boost/log/trivial.hpp>
-
 #include "ddbvf.h"
 #include "volume.h"
 

@@ -27,7 +27,11 @@
 #include <utility>
 #include <vector>
 
+#ifdef NO_BOOST_LOG
+#include <iostream>
+#else
 #include <boost/log/trivial.hpp>
+#endif
 
 #include "backend.h"
 #include "exception.h"
@@ -47,7 +51,11 @@ namespace paris
             auto&& file = std::ifstream{path.c_str()};
             if(!file.is_open())
             {
+#ifdef NO_BOOST_LOG
+                std::cout << "Could not open angle file at " << path << ", using default values.\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "Could not open angle file at " << path << ", using default values.";
+#endif
                 return angles;
             }
 
@@ -96,7 +104,11 @@ namespace paris
                 auto vec = his::load(paths_[0u]);
                 if(vec.empty())
                 {
+#ifdef NO_BOOST_LOG
+                    std::cout << "Skipping invalid file at " << paths_[0u] << "\n";
+#else
                     BOOST_LOG_TRIVIAL(warning) << "Skipping invalid file at " << paths_[0u];
+#endif
                 }
                 else
                 {

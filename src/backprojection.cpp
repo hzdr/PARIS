@@ -23,7 +23,11 @@
 #include <cmath>
 #include <cstdint>
 
+#ifdef NO_BOOST_LOG
+#include <iostream>
+#else
 #include <boost/log/trivial.hpp>
+#endif
 
 #include "backend.h"
 #include "backprojection.h"
@@ -63,7 +67,11 @@ namespace paris
         auto cos = std::cos(phi);
 
         if(p.idx % 10u == 0u)
+#ifdef NO_BOOST_LOG
+            std::cout << "Processing projection #" << p.idx << "\n";
+#else
             BOOST_LOG_TRIVIAL(info) << "Processing projection #" << p.idx;
+#endif
 
         backend::backproject(p, v, v_offset, det_geo, vol_geo, enable_roi, roi, sin, cos, delta_s, delta_t);
     }

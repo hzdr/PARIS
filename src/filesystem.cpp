@@ -27,7 +27,9 @@
 #include <string>
 #include <vector>
 
+#ifndef NO_BOOST_LOG
 #include <boost/log/trivial.hpp>
+#endif
 #include <boost/filesystem.hpp>
 
 #include "filesystem.h"
@@ -59,7 +61,11 @@ namespace paris
         }
         catch(const boost::filesystem::filesystem_error& err)
         {
+#ifdef NO_BOOST_LOG
+            std::cout << path << " could not be read: " << err.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << path << " could not be read: " << err.what();
+#endif
             throw std::runtime_error{path + " could not be read"};
         }
         std::sort(std::begin(ret), std::end(ret));
@@ -83,7 +89,11 @@ namespace paris
         }
         catch(const boost::filesystem::filesystem_error& err)
         {
+#ifdef NO_BOOST_LOG
+            std::cout << path << " could not be created: " << err.what() << "\n";
+#else
             BOOST_LOG_TRIVIAL(fatal) << path << " could not be created: " << err.what();
+#endif
             return false;
         }
     }

@@ -24,8 +24,6 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <boost/log/trivial.hpp>
-
 #include "../region_of_interest.h"
 
 #include "backend.h"

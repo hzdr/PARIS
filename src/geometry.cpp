@@ -24,7 +24,11 @@
 #include <cmath>
 #include <iomanip>
 
+#ifdef NO_BOOST_LOG
+#include <iostream>
+#else
 #include <boost/log/trivial.hpp>
+#endif
 
 #include "geometry.h"
 #include "region_of_interest.h"
@@ -76,9 +80,15 @@ namespace paris
         const auto dim_y_mm = static_cast<float>(vol_geo.dim_y) * vol_geo.l_vx_y;
         const auto dim_z_mm = static_cast<float>(vol_geo.dim_z) * vol_geo.l_vx_z;
 
+#ifdef NO_BOOST_LOG
+        std::cout << "Volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z << "\n";
+        std::cout << "Volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm << "\n";
+        std::cout << "Voxel size [mm]: " << std::setprecision(4) << vol_geo.l_vx_x << " x " << vol_geo.l_vx_y << " x " << vol_geo.l_vx_z << "\n";
+#else
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [vx]: " << vol_geo.dim_x << " x " << vol_geo.dim_y << " x " << vol_geo.dim_z;
         BOOST_LOG_TRIVIAL(info) << "Volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
         BOOST_LOG_TRIVIAL(info) << "Voxel size [mm]: " << std::setprecision(4) << vol_geo.l_vx_x << " x " << vol_geo.l_vx_y << " x " << vol_geo.l_vx_z;
+#endif
 
         return vol_geo;
     }
@@ -116,15 +126,29 @@ namespace paris
                 const auto dim_y_mm = static_cast<float>(roi_geo.dim_y) * roi_geo.l_vx_y;
                 const auto dim_z_mm = static_cast<float>(roi_geo.dim_z) * roi_geo.l_vx_z;
 
+#ifdef NO_BOOST_LOG
+                std::cout << "Applied region of interest.\n";
+                std::cout << "Updated volume dimensions [vx]: " << roi_geo.dim_x << " x " << roi_geo.dim_y << " x " << roi_geo.dim_z << "\n";
+                std::cout << "Updated volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm << "\n";
+#else
                 BOOST_LOG_TRIVIAL(info) << "Applied region of interest.";
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [vx]: " << roi_geo.dim_x << " x " << roi_geo.dim_y << " x " << roi_geo.dim_z;
                 BOOST_LOG_TRIVIAL(info) << "Updated volume dimensions [mm]: " << dim_x_mm << " x " << dim_y_mm  << " x " << dim_z_mm;
+#endif
             }
             else
+#ifdef NO_BOOST_LOG
+                std::cout << "New volume dimensions exceed old volume dimensions. ROI NOT applied.\n";
+#else
                 BOOST_LOG_TRIVIAL(warning) << "New volume dimensions exceed old volume dimensions. ROI NOT applied.";
+#endif
         }
         else
+#ifdef NO_BOOST_LOG
+            std::cout << "Invalid ROI coordinates. ROI NOT applied.\n";
+#else
             BOOST_LOG_TRIVIAL(warning) << "Invalid ROI coordinates. ROI NOT applied.";
+#endif
 
         return roi_geo;
     }
